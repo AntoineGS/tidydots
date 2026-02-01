@@ -84,6 +84,7 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Check if we're in a path field with suggestions showing
 	isPathField := m.addForm.focusIndex >= 1 && m.addForm.focusIndex <= 3
 	hasSuggestions := m.addForm.showSuggestions && len(m.addForm.suggestions) > 0
+	hasSelectedSuggestion := hasSuggestions && m.addForm.suggestionCursor >= 0
 
 	switch msg.String() {
 	case "ctrl+c":
@@ -106,9 +107,13 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down":
 		// Navigate suggestions if showing
 		if hasSuggestions {
-			m.addForm.suggestionCursor++
-			if m.addForm.suggestionCursor >= len(m.addForm.suggestions) {
+			if m.addForm.suggestionCursor < 0 {
 				m.addForm.suggestionCursor = 0
+			} else {
+				m.addForm.suggestionCursor++
+				if m.addForm.suggestionCursor >= len(m.addForm.suggestions) {
+					m.addForm.suggestionCursor = 0
+				}
 			}
 			return m, nil
 		}
@@ -126,9 +131,10 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "up":
 		// Navigate suggestions if showing
 		if hasSuggestions {
-			m.addForm.suggestionCursor--
 			if m.addForm.suggestionCursor < 0 {
 				m.addForm.suggestionCursor = len(m.addForm.suggestions) - 1
+			} else {
+				m.addForm.suggestionCursor-- // Can go to -1 to deselect
 			}
 			return m, nil
 		}
@@ -143,8 +149,8 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "tab":
-		// Accept suggestion if showing
-		if hasSuggestions {
+		// Accept suggestion only if user has explicitly selected one
+		if hasSelectedSuggestion {
 			m.acceptSuggestion()
 			return m, nil
 		}
@@ -178,9 +184,21 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "enter":
-		// Accept suggestion if showing
-		if hasSuggestions {
+		// Accept suggestion only if user has explicitly selected one
+		if hasSelectedSuggestion {
 			m.acceptSuggestion()
+			return m, nil
+		}
+		// Move to next field if suggestions are showing but none selected
+		if hasSuggestions {
+			m.addForm.showSuggestions = false
+			m.addForm.focusIndex++
+			maxIndex := m.addFormMaxIndex()
+			if m.addForm.focusIndex > maxIndex {
+				m.addForm.focusIndex = 0
+			}
+			m.updateAddFormFocus()
+			m.updateSuggestions()
 			return m, nil
 		}
 		// If on toggle field, toggle it
@@ -282,7 +300,7 @@ func (m *Model) updateSuggestions() {
 
 	suggestions := getPathSuggestions(input, configDir)
 	m.addForm.suggestions = suggestions
-	m.addForm.suggestionCursor = 0
+	m.addForm.suggestionCursor = -1 // No selection until user uses arrows
 	m.addForm.showSuggestions = len(suggestions) > 0
 }
 
@@ -405,12 +423,18 @@ func (m Model) viewAddForm() string {
 		b.WriteString("\n\n")
 	}
 
-	// Help - show different help when suggestions are visible
-	if m.addForm.showSuggestions && len(m.addForm.suggestions) > 0 {
+	// Help - show different help when a suggestion is selected
+	if m.addForm.showSuggestions && len(m.addForm.suggestions) > 0 && m.addForm.suggestionCursor >= 0 {
 		b.WriteString(RenderHelp(
 			"↑/↓", "select",
 			"tab/enter", "accept",
 			"esc", "close",
+		))
+	} else if m.addForm.showSuggestions && len(m.addForm.suggestions) > 0 {
+		b.WriteString(RenderHelp(
+			"↑/↓", "select suggestion",
+			"tab/enter", "next field",
+			"esc", "close suggestions",
 		))
 	} else {
 		b.WriteString(RenderHelp(
