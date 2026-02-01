@@ -24,10 +24,14 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		if m.menuCursor > 0 {
 			m.menuCursor--
+		} else {
+			m.menuCursor = len(menuItems) - 1
 		}
 	case "down", "j":
 		if m.menuCursor < len(menuItems)-1 {
 			m.menuCursor++
+		} else {
+			m.menuCursor = 0
 		}
 	case "enter", " ":
 		m.Operation = menuItems[m.menuCursor].op
