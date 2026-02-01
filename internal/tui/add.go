@@ -17,10 +17,15 @@ func (m *Model) initAddForm() {
 	nameInput.CharLimit = 64
 	nameInput.Width = 40
 
-	targetInput := textinput.New()
-	targetInput.Placeholder = "e.g., ~/.config/nvim"
-	targetInput.CharLimit = 256
-	targetInput.Width = 40
+	linuxTargetInput := textinput.New()
+	linuxTargetInput.Placeholder = "e.g., ~/.config/nvim"
+	linuxTargetInput.CharLimit = 256
+	linuxTargetInput.Width = 40
+
+	windowsTargetInput := textinput.New()
+	windowsTargetInput.Placeholder = "e.g., ~/AppData/Local/nvim"
+	windowsTargetInput.CharLimit = 256
+	windowsTargetInput.Width = 40
 
 	backupInput := textinput.New()
 	backupInput.Placeholder = "e.g., ./nvim"
@@ -28,12 +33,13 @@ func (m *Model) initAddForm() {
 	backupInput.Width = 40
 
 	m.addForm = AddForm{
-		nameInput:   nameInput,
-		targetInput: targetInput,
-		backupInput: backupInput,
-		isFolder:    true,
-		focusIndex:  0,
-		err:         "",
+		nameInput:          nameInput,
+		linuxTargetInput:   linuxTargetInput,
+		windowsTargetInput: windowsTargetInput,
+		backupInput:        backupInput,
+		isFolder:           true,
+		focusIndex:         0,
+		err:                "",
 	}
 }
 
@@ -52,7 +58,7 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "tab", "down":
 		// Move to next field
 		m.addForm.focusIndex++
-		if m.addForm.focusIndex > 3 {
+		if m.addForm.focusIndex > 4 {
 			m.addForm.focusIndex = 0
 		}
 		m.updateAddFormFocus()
@@ -62,21 +68,21 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Move to previous field
 		m.addForm.focusIndex--
 		if m.addForm.focusIndex < 0 {
-			m.addForm.focusIndex = 3
+			m.addForm.focusIndex = 4
 		}
 		m.updateAddFormFocus()
 		return m, nil
 
 	case " ":
 		// Toggle isFolder if on the toggle field
-		if m.addForm.focusIndex == 3 {
+		if m.addForm.focusIndex == 4 {
 			m.addForm.isFolder = !m.addForm.isFolder
 			return m, nil
 		}
 
 	case "enter":
 		// If on toggle field, toggle it
-		if m.addForm.focusIndex == 3 {
+		if m.addForm.focusIndex == 4 {
 			m.addForm.isFolder = !m.addForm.isFolder
 			return m, nil
 		}
@@ -95,8 +101,10 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case 0:
 		m.addForm.nameInput, cmd = m.addForm.nameInput.Update(msg)
 	case 1:
-		m.addForm.targetInput, cmd = m.addForm.targetInput.Update(msg)
+		m.addForm.linuxTargetInput, cmd = m.addForm.linuxTargetInput.Update(msg)
 	case 2:
+		m.addForm.windowsTargetInput, cmd = m.addForm.windowsTargetInput.Update(msg)
+	case 3:
 		m.addForm.backupInput, cmd = m.addForm.backupInput.Update(msg)
 	}
 
@@ -109,15 +117,18 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // updateAddFormFocus updates which input field is focused
 func (m *Model) updateAddFormFocus() {
 	m.addForm.nameInput.Blur()
-	m.addForm.targetInput.Blur()
+	m.addForm.linuxTargetInput.Blur()
+	m.addForm.windowsTargetInput.Blur()
 	m.addForm.backupInput.Blur()
 
 	switch m.addForm.focusIndex {
 	case 0:
 		m.addForm.nameInput.Focus()
 	case 1:
-		m.addForm.targetInput.Focus()
+		m.addForm.linuxTargetInput.Focus()
 	case 2:
+		m.addForm.windowsTargetInput.Focus()
+	case 3:
 		m.addForm.backupInput.Focus()
 	}
 }
@@ -143,17 +154,25 @@ func (m Model) viewAddForm() string {
 	b.WriteString(fmt.Sprintf("  %s\n", nameLabel))
 	b.WriteString(fmt.Sprintf("  %s\n\n", m.addForm.nameInput.View()))
 
-	// Target field
-	targetLabel := fmt.Sprintf("Target (%s):", m.Platform.OS)
+	// Linux target field
+	linuxTargetLabel := "Target (linux):"
 	if m.addForm.focusIndex == 1 {
-		targetLabel = HelpKeyStyle.Render(targetLabel)
+		linuxTargetLabel = HelpKeyStyle.Render(linuxTargetLabel)
 	}
-	b.WriteString(fmt.Sprintf("  %s\n", targetLabel))
-	b.WriteString(fmt.Sprintf("  %s\n\n", m.addForm.targetInput.View()))
+	b.WriteString(fmt.Sprintf("  %s\n", linuxTargetLabel))
+	b.WriteString(fmt.Sprintf("  %s\n\n", m.addForm.linuxTargetInput.View()))
+
+	// Windows target field
+	windowsTargetLabel := "Target (windows):"
+	if m.addForm.focusIndex == 2 {
+		windowsTargetLabel = HelpKeyStyle.Render(windowsTargetLabel)
+	}
+	b.WriteString(fmt.Sprintf("  %s\n", windowsTargetLabel))
+	b.WriteString(fmt.Sprintf("  %s\n\n", m.addForm.windowsTargetInput.View()))
 
 	// Backup field
 	backupLabel := "Backup path:"
-	if m.addForm.focusIndex == 2 {
+	if m.addForm.focusIndex == 3 {
 		backupLabel = HelpKeyStyle.Render("Backup path:")
 	}
 	b.WriteString(fmt.Sprintf("  %s\n", backupLabel))
@@ -161,7 +180,7 @@ func (m Model) viewAddForm() string {
 
 	// Is folder toggle
 	toggleLabel := "Type:"
-	if m.addForm.focusIndex == 3 {
+	if m.addForm.focusIndex == 4 {
 		toggleLabel = HelpKeyStyle.Render("Type:")
 	}
 	folderCheck := "[ ]"
@@ -193,15 +212,16 @@ func (m Model) viewAddForm() string {
 // saveNewPath validates the form and saves the new path to the config
 func (m *Model) saveNewPath() error {
 	name := strings.TrimSpace(m.addForm.nameInput.Value())
-	target := strings.TrimSpace(m.addForm.targetInput.Value())
+	linuxTarget := strings.TrimSpace(m.addForm.linuxTargetInput.Value())
+	windowsTarget := strings.TrimSpace(m.addForm.windowsTargetInput.Value())
 	backup := strings.TrimSpace(m.addForm.backupInput.Value())
 
 	// Validate required fields
 	if name == "" {
 		return fmt.Errorf("name is required")
 	}
-	if target == "" {
-		return fmt.Errorf("target path is required")
+	if linuxTarget == "" && windowsTarget == "" {
+		return fmt.Errorf("at least one target path is required")
 	}
 	if backup == "" {
 		return fmt.Errorf("backup path is required")
@@ -214,13 +234,19 @@ func (m *Model) saveNewPath() error {
 		}
 	}
 
-	// Create new PathSpec
+	// Create new PathSpec with targets
+	targets := make(map[string]string)
+	if linuxTarget != "" {
+		targets["linux"] = linuxTarget
+	}
+	if windowsTarget != "" {
+		targets["windows"] = windowsTarget
+	}
+
 	newPath := config.PathSpec{
-		Name:   name,
-		Backup: backup,
-		Targets: map[string]string{
-			m.Platform.OS: target,
-		},
+		Name:    name,
+		Backup:  backup,
+		Targets: targets,
 	}
 
 	// For files mode, we'd need file names - for now only support folder mode
@@ -238,15 +264,18 @@ func (m *Model) saveNewPath() error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	// Update the Paths slice in the model
-	m.Paths = append(m.Paths, PathItem{
-		Spec:     newPath,
-		Target:   target,
-		Selected: true,
-	})
+	// Update the Paths slice in the model (only if current platform has a target)
+	currentTarget := newPath.GetTarget(m.Platform.OS)
+	if currentTarget != "" {
+		m.Paths = append(m.Paths, PathItem{
+			Spec:     newPath,
+			Target:   currentTarget,
+			Selected: true,
+		})
 
-	// Refresh path states
-	m.refreshPathStates()
+		// Refresh path states
+		m.refreshPathStates()
+	}
 
 	return nil
 }

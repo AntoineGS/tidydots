@@ -72,12 +72,13 @@ func (s PathState) String() string {
 
 // AddForm holds the state for the Add path form
 type AddForm struct {
-	nameInput   textinput.Model
-	targetInput textinput.Model
-	backupInput textinput.Model
-	isFolder    bool
-	focusIndex  int // 0=name, 1=target, 2=backup, 3=isFolder toggle
-	err         string
+	nameInput          textinput.Model
+	linuxTargetInput   textinput.Model
+	windowsTargetInput textinput.Model
+	backupInput        textinput.Model
+	isFolder           bool
+	focusIndex         int // 0=name, 1=linuxTarget, 2=windowsTarget, 3=backup, 4=isFolder toggle
+	err                string
 }
 
 type Model struct {
