@@ -10,6 +10,7 @@ import (
 )
 
 func TestBackupFolder(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create source directory with content
@@ -43,6 +44,7 @@ func TestBackupFolder(t *testing.T) {
 }
 
 func TestBackupFolderSkipsSymlink(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create real source
@@ -75,6 +77,7 @@ func TestBackupFolderSkipsSymlink(t *testing.T) {
 }
 
 func TestBackupFiles(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create source files
@@ -106,6 +109,7 @@ func TestBackupFiles(t *testing.T) {
 }
 
 func TestBackupFilesSkipsSymlinks(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create real file
@@ -139,6 +143,7 @@ func TestBackupFilesSkipsSymlinks(t *testing.T) {
 }
 
 func TestBackupDryRun(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
@@ -166,6 +171,7 @@ func TestBackupDryRun(t *testing.T) {
 }
 
 func TestBackupIntegration(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create "installed" configs

@@ -27,6 +27,7 @@ func captureOutput(f func()) string {
 }
 
 func TestList(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{
 		BackupRoot: "/home/user/backup",
 		Paths: []config.PathSpec{
@@ -87,6 +88,7 @@ func TestList(t *testing.T) {
 }
 
 func TestListRootMode(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{
 		BackupRoot: "/home/user/backup",
 		Paths: []config.PathSpec{

@@ -10,6 +10,7 @@ import (
 )
 
 func TestRestoreFolder(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create source directory with content
@@ -47,6 +48,7 @@ func TestRestoreFolder(t *testing.T) {
 }
 
 func TestRestoreFolderSkipsExistingSymlink(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
@@ -73,6 +75,7 @@ func TestRestoreFolderSkipsExistingSymlink(t *testing.T) {
 }
 
 func TestRestoreFiles(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create source files
@@ -109,6 +112,7 @@ func TestRestoreFiles(t *testing.T) {
 }
 
 func TestRestoreFilesRemovesExisting(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
@@ -135,6 +139,7 @@ func TestRestoreFilesRemovesExisting(t *testing.T) {
 }
 
 func TestRestoreDryRun(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
@@ -160,6 +165,7 @@ func TestRestoreDryRun(t *testing.T) {
 }
 
 func TestRestoreIntegration(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create backup structure

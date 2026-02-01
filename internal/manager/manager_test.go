@@ -10,6 +10,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{}
 	plat := &platform.Platform{OS: platform.OSLinux}
 
@@ -37,6 +38,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestGetPaths(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{
 		Paths: []config.PathSpec{
 			{Name: "user-path"},
@@ -57,6 +59,7 @@ func TestGetPaths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			plat := &platform.Platform{OS: platform.OSLinux, IsRoot: tt.isRoot}
 			mgr := New(cfg, plat)
 
@@ -74,6 +77,7 @@ func TestGetPaths(t *testing.T) {
 }
 
 func TestIsSymlink(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create a regular file
@@ -109,6 +113,7 @@ func TestIsSymlink(t *testing.T) {
 }
 
 func TestPathExists(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	existingFile := filepath.Join(tmpDir, "exists.txt")
@@ -137,6 +142,7 @@ func TestPathExists(t *testing.T) {
 }
 
 func TestCopyFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	srcFile := filepath.Join(tmpDir, "source.txt")
@@ -163,6 +169,7 @@ func TestCopyFile(t *testing.T) {
 }
 
 func TestCopyDir(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create source directory structure
@@ -194,6 +201,7 @@ func TestCopyDir(t *testing.T) {
 }
 
 func TestRemoveAll(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Test removing regular file
@@ -242,6 +250,7 @@ func TestRemoveAll(t *testing.T) {
 }
 
 func TestResolvePath(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{
 		BackupRoot: "/home/user/backups",
 	}
@@ -259,10 +268,108 @@ func TestResolvePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := mgr.resolvePath(tt.path)
 			if got != tt.want {
 				t.Errorf("resolvePath(%q) = %q, want %q", tt.path, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCopyFilePreservesPermissions(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	srcFile := filepath.Join(tmpDir, "source.sh")
+	content := []byte("#!/bin/bash\necho hello")
+	if err := os.WriteFile(srcFile, content, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	dstFile := filepath.Join(tmpDir, "dest.sh")
+
+	if err := copyFile(srcFile, dstFile); err != nil {
+		t.Fatalf("copyFile() error = %v", err)
+	}
+
+	// Check permissions were preserved
+	srcInfo, _ := os.Stat(srcFile)
+	dstInfo, _ := os.Stat(dstFile)
+
+	if srcInfo.Mode() != dstInfo.Mode() {
+		t.Errorf("Permissions = %v, want %v", dstInfo.Mode(), srcInfo.Mode())
+	}
+}
+
+func TestCopyFileNonexistentSource(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	srcFile := filepath.Join(tmpDir, "nonexistent.txt")
+	dstFile := filepath.Join(tmpDir, "dest.txt")
+
+	err := copyFile(srcFile, dstFile)
+	if err == nil {
+		t.Error("copyFile() should error for nonexistent source")
+	}
+}
+
+func TestCopyDirNonexistentSource(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	srcDir := filepath.Join(tmpDir, "nonexistent")
+	dstDir := filepath.Join(tmpDir, "dest")
+
+	err := copyDir(srcDir, dstDir)
+	if err == nil {
+		t.Error("copyDir() should error for nonexistent source")
+	}
+}
+
+func TestIsSymlinkWithDirectory(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create a directory
+	dir := filepath.Join(tmpDir, "realdir")
+	os.MkdirAll(dir, 0755)
+
+	// Create a symlink to the directory
+	symlinkDir := filepath.Join(tmpDir, "symlinkdir")
+	os.Symlink(dir, symlinkDir)
+
+	if !isSymlink(symlinkDir) {
+		t.Error("isSymlink() should return true for directory symlink")
+	}
+
+	if isSymlink(dir) {
+		t.Error("isSymlink() should return false for real directory")
+	}
+}
+
+func TestPathExistsWithSymlink(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create a file and symlink
+	realFile := filepath.Join(tmpDir, "real.txt")
+	os.WriteFile(realFile, []byte("content"), 0644)
+
+	symlink := filepath.Join(tmpDir, "link.txt")
+	os.Symlink(realFile, symlink)
+
+	if !pathExists(symlink) {
+		t.Error("pathExists() should return true for symlink")
+	}
+
+	// Test with broken symlink
+	brokenLink := filepath.Join(tmpDir, "broken.txt")
+	os.Symlink(filepath.Join(tmpDir, "nonexistent"), brokenLink)
+
+	// Broken symlinks still "exist" in terms of Lstat
+	if !pathExists(brokenLink) {
+		t.Error("pathExists() should return true for broken symlink (Lstat behavior)")
 	}
 }

@@ -10,6 +10,7 @@ import (
 )
 
 func TestAdoptFolder(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create a target folder that exists but backup doesn't
@@ -53,6 +54,7 @@ func TestAdoptFolder(t *testing.T) {
 }
 
 func TestAdoptFiles(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create target files that exist but backup doesn't
@@ -96,6 +98,7 @@ func TestAdoptFiles(t *testing.T) {
 }
 
 func TestAdoptSkipsExistingBackup(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create both target and backup
@@ -129,6 +132,7 @@ func TestAdoptSkipsExistingBackup(t *testing.T) {
 }
 
 func TestAdoptDryRun(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create target that exists but backup doesn't
@@ -165,6 +169,7 @@ func TestAdoptDryRun(t *testing.T) {
 }
 
 func TestAdoptIntegration(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Simulate a fresh install where user has existing configs

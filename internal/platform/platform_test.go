@@ -6,6 +6,7 @@ import (
 )
 
 func TestDetectOS(t *testing.T) {
+	t.Parallel()
 	os := detectOS()
 
 	// On Linux, should return "linux"
@@ -20,6 +21,7 @@ func TestDetectOS(t *testing.T) {
 }
 
 func TestDetect(t *testing.T) {
+	t.Parallel()
 	p := Detect()
 
 	if p == nil {
@@ -36,6 +38,7 @@ func TestDetect(t *testing.T) {
 }
 
 func TestWithOS(t *testing.T) {
+	t.Parallel()
 	p := &Platform{
 		OS:      OSLinux,
 		IsRoot:  true,
@@ -66,6 +69,7 @@ func TestWithOS(t *testing.T) {
 }
 
 func TestGetBasename(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		path string
 		want string
@@ -88,6 +92,7 @@ func TestGetBasename(t *testing.T) {
 }
 
 func TestGetDirname(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		path string
 		want string
@@ -110,6 +115,7 @@ func TestGetDirname(t *testing.T) {
 }
 
 func TestDetectArchLinux(t *testing.T) {
+	t.Parallel()
 	// This test will pass on Arch Linux and return false elsewhere
 	isArch := detectArchLinux()
 
@@ -120,6 +126,7 @@ func TestDetectArchLinux(t *testing.T) {
 }
 
 func TestDetectRoot(t *testing.T) {
+	t.Parallel()
 	isRoot := detectRoot()
 
 	// Just verify it doesn't panic and returns a boolean
