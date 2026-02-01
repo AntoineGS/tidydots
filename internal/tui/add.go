@@ -12,6 +12,11 @@ import (
 
 // initAddForm initializes the add form with empty inputs
 func (m *Model) initAddForm() {
+	m.initAddFormWithIndex(-1)
+}
+
+// initAddFormWithIndex initializes the form, optionally populating with existing data for editing
+func (m *Model) initAddFormWithIndex(editIndex int) {
 	nameInput := textinput.New()
 	nameInput.Placeholder = "e.g., neovim"
 	nameInput.Focus()
@@ -33,14 +38,31 @@ func (m *Model) initAddForm() {
 	backupInput.CharLimit = 256
 	backupInput.Width = 40
 
+	isFolder := true
+
+	// Populate with existing data if editing
+	if editIndex >= 0 && editIndex < len(m.Paths) {
+		spec := m.Paths[editIndex].Spec
+		nameInput.SetValue(spec.Name)
+		if target, ok := spec.Targets["linux"]; ok {
+			linuxTargetInput.SetValue(target)
+		}
+		if target, ok := spec.Targets["windows"]; ok {
+			windowsTargetInput.SetValue(target)
+		}
+		backupInput.SetValue(spec.Backup)
+		isFolder = spec.IsFolder()
+	}
+
 	m.addForm = AddForm{
 		nameInput:          nameInput,
 		linuxTargetInput:   linuxTargetInput,
 		windowsTargetInput: windowsTargetInput,
 		backupInput:        backupInput,
-		isFolder:           true,
+		isFolder:           isFolder,
 		focusIndex:         0,
 		err:                "",
+		editIndex:          editIndex,
 	}
 }
 
@@ -62,7 +84,12 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.addForm.showSuggestions = false
 			return m, nil
 		}
-		m.Screen = ScreenMenu
+		// Return to list if editing, menu if adding
+		if m.addForm.editIndex >= 0 {
+			m.Screen = ScreenResults
+		} else {
+			m.Screen = ScreenMenu
+		}
 		return m, nil
 
 	case "down":
@@ -153,8 +180,12 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.addForm.err = err.Error()
 			return m, nil
 		}
-		// Success - go back to menu
-		m.Screen = ScreenMenu
+		// Success - go back to list if editing, menu if adding
+		if m.addForm.editIndex >= 0 {
+			m.Screen = ScreenResults
+		} else {
+			m.Screen = ScreenMenu
+		}
 		return m, nil
 	}
 
@@ -263,11 +294,15 @@ func (m Model) viewAddForm() string {
 	var b strings.Builder
 
 	// Title
-	b.WriteString(TitleStyle.Render("󰐕  Add Path Configuration"))
-	b.WriteString("\n\n")
-
-	// Instructions
-	b.WriteString(SubtitleStyle.Render("Add a new path to your dotfiles configuration"))
+	if m.addForm.editIndex >= 0 {
+		b.WriteString(TitleStyle.Render("󰏫  Edit Path Configuration"))
+		b.WriteString("\n\n")
+		b.WriteString(SubtitleStyle.Render("Edit the path configuration"))
+	} else {
+		b.WriteString(TitleStyle.Render("󰐕  Add Path Configuration"))
+		b.WriteString("\n\n")
+		b.WriteString(SubtitleStyle.Render("Add a new path to your dotfiles configuration"))
+	}
 	b.WriteString("\n\n")
 
 	// Name field
@@ -388,14 +423,14 @@ func (m *Model) saveNewPath() error {
 		return fmt.Errorf("backup path is required")
 	}
 
-	// Check for duplicate names
-	for _, p := range m.Config.Paths {
-		if p.Name == name {
+	// Check for duplicate names (skip the item being edited)
+	for i, p := range m.Config.Paths {
+		if p.Name == name && i != m.addForm.editIndex {
 			return fmt.Errorf("a path with name '%s' already exists", name)
 		}
 	}
 
-	// Create new PathSpec with targets
+	// Create PathSpec with targets
 	targets := make(map[string]string)
 	if linuxTarget != "" {
 		targets["linux"] = linuxTarget
@@ -415,7 +450,32 @@ func (m *Model) saveNewPath() error {
 		return fmt.Errorf("file mode not yet supported in TUI - use folder mode or edit config directly")
 	}
 
-	// Add to config
+	// Editing existing path
+	if m.addForm.editIndex >= 0 {
+		// Update in config
+		m.Config.Paths[m.addForm.editIndex] = newPath
+
+		// Save config to file
+		if err := config.Save(m.Config, m.ConfigPath); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
+		}
+
+		// Update the Paths slice in the model
+		currentTarget := newPath.GetTarget(m.Platform.OS)
+		if currentTarget != "" {
+			m.Paths[m.addForm.editIndex] = PathItem{
+				Spec:     newPath,
+				Target:   currentTarget,
+				Selected: true,
+			}
+		}
+
+		// Refresh path states
+		m.refreshPathStates()
+		return nil
+	}
+
+	// Adding new path
 	m.Config.Paths = append(m.Config.Paths, newPath)
 
 	// Save config to file

@@ -60,6 +60,13 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, tea.Quit
+	case "e":
+		// Edit selected path (only in List view)
+		if m.Operation == OpList && len(m.Paths) > 0 {
+			m.initAddFormWithIndex(m.listCursor)
+			m.Screen = ScreenAddForm
+			return m, nil
+		}
 	case "r":
 		// Return to menu for another operation
 		m.Screen = ScreenMenu
@@ -357,6 +364,7 @@ func (m Model) viewListTable() string {
 		b.WriteString(RenderHelp(
 			"j/k", "navigate",
 			"l/→", "details",
+			"e", "edit",
 			"h/←", "back",
 			"q", "menu",
 		))
