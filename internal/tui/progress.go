@@ -86,8 +86,13 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.listCursor < len(m.Paths)-1 {
 				m.listCursor++
 				// Scroll down if cursor goes below visible area
-				if m.listCursor >= m.scrollOffset+m.viewHeight {
-					m.scrollOffset = m.listCursor - m.viewHeight + 1
+				// Use same calculation as viewListTable for visible rows
+				visibleRows := m.viewHeight - 13
+				if visibleRows < 3 {
+					visibleRows = 3
+				}
+				if m.listCursor >= m.scrollOffset+visibleRows {
+					m.scrollOffset = m.listCursor - visibleRows + 1
 				}
 			}
 		}
@@ -202,7 +207,22 @@ func (m Model) viewListTable() string {
 	var b strings.Builder
 
 	// Title
-	b.WriteString(TitleStyle.Render("󰋗  Configuration Paths"))
+	b.WriteString(TitleStyle.Render("󰋗  List"))
+	b.WriteString("\n\n")
+
+	// Subtitle with OS info (like main menu)
+	osInfo := fmt.Sprintf("OS: %s", m.Platform.OS)
+	if m.Platform.IsRoot {
+		osInfo += " (root)"
+	}
+	if m.Platform.IsArch {
+		osInfo += " • Arch Linux"
+	}
+	b.WriteString(SubtitleStyle.Render(osInfo))
+	b.WriteString("\n\n")
+
+	// Summary
+	b.WriteString(SubtitleStyle.Render(fmt.Sprintf("%d configured paths", len(m.Paths))))
 	b.WriteString("\n\n")
 
 	// Calculate column widths based on terminal width
@@ -222,10 +242,6 @@ func (m Model) viewListTable() string {
 
 	// Total table width: cursor(2) + name + sep(2) + type + sep(2) + backup + sep(2) + target
 	tableWidth := 2 + nameWidth + 2 + typeWidth + 2 + pathWidth + 2 + pathWidth
-
-	// Summary
-	b.WriteString(SubtitleStyle.Render(fmt.Sprintf("%d configured paths", len(m.Paths))))
-	b.WriteString("\n\n")
 
 	// Table header (with space for cursor)
 	headerStyle := PathNameStyle.Bold(true)
@@ -251,15 +267,17 @@ func (m Model) viewListTable() string {
 		detailHeight = m.calcDetailHeight(m.Paths[m.listCursor])
 	}
 
-	// We want to output exactly viewHeight lines for the table area
-	// When detail is showing, we show fewer rows + detail lines
-	// When detail is not showing, we show more rows + padding
-	totalContentLines := m.viewHeight
+	// Calculate how many table rows can fit
+	// Subtract lines for: title block (3), OS info (2), summary (2), header+separator (2), footer (4)
+	maxTableRows := m.viewHeight - 13
+	if maxTableRows < 3 {
+		maxTableRows = 3
+	}
 
 	// Calculate how many rows we can show
-	maxVisible := totalContentLines
+	maxVisible := maxTableRows
 	if m.showingDetail {
-		maxVisible = totalContentLines - detailHeight
+		maxVisible = maxTableRows - detailHeight
 		if maxVisible < 1 {
 			maxVisible = 1
 		}
@@ -287,9 +305,6 @@ func (m Model) viewListTable() string {
 	if end > len(m.Paths) {
 		end = len(m.Paths)
 	}
-
-	// Track lines output for padding
-	linesOutput := 0
 
 	for i := start; i < end; i++ {
 		item := m.Paths[i]
@@ -327,19 +342,11 @@ func (m Model) viewListTable() string {
 			b.WriteString(cursor + PathTargetStyle.Render(row))
 		}
 		b.WriteString("\n")
-		linesOutput++
 
 		// Show inline detail panel below selected row
 		if isSelected && m.showingDetail {
 			b.WriteString(m.renderInlineDetail(item, tableWidth))
-			linesOutput += detailHeight
 		}
-	}
-
-	// Pad to maintain constant height
-	for linesOutput < totalContentLines {
-		b.WriteString("\n")
-		linesOutput++
 	}
 
 	// Scroll indicators (always show line, even if empty, for consistent height)
