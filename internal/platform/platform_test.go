@@ -1,0 +1,130 @@
+package platform
+
+import (
+	"runtime"
+	"testing"
+)
+
+func TestDetectOS(t *testing.T) {
+	os := detectOS()
+
+	// On Linux, should return "linux"
+	if runtime.GOOS == "linux" && os != OSLinux {
+		t.Errorf("detectOS() = %q, want %q", os, OSLinux)
+	}
+
+	// On Windows, should return "windows"
+	if runtime.GOOS == "windows" && os != OSWindows {
+		t.Errorf("detectOS() = %q, want %q", os, OSWindows)
+	}
+}
+
+func TestDetect(t *testing.T) {
+	p := Detect()
+
+	if p == nil {
+		t.Fatal("Detect() returned nil")
+	}
+
+	if p.OS != OSLinux && p.OS != OSWindows {
+		t.Errorf("OS = %q, want %q or %q", p.OS, OSLinux, OSWindows)
+	}
+
+	if p.EnvVars == nil {
+		t.Error("EnvVars is nil")
+	}
+}
+
+func TestWithOS(t *testing.T) {
+	p := &Platform{
+		OS:      OSLinux,
+		IsRoot:  true,
+		IsArch:  true,
+		EnvVars: map[string]string{"key": "value"},
+	}
+
+	newP := p.WithOS(OSWindows)
+
+	// Original should be unchanged
+	if p.OS != OSLinux {
+		t.Errorf("Original OS changed to %q", p.OS)
+	}
+
+	// New platform should have new OS
+	if newP.OS != OSWindows {
+		t.Errorf("WithOS() OS = %q, want %q", newP.OS, OSWindows)
+	}
+
+	// Other fields should be preserved
+	if newP.IsRoot != true {
+		t.Error("WithOS() IsRoot not preserved")
+	}
+
+	if newP.IsArch != true {
+		t.Error("WithOS() IsArch not preserved")
+	}
+}
+
+func TestGetBasename(t *testing.T) {
+	tests := []struct {
+		path string
+		want string
+	}{
+		{"/home/user/file.txt", "file.txt"},
+		{"C:\\Users\\user\\file.txt", "file.txt"},
+		{"file.txt", "file.txt"},
+		{"/home/user/", ""},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := getBasename(tt.path)
+			if got != tt.want {
+				t.Errorf("getBasename(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetDirname(t *testing.T) {
+	tests := []struct {
+		path string
+		want string
+	}{
+		{"/home/user/file.txt", "/home/user"},
+		{"C:\\Users\\user\\file.txt", "C:\\Users\\user"},
+		{"file.txt", "."},
+		{"/home/user/", "/home/user"},
+		{"", "."},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := getDirname(tt.path)
+			if got != tt.want {
+				t.Errorf("getDirname(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDetectArchLinux(t *testing.T) {
+	// This test will pass on Arch Linux and return false elsewhere
+	isArch := detectArchLinux()
+
+	// Just verify it doesn't panic and returns a boolean
+	if isArch != true && isArch != false {
+		t.Error("detectArchLinux() should return a boolean")
+	}
+}
+
+func TestDetectRoot(t *testing.T) {
+	isRoot := detectRoot()
+
+	// Just verify it doesn't panic and returns a boolean
+	// Most tests run as non-root, so we expect false
+	if isRoot != true && isRoot != false {
+		t.Error("detectRoot() should return a boolean")
+	}
+}

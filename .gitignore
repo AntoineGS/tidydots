@@ -1,0 +1,13 @@
+# Binary
+dot-manager
+dot-manager.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
