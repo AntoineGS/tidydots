@@ -76,8 +76,9 @@ type AddForm struct {
 	linuxTargetInput   textinput.Model
 	windowsTargetInput textinput.Model
 	backupInput        textinput.Model
+	filesInput         textinput.Model
 	isFolder           bool
-	focusIndex         int // 0=name, 1=linuxTarget, 2=windowsTarget, 3=backup, 4=isFolder toggle
+	focusIndex         int // 0=name, 1=linuxTarget, 2=windowsTarget, 3=backup, 4=isFolder toggle, 5=files (when !isFolder)
 	err                string
 	editIndex          int // -1 for new, >= 0 for editing existing path
 

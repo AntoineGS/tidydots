@@ -38,7 +38,13 @@ func (m *Model) initAddFormWithIndex(editIndex int) {
 	backupInput.CharLimit = 256
 	backupInput.Width = 40
 
+	filesInput := textinput.New()
+	filesInput.Placeholder = "e.g., .bashrc, .profile"
+	filesInput.CharLimit = 512
+	filesInput.Width = 40
+
 	isFolder := true
+	var filesValue string
 
 	// Populate with existing data if editing
 	if editIndex >= 0 && editIndex < len(m.Paths) {
@@ -52,13 +58,18 @@ func (m *Model) initAddFormWithIndex(editIndex int) {
 		}
 		backupInput.SetValue(spec.Backup)
 		isFolder = spec.IsFolder()
+		if !isFolder {
+			filesValue = strings.Join(spec.Files, ", ")
+		}
 	}
+	filesInput.SetValue(filesValue)
 
 	m.addForm = AddForm{
 		nameInput:          nameInput,
 		linuxTargetInput:   linuxTargetInput,
 		windowsTargetInput: windowsTargetInput,
 		backupInput:        backupInput,
+		filesInput:         filesInput,
 		isFolder:           isFolder,
 		focusIndex:         0,
 		err:                "",
@@ -104,7 +115,8 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Otherwise move to next field
 		m.addForm.showSuggestions = false
 		m.addForm.focusIndex++
-		if m.addForm.focusIndex > 4 {
+		maxIndex := m.addFormMaxIndex()
+		if m.addForm.focusIndex > maxIndex {
 			m.addForm.focusIndex = 0
 		}
 		m.updateAddFormFocus()
@@ -124,7 +136,7 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.addForm.showSuggestions = false
 		m.addForm.focusIndex--
 		if m.addForm.focusIndex < 0 {
-			m.addForm.focusIndex = 4
+			m.addForm.focusIndex = m.addFormMaxIndex()
 		}
 		m.updateAddFormFocus()
 		m.updateSuggestions()
@@ -139,7 +151,8 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Otherwise move to next field
 		m.addForm.showSuggestions = false
 		m.addForm.focusIndex++
-		if m.addForm.focusIndex > 4 {
+		maxIndex := m.addFormMaxIndex()
+		if m.addForm.focusIndex > maxIndex {
 			m.addForm.focusIndex = 0
 		}
 		m.updateAddFormFocus()
@@ -151,7 +164,7 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.addForm.showSuggestions = false
 		m.addForm.focusIndex--
 		if m.addForm.focusIndex < 0 {
-			m.addForm.focusIndex = 4
+			m.addForm.focusIndex = m.addFormMaxIndex()
 		}
 		m.updateAddFormFocus()
 		m.updateSuggestions()
@@ -199,6 +212,8 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.addForm.windowsTargetInput, cmd = m.addForm.windowsTargetInput.Update(msg)
 	case 3:
 		m.addForm.backupInput, cmd = m.addForm.backupInput.Update(msg)
+	case 5:
+		m.addForm.filesInput, cmd = m.addForm.filesInput.Update(msg)
 	}
 
 	// Update suggestions for path fields after text changes
@@ -218,6 +233,7 @@ func (m *Model) updateAddFormFocus() {
 	m.addForm.linuxTargetInput.Blur()
 	m.addForm.windowsTargetInput.Blur()
 	m.addForm.backupInput.Blur()
+	m.addForm.filesInput.Blur()
 
 	switch m.addForm.focusIndex {
 	case 0:
@@ -228,7 +244,17 @@ func (m *Model) updateAddFormFocus() {
 		m.addForm.windowsTargetInput.Focus()
 	case 3:
 		m.addForm.backupInput.Focus()
+	case 5:
+		m.addForm.filesInput.Focus()
 	}
+}
+
+// addFormMaxIndex returns the maximum focus index based on isFolder state
+func (m *Model) addFormMaxIndex() int {
+	if m.addForm.isFolder {
+		return 4 // 0-4: name, linux, windows, backup, toggle
+	}
+	return 5 // 0-5: includes files input
 }
 
 // updateSuggestions refreshes the autocomplete suggestions for the current path field
@@ -363,6 +389,16 @@ func (m Model) viewAddForm() string {
 	b.WriteString(fmt.Sprintf("  %s  %s Folder  %s Files\n", toggleLabel, folderCheck, filesCheck))
 	b.WriteString("\n")
 
+	// Files field (only shown when Files mode is selected)
+	if !m.addForm.isFolder {
+		filesLabel := "Files (comma-separated):"
+		if m.addForm.focusIndex == 5 {
+			filesLabel = HelpKeyStyle.Render(filesLabel)
+		}
+		b.WriteString(fmt.Sprintf("  %s\n", filesLabel))
+		b.WriteString(fmt.Sprintf("  %s\n\n", m.addForm.filesInput.View()))
+	}
+
 	// Error message
 	if m.addForm.err != "" {
 		b.WriteString(ErrorStyle.Render("  Error: " + m.addForm.err))
@@ -439,15 +475,29 @@ func (m *Model) saveNewPath() error {
 		targets["windows"] = windowsTarget
 	}
 
-	newPath := config.PathSpec{
-		Name:    name,
-		Backup:  backup,
-		Targets: targets,
+	// Parse files if in files mode
+	var files []string
+	if !m.addForm.isFolder {
+		filesStr := strings.TrimSpace(m.addForm.filesInput.Value())
+		if filesStr == "" {
+			return fmt.Errorf("at least one file name is required when using Files mode")
+		}
+		for _, f := range strings.Split(filesStr, ",") {
+			f = strings.TrimSpace(f)
+			if f != "" {
+				files = append(files, f)
+			}
+		}
+		if len(files) == 0 {
+			return fmt.Errorf("at least one file name is required when using Files mode")
+		}
 	}
 
-	// For files mode, we'd need file names - for now only support folder mode
-	if !m.addForm.isFolder {
-		return fmt.Errorf("file mode not yet supported in TUI - use folder mode or edit config directly")
+	newPath := config.PathSpec{
+		Name:    name,
+		Files:   files,
+		Backup:  backup,
+		Targets: targets,
 	}
 
 	// Editing existing path
