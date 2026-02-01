@@ -117,3 +117,27 @@ func (p *Platform) WithOS(osType string) *Platform {
 	newP.OS = osType
 	return &newP
 }
+
+// IsCommandAvailable checks if a command is available in PATH
+func IsCommandAvailable(cmd string) bool {
+	_, err := exec.LookPath(cmd)
+	return err == nil
+}
+
+// KnownPackageManagers returns the list of supported package managers
+var KnownPackageManagers = []string{
+	"yay", "paru", "pacman", // Arch Linux
+	"apt", "dnf", "brew", // Debian/Fedora/macOS
+	"winget", "scoop", "choco", // Windows
+}
+
+// DetectAvailableManagers returns a list of package managers available on the system
+func DetectAvailableManagers() []string {
+	var available []string
+	for _, mgr := range KnownPackageManagers {
+		if IsCommandAvailable(mgr) {
+			available = append(available, mgr)
+		}
+	}
+	return available
+}

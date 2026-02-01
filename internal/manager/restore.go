@@ -238,7 +238,7 @@ func (m *Manager) runZshPluginsHook(hook config.Hook) error {
 				if err := cmd.Run(); err != nil {
 					m.log("Failed to update %s: %v", plugin.Name, err)
 				} else {
-					m.log("✓ %s updated successfully", plugin.Name)
+					m.log("[ok] %s updated successfully", plugin.Name)
 				}
 			}
 		} else {
@@ -246,7 +246,11 @@ func (m *Manager) runZshPluginsHook(hook config.Hook) error {
 			if !m.DryRun {
 				parentDir := filepath.Dir(plugin.Path)
 				if !pathExists(parentDir) {
-					exec.Command("sudo", "mkdir", "-p", parentDir).Run()
+					mkdirCmd := exec.Command("sudo", "mkdir", "-p", parentDir)
+					if err := mkdirCmd.Run(); err != nil {
+						m.log("Failed to create directory %s: %v", parentDir, err)
+						continue
+					}
 				}
 
 				cmd := exec.Command("sudo", "git", "clone", plugin.Repo, plugin.Path)
@@ -255,7 +259,7 @@ func (m *Manager) runZshPluginsHook(hook config.Hook) error {
 				if err := cmd.Run(); err != nil {
 					m.log("Failed to clone %s: %v", plugin.Name, err)
 				} else {
-					m.log("✓ %s cloned successfully", plugin.Name)
+					m.log("[ok] %s cloned successfully", plugin.Name)
 				}
 			}
 		}
@@ -273,7 +277,7 @@ func (m *Manager) runZshPluginsHook(hook config.Hook) error {
 						if err := cmd.Run(); err != nil {
 							m.log("Failed to create symlink for %s: %v", sl.Link, err)
 						} else {
-							m.log("✓ Created symlink %s", link)
+							m.log("[ok] Created symlink %s", link)
 						}
 					}
 				}
@@ -302,10 +306,10 @@ func (m *Manager) runGhosttyTerminfoHook(hook config.Hook) error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			m.log("✗ Failed to install ghostty terminfo: %v", err)
+			m.log("[error] Failed to install ghostty terminfo: %v", err)
 			return err
 		}
-		m.log("✓ Ghostty terminfo installed successfully")
+		m.log("[ok] Ghostty terminfo installed successfully")
 	}
 
 	return nil

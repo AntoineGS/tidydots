@@ -82,7 +82,8 @@ func SaveAppConfig(cfg *AppConfig) error {
 	// Add a header comment
 	content := fmt.Sprintf("# dot-manager app configuration\n# This file only stores the path to your configurations repository\n\n%s", string(data))
 
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	// Use 0600 permissions to restrict access to owner only
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
 
@@ -94,8 +95,12 @@ func (a *AppConfig) GetRepoConfigPath() string {
 	return filepath.Join(a.ConfigDir, repoConfigFile)
 }
 
-// AppConfigPath returns the path where the app config is stored
+// AppConfigPath returns the path where the app config is stored.
+// Returns an empty string if the home directory cannot be determined.
 func AppConfigPath() string {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
 	return filepath.Join(home, appConfigDir, appConfigFile)
 }

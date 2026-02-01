@@ -2,7 +2,6 @@ package tui
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/AntoineGS/dot-manager/internal/config"
@@ -205,19 +204,7 @@ func getPackageInstallMethod(pkg config.PackageSpec, osType string) string {
 }
 
 func detectAvailableManagers() []string {
-	managers := []string{"yay", "paru", "pacman", "apt", "dnf", "brew", "winget", "scoop", "choco"}
-	var available []string
-	for _, mgr := range managers {
-		if isCommandAvailable(mgr) {
-			available = append(available, mgr)
-		}
-	}
-	return available
-}
-
-func isCommandAvailable(cmd string) bool {
-	_, err := exec.LookPath(cmd)
-	return err == nil
+	return platform.DetectAvailableManagers()
 }
 
 func (m Model) Init() tea.Cmd {

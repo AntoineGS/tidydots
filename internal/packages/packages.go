@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/AntoineGS/dot-manager/internal/platform"
 )
 
 // PackageManager represents a supported package manager
@@ -70,19 +72,9 @@ func NewManager(cfg *PackagesConfig, osType string, dryRun, verbose bool) *Manag
 }
 
 func (m *Manager) detectAvailableManagers() {
-	managers := []PackageManager{Pacman, Yay, Paru, Apt, Dnf, Brew, Winget, Scoop, Choco}
-
-	for _, mgr := range managers {
-		if m.isManagerAvailable(mgr) {
-			m.Available = append(m.Available, mgr)
-		}
+	for _, mgr := range platform.DetectAvailableManagers() {
+		m.Available = append(m.Available, PackageManager(mgr))
 	}
-}
-
-func (m *Manager) isManagerAvailable(mgr PackageManager) bool {
-	cmd := string(mgr)
-	_, err := exec.LookPath(cmd)
-	return err == nil
 }
 
 func (m *Manager) selectPreferredManager() {
@@ -220,6 +212,10 @@ func (m *Manager) installWithManager(mgr PackageManager, pkgName string) (bool, 
 	return true, fmt.Sprintf("Installed via %s", mgr)
 }
 
+// runCustomCommand executes a custom shell command from the configuration.
+// SECURITY NOTE: This intentionally executes arbitrary shell commands from the
+// user's configuration file. Users should only use configurations they trust,
+// as malicious configs could execute harmful commands.
 func (m *Manager) runCustomCommand(command string) (bool, string) {
 	if m.DryRun {
 		return true, fmt.Sprintf("Would run: %s", command)
@@ -243,6 +239,10 @@ func (m *Manager) runCustomCommand(command string) (bool, string) {
 	return true, "Installed via custom command"
 }
 
+// installFromURL downloads a file from a URL and runs an install command.
+// SECURITY NOTE: This intentionally downloads and executes content from URLs
+// specified in the user's configuration file. Users should only use configurations
+// they trust, as malicious configs could download and execute harmful code.
 func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 	if m.DryRun {
 		return true, fmt.Sprintf("Would download %s and run: %s", urlInstall.URL, urlInstall.Command)
@@ -260,8 +260,11 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 	// Download file
 	var downloadCmd *exec.Cmd
 	if runtime.GOOS == "windows" {
+		// Escape single quotes in URL and path for PowerShell
+		escapedURL := strings.ReplaceAll(urlInstall.URL, "'", "''")
+		escapedPath := strings.ReplaceAll(tmpPath, "'", "''")
 		downloadCmd = exec.Command("powershell", "-Command",
-			fmt.Sprintf("Invoke-WebRequest -Uri '%s' -OutFile '%s'", urlInstall.URL, tmpPath))
+			fmt.Sprintf("Invoke-WebRequest -Uri '%s' -OutFile '%s'", escapedURL, escapedPath))
 	} else {
 		downloadCmd = exec.Command("curl", "-fsSL", "-o", tmpPath, urlInstall.URL)
 	}
