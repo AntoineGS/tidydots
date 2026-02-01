@@ -79,6 +79,31 @@ var (
 				Padding(0, 1).
 				MarginLeft(1)
 
+	// Path state badge styles
+	StateBadgeReadyStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#000")).
+				Background(secondaryColor). // Green
+				Padding(0, 1).
+				MarginLeft(1)
+
+	StateBadgeAdoptStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#000")).
+				Background(accentColor). // Amber
+				Padding(0, 1).
+				MarginLeft(1)
+
+	StateBadgeMissingStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#fff")).
+				Background(errorColor). // Red
+				Padding(0, 1).
+				MarginLeft(1)
+
+	StateBadgeLinkedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#fff")).
+				Background(primaryColor). // Purple
+				Padding(0, 1).
+				MarginLeft(1)
+
 	// Progress styles
 	ProgressStyle = lipgloss.NewStyle().
 			Foreground(secondaryColor)

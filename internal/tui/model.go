@@ -1,11 +1,14 @@
 package tui
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/AntoineGS/dot-manager/internal/config"
 	"github.com/AntoineGS/dot-manager/internal/manager"
 	"github.com/AntoineGS/dot-manager/internal/platform"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -18,13 +21,14 @@ const (
 	ScreenConfirm
 	ScreenProgress
 	ScreenResults
+	ScreenAddForm
 )
 
 type Operation int
 
 const (
 	OpRestore Operation = iota
-	OpBackup
+	OpAdd
 	OpList
 	OpInstallPackages
 )
@@ -33,8 +37,8 @@ func (o Operation) String() string {
 	switch o {
 	case OpRestore:
 		return "Restore"
-	case OpBackup:
-		return "Backup"
+	case OpAdd:
+		return "Add"
 	case OpList:
 		return "List"
 	case OpInstallPackages:
@@ -43,17 +47,52 @@ func (o Operation) String() string {
 	return "Unknown"
 }
 
+// PathState represents the state of a path item for restore operations
+type PathState int
+
+const (
+	StateReady   PathState = iota // Backup exists, ready to restore
+	StateAdopt                    // No backup but target exists (will adopt)
+	StateMissing                  // Neither backup nor target exists
+	StateLinked                   // Already symlinked
+)
+
+func (s PathState) String() string {
+	switch s {
+	case StateReady:
+		return "Ready"
+	case StateAdopt:
+		return "Adopt"
+	case StateMissing:
+		return "Missing"
+	case StateLinked:
+		return "Linked"
+	}
+	return "Unknown"
+}
+
+// AddForm holds the state for the Add path form
+type AddForm struct {
+	nameInput   textinput.Model
+	targetInput textinput.Model
+	backupInput textinput.Model
+	isFolder    bool
+	focusIndex  int // 0=name, 1=target, 2=backup, 3=isFolder toggle
+	err         string
+}
+
 type Model struct {
 	Screen    Screen
 	Operation Operation
 
 	// Data
-	Config   *config.Config
-	Platform *platform.Platform
-	Manager  *manager.Manager
-	Paths    []PathItem
-	Packages []PackageItem
-	DryRun   bool
+	Config     *config.Config
+	ConfigPath string // Path to config file for saving
+	Platform   *platform.Platform
+	Manager    *manager.Manager
+	Paths      []PathItem
+	Packages   []PackageItem
+	DryRun     bool
 
 	// UI state
 	menuCursor    int
@@ -63,6 +102,9 @@ type Model struct {
 	viewHeight    int
 	listCursor    int  // Cursor for list table view
 	showingDetail bool // Whether detail popup is showing
+
+	// Add form
+	addForm AddForm
 
 	// Results
 	results    []ResultItem
@@ -78,6 +120,7 @@ type PathItem struct {
 	Spec     config.PathSpec
 	Target   string
 	Selected bool
+	State    PathState
 }
 
 type PackageItem struct {
@@ -123,7 +166,7 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 		}
 	}
 
-	return Model{
+	m := Model{
 		Screen:     ScreenMenu,
 		Config:     cfg,
 		Platform:   plat,
@@ -134,6 +177,11 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 		width:      80,
 		height:     24,
 	}
+
+	// Detect initial path states
+	m.refreshPathStates()
+
+	return m
 }
 
 // getPackageInstallMethod determines how a package would be installed
@@ -205,6 +253,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle AddForm separately (needs text input handling)
+	if m.Screen == ScreenAddForm {
+		return m.updateAddForm(msg)
+	}
+
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
@@ -262,6 +315,8 @@ func (m Model) View() string {
 		return m.viewProgress()
 	case ScreenResults:
 		return m.viewResults()
+	case ScreenAddForm:
+		return m.viewAddForm()
 	}
 	return ""
 }
@@ -274,4 +329,80 @@ type OperationCompleteMsg struct {
 
 type ProcessPathMsg struct {
 	Index int
+}
+
+// detectPathState determines the state of a path item
+func (m *Model) detectPathState(item *PathItem) PathState {
+	backupPath := m.resolvePath(item.Spec.Backup)
+	targetPath := item.Target
+
+	// For folder-based paths
+	if item.Spec.IsFolder() {
+		// Check if target is already a symlink
+		if info, err := os.Lstat(targetPath); err == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				return StateLinked
+			}
+		}
+
+		backupExists := pathExists(backupPath)
+		targetExists := pathExists(targetPath)
+
+		if backupExists {
+			return StateReady
+		}
+		if targetExists {
+			return StateAdopt
+		}
+		return StateMissing
+	}
+
+	// For file-based paths, check if all files are ready
+	allLinked := true
+	anyBackup := false
+	anyTarget := false
+
+	for _, file := range item.Spec.Files {
+		srcFile := filepath.Join(backupPath, file)
+		dstFile := filepath.Join(targetPath, file)
+
+		// Check if already a symlink
+		if info, err := os.Lstat(dstFile); err == nil {
+			if info.Mode()&os.ModeSymlink == 0 {
+				allLinked = false
+			}
+		} else {
+			allLinked = false
+		}
+
+		if pathExists(srcFile) {
+			anyBackup = true
+		}
+		if pathExists(dstFile) {
+			anyTarget = true
+		}
+	}
+
+	if allLinked && len(item.Spec.Files) > 0 {
+		return StateLinked
+	}
+	if anyBackup {
+		return StateReady
+	}
+	if anyTarget {
+		return StateAdopt
+	}
+	return StateMissing
+}
+
+// refreshPathStates updates the state of all path items
+func (m *Model) refreshPathStates() {
+	for i := range m.Paths {
+		m.Paths[i].State = m.detectPathState(&m.Paths[i])
+	}
+}
+
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

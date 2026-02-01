@@ -121,13 +121,19 @@ func (m Model) viewPathSelect() string {
 		}
 		name := nameStyle.Render(item.Spec.Name)
 
-		// Badge for folders
-		badge := ""
-		if item.Spec.IsFolder() {
-			badge = FolderBadgeStyle.Render("folder")
+		// State badge (only for Restore operation)
+		stateBadge := ""
+		if m.Operation == OpRestore {
+			stateBadge = renderStateBadge(item.State)
 		}
 
-		line := fmt.Sprintf("%s%s %s%s", cursor, checkbox, name, badge)
+		// Badge for folders
+		folderBadge := ""
+		if item.Spec.IsFolder() {
+			folderBadge = FolderBadgeStyle.Render("folder")
+		}
+
+		line := fmt.Sprintf("%s%s %s%s%s", cursor, checkbox, name, stateBadge, folderBadge)
 		b.WriteString(line)
 		b.WriteString("\n")
 
@@ -166,4 +172,18 @@ func truncatePath(path string, maxLen int) string {
 		return path
 	}
 	return "..." + path[len(path)-maxLen+3:]
+}
+
+func renderStateBadge(state PathState) string {
+	switch state {
+	case StateReady:
+		return StateBadgeReadyStyle.Render("Ready")
+	case StateAdopt:
+		return StateBadgeAdoptStyle.Render("Adopt")
+	case StateMissing:
+		return StateBadgeMissingStyle.Render("Missing")
+	case StateLinked:
+		return StateBadgeLinkedStyle.Render("Linked")
+	}
+	return ""
 }

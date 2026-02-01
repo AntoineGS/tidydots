@@ -14,7 +14,7 @@ var menuItems = []struct {
 	icon string
 }{
 	{OpRestore, "Restore", "Create symlinks from targets to backup sources", "󰁯"},
-	{OpBackup, "Backup", "Copy files from targets to backup directory", "󰆓"},
+	{OpAdd, "Add", "Add a new path configuration", "󰐕"},
 	{OpInstallPackages, "Install Packages", "Install packages using various package managers", "󰏖"},
 	{OpList, "List", "Display all configured paths", "󰋗"},
 }
@@ -41,6 +41,12 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.scrollOffset = 0
 			m.listCursor = 0
 			m.showingDetail = false
+			return m, nil
+		}
+		if m.Operation == OpAdd {
+			// Initialize add form and show it
+			m.initAddForm()
+			m.Screen = ScreenAddForm
 			return m, nil
 		}
 		if m.Operation == OpInstallPackages {

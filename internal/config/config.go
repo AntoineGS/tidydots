@@ -162,3 +162,17 @@ func (p *PathSpec) GetTarget(osType string) string {
 	}
 	return ""
 }
+
+// Save writes the config to the specified file path
+func Save(cfg *Config, path string) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshaling config: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("writing config file: %w", err)
+	}
+
+	return nil
+}

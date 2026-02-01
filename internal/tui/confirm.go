@@ -34,8 +34,6 @@ func (m Model) viewConfirm() string {
 	// Title
 	icon := "󰁯"
 	switch m.Operation {
-	case OpBackup:
-		icon = "󰆓"
 	case OpInstallPackages:
 		icon = "󰏖"
 	}
@@ -90,12 +88,7 @@ func (m Model) viewConfirm() string {
 		}
 
 		// Summary
-		action := "create symlinks for"
-		if m.Operation == OpBackup {
-			action = "backup"
-		}
-
-		summary := fmt.Sprintf("You are about to %s %d path(s):", action, selected)
+		summary := fmt.Sprintf("You are about to create symlinks for %d path(s):", selected)
 		b.WriteString(summary)
 		b.WriteString("\n\n")
 
@@ -153,20 +146,13 @@ func (m Model) startOperation() tea.Cmd {
 				})
 			}
 		} else {
-			// Handle path operations
+			// Handle path operations (restore)
 			for _, item := range m.Paths {
 				if !item.Selected {
 					continue
 				}
 
-				var success bool
-				var message string
-
-				if m.Operation == OpRestore {
-					success, message = m.performRestore(item)
-				} else {
-					success, message = m.performBackup(item)
-				}
+				success, message := m.performRestore(item)
 
 				results = append(results, ResultItem{
 					Name:    item.Spec.Name,
@@ -397,15 +383,6 @@ func copyFileSimple(src, dst string) error {
 	return os.WriteFile(dst, data, info.Mode())
 }
 
-func (m Model) performBackup(item PathItem) (bool, string) {
-	backupPath := m.resolvePath(item.Spec.Backup)
-
-	if item.Spec.IsFolder() {
-		return m.backupFolder(item.Target, backupPath)
-	}
-	return m.backupFiles(item.Spec.Files, item.Target, backupPath)
-}
-
 func (m Model) performPackageInstall(pkg PackageItem) (bool, string) {
 	if m.DryRun {
 		return true, fmt.Sprintf("Would install via %s", pkg.Method)
@@ -534,58 +511,3 @@ func (m Model) installFromURL(urlSpec config.URLInstallSpec) (bool, string) {
 	return true, "Installed via URL"
 }
 
-func (m Model) backupFolder(source, backup string) (bool, string) {
-	if m.DryRun {
-		return true, fmt.Sprintf("Would copy folder to: %s", backup)
-	}
-
-	// Check source exists
-	if _, err := os.Stat(source); os.IsNotExist(err) {
-		return false, fmt.Sprintf("Source does not exist: %s", source)
-	}
-
-	// Skip symlinks
-	if info, err := os.Lstat(source); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
-			return true, "Skipped (is a symlink)"
-		}
-	}
-
-	// Would copy here - for safety, just report what would happen
-	return true, fmt.Sprintf("Would copy folder to: %s", backup)
-}
-
-func (m Model) backupFiles(files []string, source, backup string) (bool, string) {
-	if m.DryRun {
-		return true, fmt.Sprintf("Would copy %d file(s) to: %s", len(files), backup)
-	}
-
-	copied := 0
-	skipped := 0
-
-	for _, file := range files {
-		srcFile := filepath.Join(source, file)
-
-		// Check source exists
-		if _, err := os.Stat(srcFile); os.IsNotExist(err) {
-			skipped++
-			continue
-		}
-
-		// Skip symlinks
-		if info, err := os.Lstat(srcFile); err == nil {
-			if info.Mode()&os.ModeSymlink != 0 {
-				skipped++
-				continue
-			}
-		}
-
-		copied++
-	}
-
-	msg := fmt.Sprintf("Would copy %d file(s)", copied)
-	if skipped > 0 {
-		msg += fmt.Sprintf(", %d skipped", skipped)
-	}
-	return true, msg
-}

@@ -114,8 +114,9 @@ func TestOperationString(t *testing.T) {
 		want string
 	}{
 		{OpRestore, "Restore"},
-		{OpBackup, "Backup"},
+		{OpAdd, "Add"},
 		{OpList, "List"},
+		{OpInstallPackages, "Install Packages"},
 	}
 
 	for _, tt := range tests {

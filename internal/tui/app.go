@@ -11,16 +11,16 @@ import (
 )
 
 // Run starts the interactive TUI with a new manager
-func Run(cfg *config.Config, plat *platform.Platform, dryRun bool) error {
+func Run(cfg *config.Config, plat *platform.Platform, dryRun bool, configPath string) error {
 	mgr := manager.New(cfg, plat)
 	mgr.DryRun = dryRun
 
-	return RunWithManager(cfg, plat, mgr)
+	return RunWithManager(cfg, plat, mgr, configPath)
 }
 
 // RunWithManager runs the TUI with an existing manager
-func RunWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Manager) error {
-	model := NewModelWithManager(cfg, plat, mgr)
+func RunWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Manager, configPath string) error {
+	model := NewModelWithManager(cfg, plat, mgr, configPath)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	finalModel, err := p.Run()
@@ -38,9 +38,10 @@ func RunWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Ma
 }
 
 // NewModelWithManager creates a model with a manager for real operations
-func NewModelWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Manager) Model {
+func NewModelWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Manager, configPath string) Model {
 	m := NewModel(cfg, plat, mgr.DryRun)
 	m.Manager = mgr
+	m.ConfigPath = configPath
 	return m
 }
 
