@@ -505,4 +505,3 @@ func (m Model) installFromURL(urlSpec config.URLInstallSpec) (bool, string) {
 
 	return true, "Installed via URL"
 }
-

@@ -16,8 +16,8 @@ type AppConfig struct {
 }
 
 const (
-	appConfigDir  = ".config/dot-manager"
-	appConfigFile = "config.yaml"
+	appConfigDir   = ".config/dot-manager"
+	appConfigFile  = "config.yaml"
 	repoConfigFile = "dot-manager.yaml"
 )
 

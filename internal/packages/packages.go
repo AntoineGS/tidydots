@@ -27,12 +27,12 @@ const (
 
 // Package represents a package to install
 type Package struct {
-	Name        string                     `yaml:"name"`
-	Description string                     `yaml:"description,omitempty"`
-	Managers    map[PackageManager]string  `yaml:"managers,omitempty"`
-	Custom      map[string]string          `yaml:"custom,omitempty"` // OS -> command
-	URL         map[string]URLInstall      `yaml:"url,omitempty"`    // OS -> URL install
-	Tags        []string                   `yaml:"tags,omitempty"`   // For filtering (e.g., "dev", "gui", "cli")
+	Name        string                    `yaml:"name"`
+	Description string                    `yaml:"description,omitempty"`
+	Managers    map[PackageManager]string `yaml:"managers,omitempty"`
+	Custom      map[string]string         `yaml:"custom,omitempty"` // OS -> command
+	URL         map[string]URLInstall     `yaml:"url,omitempty"`    // OS -> URL install
+	Tags        []string                  `yaml:"tags,omitempty"`   // For filtering (e.g., "dev", "gui", "cli")
 }
 
 // URLInstall represents installation from a URL
@@ -43,19 +43,19 @@ type URLInstall struct {
 
 // PackagesConfig holds the packages configuration
 type PackagesConfig struct {
-	Packages         []Package        `yaml:"packages"`
-	DefaultManager   PackageManager   `yaml:"default_manager,omitempty"`
-	ManagerPriority  []PackageManager `yaml:"manager_priority,omitempty"`
+	Packages        []Package        `yaml:"packages"`
+	DefaultManager  PackageManager   `yaml:"default_manager,omitempty"`
+	ManagerPriority []PackageManager `yaml:"manager_priority,omitempty"`
 }
 
 // Manager handles package installation
 type Manager struct {
-	Config     *PackagesConfig
-	OS         string
-	DryRun     bool
-	Verbose    bool
-	Available  []PackageManager
-	Preferred  PackageManager
+	Config    *PackagesConfig
+	OS        string
+	DryRun    bool
+	Verbose   bool
+	Available []PackageManager
+	Preferred PackageManager
 }
 
 // NewManager creates a new package manager

@@ -14,10 +14,10 @@ const (
 )
 
 type Platform struct {
-	OS       string
-	IsRoot   bool
-	IsArch   bool
-	EnvVars  map[string]string
+	OS      string
+	IsRoot  bool
+	IsArch  bool
+	EnvVars map[string]string
 }
 
 func Detect() *Platform {
