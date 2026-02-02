@@ -367,3 +367,31 @@ func TestPathExistsWithSymlink(t *testing.T) {
 		t.Error("pathExists() should return true for broken symlink (Lstat behavior)")
 	}
 }
+
+func TestGetApplications(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		Version: 3,
+		Applications: []config.Application{
+			{
+				Name:    "test-app",
+				Filters: []config.Filter{{Include: map[string]string{"os": "linux"}}},
+				Entries: []config.SubEntry{
+					{Type: "config", Name: "config1", Backup: "./config1", Targets: map[string]string{"linux": "~/.config"}},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux, Hostname: "test", User: "test"}
+	mgr := New(cfg, plat)
+
+	apps := mgr.GetApplications()
+	if len(apps) != 1 {
+		t.Fatalf("GetApplications() returned %d, want 1", len(apps))
+	}
+
+	if apps[0].Name != "test-app" {
+		t.Errorf("Application name = %q, want %q", apps[0].Name, "test-app")
+	}
+}

@@ -47,6 +47,10 @@ func (m *Manager) GetPackageEntries() []config.Entry {
 	return m.Config.GetFilteredPackageEntries(m.FilterCtx)
 }
 
+func (m *Manager) GetApplications() []config.Application {
+	return m.Config.GetFilteredApplications(m.FilterCtx)
+}
+
 func (m *Manager) log(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
 }
