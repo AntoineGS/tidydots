@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/AntoineGS/dot-manager/internal/config"
@@ -77,6 +78,11 @@ func (m *Model) initApplicationItems() {
 
 		m.Applications = append(m.Applications, appItem)
 	}
+
+	// Sort applications alphabetically by name
+	sort.Slice(m.Applications, func(i, j int) bool {
+		return m.Applications[i].Application.Name < m.Applications[j].Application.Name
+	})
 
 	// Detect states for all sub-items
 	m.refreshApplicationStates()
@@ -385,6 +391,14 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.Operation == OpList {
 			if m.appCursor > 0 {
 				m.appCursor--
+				// Calculate actual visible rows (accounting for overhead)
+				maxTableRows := m.viewHeight - listTableOverhead
+				if m.filtering || m.filterText != "" {
+					maxTableRows--
+				}
+				if maxTableRows < minVisibleRows {
+					maxTableRows = minVisibleRows
+				}
 				if m.appCursor < m.scrollOffset {
 					m.scrollOffset = m.appCursor
 				}
@@ -396,8 +410,16 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			visibleCount := m.getVisibleRowCount()
 			if m.appCursor < visibleCount-1 {
 				m.appCursor++
-				if m.appCursor >= m.scrollOffset+m.viewHeight {
-					m.scrollOffset = m.appCursor - m.viewHeight + 1
+				// Calculate actual visible rows (accounting for overhead)
+				maxTableRows := m.viewHeight - listTableOverhead
+				if m.filtering || m.filterText != "" {
+					maxTableRows--
+				}
+				if maxTableRows < minVisibleRows {
+					maxTableRows = minVisibleRows
+				}
+				if m.appCursor >= m.scrollOffset+maxTableRows {
+					m.scrollOffset = m.appCursor - maxTableRows + 1
 				}
 			}
 		}
@@ -769,7 +791,6 @@ func (m Model) viewListTable() string {
 
 			// Aggregate state for app (show worst state among sub-entries)
 			aggregateState := m.getAggregateState(app)
-			stateBadge := renderStateBadge(aggregateState)
 
 			// Entry count
 			entryCount := fmt.Sprintf("%d entries", len(app.SubItems))
@@ -790,17 +811,28 @@ func (m Model) viewListTable() string {
 			paddedName := padRight(app.Application.Name, maxAppNameWidth)
 			paddedCount := padRight(entryCount, 12) // Fixed width for entry count
 
-			// Build the complete line
-			line := fmt.Sprintf("%s%s  %s  %s  %s",
-				cursor,
-				paddedName,
-				stateBadge,
-				paddedCount,
-				pkgIndicator)
-
-			// Apply selection style to entire row if selected
+			// Build the complete line with or without selection styling
+			var line string
 			if isSelected {
+				// Apply selection style to entire row (use plain text for state, no badge styling)
+				// Match badge visual width: 1 (margin) + 1 (padding) + text + 1 (padding) = 10 total
+				statePlainText := " " + padRight(" "+aggregateState.String()+" ", 9)
+				line = fmt.Sprintf("%s%s  %s  %s  %s ",
+					cursor,
+					paddedName,
+					statePlainText,
+					paddedCount,
+					pkgIndicator)
 				line = SelectedListItemStyle.Render(line)
+			} else {
+				// Apply individual column styles (use styled badge)
+				stateBadge := renderStateBadge(aggregateState)
+				line = fmt.Sprintf("%s%s  %s  %s  %s",
+					cursor,
+					paddedName,
+					stateBadge,
+					MutedTextStyle.Render(paddedCount),
+					pkgIndicator)
 			}
 
 			b.WriteString(line)
@@ -863,7 +895,7 @@ func (m Model) viewListTable() string {
 					var line string
 					if isSelected {
 						// Apply selection style to entire row
-						line = fmt.Sprintf("%s  %s %s  %s  %s  %s",
+						line = fmt.Sprintf("%s  %s %s  %s  %s  %s ",
 							cursor,
 							treePrefix,
 							paddedName,
