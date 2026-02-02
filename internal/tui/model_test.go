@@ -10,8 +10,9 @@ import (
 
 func TestNewModel(t *testing.T) {
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: "/home/user/backup",
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "nvim",
 				Files:  []string{},
@@ -50,7 +51,7 @@ func TestNewModel(t *testing.T) {
 	// All should be selected by default
 	for _, p := range model.Paths {
 		if !p.Selected {
-			t.Errorf("Path %s should be selected by default", p.Spec.Name)
+			t.Errorf("Path %s should be selected by default", p.Entry.Name)
 		}
 	}
 
@@ -62,12 +63,11 @@ func TestNewModel(t *testing.T) {
 
 func TestNewModelRootPaths(t *testing.T) {
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: "/home/user/backup",
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{Name: "user-config", Backup: "./user", Targets: map[string]string{"linux": "~/.config"}},
-		},
-		RootPaths: []config.PathSpec{
-			{Name: "root-config", Backup: "./root", Targets: map[string]string{"linux": "/etc"}},
+			{Name: "root-config", Backup: "./root", Targets: map[string]string{"linux": "/etc"}, Root: true},
 		},
 	}
 
@@ -75,7 +75,7 @@ func TestNewModelRootPaths(t *testing.T) {
 	plat := &platform.Platform{OS: platform.OSLinux, IsRoot: false}
 	model := NewModel(cfg, plat, false)
 
-	if len(model.Paths) != 1 || model.Paths[0].Spec.Name != "user-config" {
+	if len(model.Paths) != 1 || model.Paths[0].Entry.Name != "user-config" {
 		t.Error("Non-root user should see user paths")
 	}
 
@@ -83,15 +83,16 @@ func TestNewModelRootPaths(t *testing.T) {
 	plat = &platform.Platform{OS: platform.OSLinux, IsRoot: true}
 	model = NewModel(cfg, plat, false)
 
-	if len(model.Paths) != 1 || model.Paths[0].Spec.Name != "root-config" {
+	if len(model.Paths) != 1 || model.Paths[0].Entry.Name != "root-config" {
 		t.Error("Root user should see root paths")
 	}
 }
 
 func TestModelUpdate(t *testing.T) {
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: "/home/user/backup",
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{Name: "test", Backup: "./test", Targets: map[string]string{"linux": "~/.config"}},
 		},
 	}
@@ -130,8 +131,9 @@ func TestOperationString(t *testing.T) {
 
 func TestPathItemIsFolder(t *testing.T) {
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: "/backup",
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{Name: "folder", Files: []string{}, Backup: "./folder", Targets: map[string]string{"linux": "~/.config/folder"}},
 			{Name: "files", Files: []string{"a.txt", "b.txt"}, Backup: "./files", Targets: map[string]string{"linux": "~/.config"}},
 		},
@@ -140,19 +142,20 @@ func TestPathItemIsFolder(t *testing.T) {
 
 	model := NewModel(cfg, plat, false)
 
-	if !model.Paths[0].Spec.IsFolder() {
+	if !model.Paths[0].Entry.IsFolder() {
 		t.Error("First path should be a folder")
 	}
 
-	if model.Paths[1].Spec.IsFolder() {
+	if model.Paths[1].Entry.IsFolder() {
 		t.Error("Second path should not be a folder")
 	}
 }
 
 func TestModelView(t *testing.T) {
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: "/backup",
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{Name: "test", Backup: "./test", Targets: map[string]string{"linux": "~/.config"}},
 		},
 	}
@@ -191,8 +194,9 @@ func TestModelView(t *testing.T) {
 
 func TestDryRunMode(t *testing.T) {
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: "/backup",
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{Name: "test", Backup: "./test", Targets: map[string]string{"linux": "~/.config"}},
 		},
 	}

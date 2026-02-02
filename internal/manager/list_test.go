@@ -29,8 +29,9 @@ func captureOutput(f func()) string {
 func TestList(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: "/home/user/backup",
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "nvim",
 				Files:  []string{},
@@ -90,8 +91,9 @@ func TestList(t *testing.T) {
 func TestListRootMode(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: "/home/user/backup",
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "user-config",
 				Backup: "./user",
@@ -99,10 +101,9 @@ func TestListRootMode(t *testing.T) {
 					"linux": "~/.config",
 				},
 			},
-		},
-		RootPaths: []config.PathSpec{
 			{
 				Name:   "system-config",
+				Root:   true,
 				Files:  []string{"config.hook"},
 				Backup: "./system",
 				Targets: map[string]string{

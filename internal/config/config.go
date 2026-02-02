@@ -9,23 +9,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config is the main configuration structure (v2 format)
 type Config struct {
-	Version    int            `yaml:"version"`
-	BackupRoot string         `yaml:"backup_root"`
-	Paths      []PathSpec     `yaml:"paths"`
-	RootPaths  []PathSpec     `yaml:"root_paths"`
-	Hooks      Hooks          `yaml:"hooks"`
-	Packages   PackagesConfig `yaml:"packages"`
+	Version    int     `yaml:"version"`
+	BackupRoot string  `yaml:"backup_root"`
+	Entries    []Entry `yaml:"entries"`
+	Hooks      Hooks   `yaml:"hooks"`
+
+	// Package manager configuration
+	DefaultManager  string   `yaml:"default_manager,omitempty"`
+	ManagerPriority []string `yaml:"manager_priority,omitempty"`
 }
 
-// PackagesConfig holds package installation configuration
-type PackagesConfig struct {
-	DefaultManager  string        `yaml:"default_manager,omitempty"`
-	ManagerPriority []string      `yaml:"manager_priority,omitempty"`
-	Items           []PackageSpec `yaml:"items"`
-}
-
-// PackageSpec defines a package to install
+// PackageSpec defines a package to install (for backward compatibility)
 type PackageSpec struct {
 	Name        string                    `yaml:"name"`
 	Description string                    `yaml:"description,omitempty"`
@@ -41,6 +37,7 @@ type URLInstallSpec struct {
 	Command string `yaml:"command"` // Use {file} as placeholder for downloaded file
 }
 
+// PathSpec defines a path configuration (for backward compatibility)
 type PathSpec struct {
 	Name    string            `yaml:"name"`
 	Files   []string          `yaml:"files"`
@@ -83,7 +80,11 @@ func Load(path string) (*Config, error) {
 	}
 
 	if cfg.Version == 0 {
-		cfg.Version = 1
+		cfg.Version = 2
+	}
+
+	if cfg.Version != 2 {
+		return nil, fmt.Errorf("unsupported config version %d (expected 2)", cfg.Version)
 	}
 
 	return &cfg, nil
@@ -92,23 +93,13 @@ func Load(path string) (*Config, error) {
 func (c *Config) ExpandPaths(envVars map[string]string) {
 	c.BackupRoot = expandPath(c.BackupRoot, envVars)
 
-	for i := range c.Paths {
-		c.Paths[i].Backup = expandPath(c.Paths[i].Backup, envVars)
-		for k, v := range c.Paths[i].Targets {
-			c.Paths[i].Targets[k] = expandPath(v, envVars)
+	for i := range c.Entries {
+		c.Entries[i].Backup = expandPath(c.Entries[i].Backup, envVars)
+		for k, v := range c.Entries[i].Targets {
+			c.Entries[i].Targets[k] = expandPath(v, envVars)
 		}
-		for j := range c.Paths[i].Files {
-			c.Paths[i].Files[j] = expandPath(c.Paths[i].Files[j], envVars)
-		}
-	}
-
-	for i := range c.RootPaths {
-		c.RootPaths[i].Backup = expandPath(c.RootPaths[i].Backup, envVars)
-		for k, v := range c.RootPaths[i].Targets {
-			c.RootPaths[i].Targets[k] = expandPath(v, envVars)
-		}
-		for j := range c.RootPaths[i].Files {
-			c.RootPaths[i].Files[j] = expandPath(c.RootPaths[i].Files[j], envVars)
+		for j := range c.Entries[i].Files {
+			c.Entries[i].Files[j] = expandPath(c.Entries[i].Files[j], envVars)
 		}
 	}
 
@@ -121,6 +112,48 @@ func (c *Config) ExpandPaths(envVars map[string]string) {
 		}
 		c.Hooks.PostRestore[os] = hooks
 	}
+}
+
+// GetConfigEntries returns entries that have config (backup/targets) filtered by root flag
+func (c *Config) GetConfigEntries(isRoot bool) []Entry {
+	var result []Entry
+	for _, e := range c.Entries {
+		if e.HasConfig() && e.Root == isRoot {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
+// GetPackageEntries returns entries that have package configuration
+func (c *Config) GetPackageEntries() []Entry {
+	var result []Entry
+	for _, e := range c.Entries {
+		if e.HasPackage() {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
+// GetPaths returns PathSpecs for entries with config (for backward compatibility)
+func (c *Config) GetPaths(isRoot bool) []PathSpec {
+	entries := c.GetConfigEntries(isRoot)
+	result := make([]PathSpec, 0, len(entries))
+	for _, e := range entries {
+		result = append(result, e.ToPathSpec())
+	}
+	return result
+}
+
+// GetPackageSpecs returns PackageSpecs for entries with packages (for backward compatibility)
+func (c *Config) GetPackageSpecs() []PackageSpec {
+	entries := c.GetPackageEntries()
+	result := make([]PackageSpec, 0, len(entries))
+	for _, e := range entries {
+		result = append(result, e.ToPackageSpec())
+	}
+	return result
 }
 
 func expandPath(path string, envVars map[string]string) string {

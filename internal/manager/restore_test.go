@@ -180,8 +180,9 @@ func TestRestoreIntegration(t *testing.T) {
 
 	// Create config
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: backupRoot,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "nvim",
 				Files:  []string{},

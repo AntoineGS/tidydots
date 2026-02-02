@@ -1,0 +1,107 @@
+package config
+
+// Entry is a unified configuration entry that can have config management,
+// package installation, or both.
+type Entry struct {
+	// Common fields
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description,omitempty"`
+	Tags        []string `yaml:"tags,omitempty"`
+	Root        bool     `yaml:"root,omitempty"`
+
+	// Config fields (flat - optional)
+	Files   []string          `yaml:"files,omitempty"`
+	Backup  string            `yaml:"backup,omitempty"`
+	Targets map[string]string `yaml:"targets,omitempty"`
+
+	// Package fields (nested - optional)
+	Package *EntryPackage `yaml:"package,omitempty"`
+}
+
+// EntryPackage contains package installation configuration
+type EntryPackage struct {
+	Managers map[string]string         `yaml:"managers,omitempty"` // manager -> package name
+	Custom   map[string]string         `yaml:"custom,omitempty"`   // os -> command
+	URL      map[string]URLInstallSpec `yaml:"url,omitempty"`      // os -> url install
+}
+
+// HasConfig returns true if this entry has configuration management (backup/targets)
+func (e *Entry) HasConfig() bool {
+	return e.Backup != "" || len(e.Targets) > 0
+}
+
+// HasPackage returns true if this entry has package installation configuration
+func (e *Entry) HasPackage() bool {
+	return e.Package != nil
+}
+
+// IsFolder returns true if this config entry manages an entire folder (no specific files)
+func (e *Entry) IsFolder() bool {
+	return e.HasConfig() && len(e.Files) == 0
+}
+
+// GetTarget returns the target path for the specified OS
+func (e *Entry) GetTarget(osType string) string {
+	if target, ok := e.Targets[osType]; ok {
+		return target
+	}
+	return ""
+}
+
+// ToPathSpec converts the Entry to a PathSpec for backward compatibility
+func (e *Entry) ToPathSpec() PathSpec {
+	return PathSpec{
+		Name:    e.Name,
+		Files:   e.Files,
+		Backup:  e.Backup,
+		Targets: e.Targets,
+	}
+}
+
+// ToPackageSpec converts the Entry to a PackageSpec for backward compatibility
+func (e *Entry) ToPackageSpec() PackageSpec {
+	if e.Package == nil {
+		return PackageSpec{
+			Name:        e.Name,
+			Description: e.Description,
+			Tags:        e.Tags,
+		}
+	}
+	return PackageSpec{
+		Name:        e.Name,
+		Description: e.Description,
+		Managers:    e.Package.Managers,
+		Custom:      e.Package.Custom,
+		URL:         e.Package.URL,
+		Tags:        e.Tags,
+	}
+}
+
+// EntryFromPathSpec creates an Entry from a PathSpec
+func EntryFromPathSpec(p PathSpec, root bool) Entry {
+	return Entry{
+		Name:    p.Name,
+		Root:    root,
+		Files:   p.Files,
+		Backup:  p.Backup,
+		Targets: p.Targets,
+	}
+}
+
+// EntryFromPackageSpec creates an Entry from a PackageSpec
+func EntryFromPackageSpec(p PackageSpec) Entry {
+	var pkg *EntryPackage
+	if len(p.Managers) > 0 || len(p.Custom) > 0 || len(p.URL) > 0 {
+		pkg = &EntryPackage{
+			Managers: p.Managers,
+			Custom:   p.Custom,
+			URL:      p.URL,
+		}
+	}
+	return Entry{
+		Name:        p.Name,
+		Description: p.Description,
+		Tags:        p.Tags,
+		Package:     pkg,
+	}
+}

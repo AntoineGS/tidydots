@@ -35,9 +35,9 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 
 	// Create config
 	cfg := &config.Config{
-		Version:    1,
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{}, // folder mode
@@ -142,9 +142,9 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 
 	// Config with empty backup locations
 	cfg := &config.Config{
-		Version:    1,
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -235,9 +235,9 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 	os.MkdirAll(filepath.Join(repoDir, "zsh"), 0755)
 
 	cfg := &config.Config{
-		Version:    1,
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -283,9 +283,9 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 
 	// Create a new manager for restore (simulating different config pointing to backed up folder)
 	restoreCfg := &config.Config{
-		Version:    1,
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -355,8 +355,9 @@ func TestE2E_RestoreIdempotent(t *testing.T) {
 	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte(nvimConfig), 0644)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -415,8 +416,9 @@ func TestE2E_SymlinkModification(t *testing.T) {
 	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte(originalConfig), 0644)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -489,8 +491,9 @@ func TestE2E_MixedFolderAndFiles(t *testing.T) {
 	os.WriteFile(filepath.Join(shellBackup, ".profile"), []byte("profile"), 0644)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{}, // folder mode
@@ -568,8 +571,9 @@ func TestE2E_DryRunNoChanges(t *testing.T) {
 	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0644)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -618,8 +622,9 @@ func TestE2E_AdoptDryRunPreservesOriginal(t *testing.T) {
 	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte(originalConfig), 0644)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -684,8 +689,9 @@ func TestE2E_SkipAlreadySymlinked(t *testing.T) {
 	initialModTime := initialInfo.ModTime()
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -738,8 +744,9 @@ func TestE2E_MultipleOSTargets(t *testing.T) {
 	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0644)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -787,8 +794,9 @@ func TestE2E_RootPaths(t *testing.T) {
 	os.WriteFile(filepath.Join(systemBackup, "system.conf"), []byte("system config"), 0644)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "user-app",
 				Files:  []string{},
@@ -797,10 +805,9 @@ func TestE2E_RootPaths(t *testing.T) {
 					"linux": filepath.Join(homeDir, ".config", "app"),
 				},
 			},
-		},
-		RootPaths: []config.PathSpec{
 			{
 				Name:   "system-app",
+				Root:   true,
 				Files:  []string{"system.conf"},
 				Backup: "./system",
 				Targets: map[string]string{
@@ -844,8 +851,9 @@ func TestE2E_HooksSkippedOnArch(t *testing.T) {
 	os.MkdirAll(repoDir, 0755)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths:      []config.PathSpec{},
+		Entries:    []config.Entry{},
 		Hooks: config.Hooks{
 			PostRestore: map[string][]config.Hook{
 				"linux": {
@@ -878,8 +886,9 @@ func TestE2E_HooksWithUnknownType(t *testing.T) {
 	os.MkdirAll(repoDir, 0755)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths:      []config.PathSpec{},
+		Entries:    []config.Entry{},
 		Hooks: config.Hooks{
 			PostRestore: map[string][]config.Hook{
 				"linux": {
@@ -912,8 +921,9 @@ func TestE2E_NoHooksForOS(t *testing.T) {
 	os.MkdirAll(repoDir, 0755)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths:      []config.PathSpec{},
+		Entries:    []config.Entry{},
 		Hooks: config.Hooks{
 			PostRestore: map[string][]config.Hook{
 				"windows": {
@@ -944,8 +954,9 @@ func TestE2E_GhosttyTerminfoHookMissingSource(t *testing.T) {
 	os.MkdirAll(repoDir, 0755)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths:      []config.PathSpec{},
+		Entries:    []config.Entry{},
 		Hooks: config.Hooks{
 			PostRestore: map[string][]config.Hook{
 				"linux": {
@@ -979,8 +990,9 @@ func TestE2E_RestoreWithNoTarget(t *testing.T) {
 	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0644)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -1012,8 +1024,9 @@ func TestE2E_BackupWithNoTarget(t *testing.T) {
 	os.MkdirAll(repoDir, 0755)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "windows-only",
 				Files:  []string{},
@@ -1044,8 +1057,9 @@ func TestE2E_BackupNonexistentSource(t *testing.T) {
 	os.MkdirAll(filepath.Join(repoDir, "nvim"), 0755)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},
@@ -1081,8 +1095,9 @@ func TestE2E_RestoreCreatesNestedParentDirs(t *testing.T) {
 	deepTarget := filepath.Join(tmpDir, "home", "user", ".config", "deeply", "nested", "nvim")
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: repoDir,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "neovim",
 				Files:  []string{},

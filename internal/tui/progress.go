@@ -307,16 +307,16 @@ func (m Model) viewListTable() string {
 
 		// Determine type
 		var typeStr string
-		if item.Spec.IsFolder() {
+		if item.Entry.IsFolder() {
 			typeStr = "folder"
 		} else {
-			typeStr = fmt.Sprintf("%d files", len(item.Spec.Files))
+			typeStr = fmt.Sprintf("%d files", len(item.Entry.Files))
 		}
 
 		// Truncate paths if needed (show config-style values with ~)
-		name := truncateStr(item.Spec.Name, nameWidth)
-		backup := truncateStr(item.Spec.Backup, pathWidth)
-		target := truncateStr(unexpandHome(item.Spec.Targets[m.Platform.OS]), pathWidth)
+		name := truncateStr(item.Entry.Name, nameWidth)
+		backup := truncateStr(item.Entry.Backup, pathWidth)
+		target := truncateStr(unexpandHome(item.Entry.Targets[m.Platform.OS]), pathWidth)
 
 		// Build row
 		row := fmt.Sprintf("%-*s  ", nameWidth, name)
@@ -381,7 +381,7 @@ func (m Model) calcDetailHeight(item PathItem) int {
 	lines++
 
 	// Files line (only for non-folders)
-	if !item.Spec.IsFolder() {
+	if !item.Entry.IsFolder() {
 		lines++
 	}
 
@@ -392,7 +392,7 @@ func (m Model) calcDetailHeight(item PathItem) int {
 	lines++
 
 	// One line per target OS
-	lines += len(item.Spec.Targets)
+	lines += len(item.Entry.Targets)
 
 	// Bottom border
 	lines++
@@ -404,7 +404,7 @@ func (m Model) renderInlineDetail(item PathItem, tableWidth int) string {
 	var detail strings.Builder
 
 	// Type and files
-	if item.Spec.IsFolder() {
+	if item.Entry.IsFolder() {
 		detail.WriteString("    │ ")
 		detail.WriteString(MutedTextStyle.Render("Type: "))
 		detail.WriteString(WarningStyle.Render("folder"))
@@ -412,27 +412,27 @@ func (m Model) renderInlineDetail(item PathItem, tableWidth int) string {
 	} else {
 		detail.WriteString("    │ ")
 		detail.WriteString(MutedTextStyle.Render("Type: "))
-		detail.WriteString(fmt.Sprintf("%d files", len(item.Spec.Files)))
+		detail.WriteString(fmt.Sprintf("%d files", len(item.Entry.Files)))
 		detail.WriteString("\n")
 
 		// Files list
 		detail.WriteString("    │ ")
 		detail.WriteString(MutedTextStyle.Render("Files: "))
-		detail.WriteString(strings.Join(item.Spec.Files, ", "))
+		detail.WriteString(strings.Join(item.Entry.Files, ", "))
 		detail.WriteString("\n")
 	}
 
 	// Backup path
 	detail.WriteString("    │ ")
 	detail.WriteString(MutedTextStyle.Render("Backup: "))
-	detail.WriteString(PathBackupStyle.Render(item.Spec.Backup))
+	detail.WriteString(PathBackupStyle.Render(item.Entry.Backup))
 	detail.WriteString("\n")
 
 	// Targets by OS
 	detail.WriteString("    │ ")
 	detail.WriteString(MutedTextStyle.Render("Targets:"))
 	detail.WriteString("\n")
-	for os, target := range item.Spec.Targets {
+	for os, target := range item.Entry.Targets {
 		detail.WriteString("    │   ")
 		osLabel := fmt.Sprintf("%-8s ", os+":")
 		detail.WriteString(MutedTextStyle.Render(osLabel))

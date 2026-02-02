@@ -90,7 +90,7 @@ func (m Model) viewConfirm() string {
 				if count <= 10 {
 					marker := CheckedStyle.Render("  ✓ ")
 					methodInfo := SubtitleStyle.Render(fmt.Sprintf(" (%s)", pkg.Method))
-					b.WriteString(marker + pkg.Spec.Name + methodInfo)
+					b.WriteString(marker + pkg.Entry.Name + methodInfo)
 					b.WriteString("\n")
 				}
 			}
@@ -120,7 +120,7 @@ func (m Model) viewConfirm() string {
 				count++
 				if count <= 10 {
 					marker := CheckedStyle.Render("  ✓ ")
-					b.WriteString(marker + item.Spec.Name)
+					b.WriteString(marker + item.Entry.Name)
 					b.WriteString("\n")
 				}
 			}
@@ -161,7 +161,7 @@ func (m Model) startOperation() tea.Cmd {
 			success, message := m.performRestore(item)
 
 			results = append(results, ResultItem{
-				Name:    item.Spec.Name,
+				Name:    item.Entry.Name,
 				Success: success,
 				Message: message,
 			})
@@ -224,8 +224,12 @@ func (m Model) installNextPackage() tea.Cmd {
 }
 
 func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
+	if pkg.Entry.Package == nil {
+		return nil
+	}
+
 	// Try package managers first
-	if pkgName, ok := pkg.Spec.Managers[pkg.Method]; ok {
+	if pkgName, ok := pkg.Entry.Package.Managers[pkg.Method]; ok {
 		switch pkg.Method {
 		case "pacman":
 			return exec.Command("sudo", "pacman", "-S", "--noconfirm", pkgName)
@@ -250,7 +254,7 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 
 	// Try custom command
 	if pkg.Method == "custom" {
-		if customCmd, ok := pkg.Spec.Custom[m.Platform.OS]; ok {
+		if customCmd, ok := pkg.Entry.Package.Custom[m.Platform.OS]; ok {
 			if m.Platform.OS == "windows" {
 				return exec.Command("powershell", "-Command", customCmd)
 			}
@@ -260,7 +264,7 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 
 	// Try URL install - wrap download + install in a single shell command
 	if pkg.Method == "url" {
-		if urlSpec, ok := pkg.Spec.URL[m.Platform.OS]; ok {
+		if urlSpec, ok := pkg.Entry.Package.URL[m.Platform.OS]; ok {
 			if m.Platform.OS == "windows" {
 				// PowerShell: download to temp, run install command
 				script := fmt.Sprintf(`
@@ -288,12 +292,12 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 }
 
 func (m Model) performRestore(item PathItem) (bool, string) {
-	backupPath := m.resolvePath(item.Spec.Backup)
+	backupPath := m.resolvePath(item.Entry.Backup)
 
-	if item.Spec.IsFolder() {
+	if item.Entry.IsFolder() {
 		return m.restoreFolder(backupPath, item.Target)
 	}
-	return m.restoreFiles(item.Spec.Files, backupPath, item.Target)
+	return m.restoreFiles(item.Entry.Files, backupPath, item.Target)
 }
 
 func (m Model) restoreFolder(source, target string) (bool, string) {

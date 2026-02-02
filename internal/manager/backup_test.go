@@ -189,8 +189,9 @@ func TestBackupIntegration(t *testing.T) {
 	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: backupRoot,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "nvim",
 				Files:  []string{},

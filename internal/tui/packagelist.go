@@ -88,7 +88,7 @@ func (m Model) viewPackageSelect() string {
 		line := fmt.Sprintf("%s %s %s %s",
 			cursor,
 			checkbox,
-			pkg.Spec.Name,
+			pkg.Entry.Name,
 			SubtitleStyle.Render(methodInfo),
 		)
 
@@ -110,9 +110,9 @@ func (m Model) viewPackageSelect() string {
 	// Show description for current item
 	if m.packageCursor < len(m.Packages) {
 		pkg := m.Packages[m.packageCursor]
-		if pkg.Spec.Description != "" {
+		if pkg.Entry.Description != "" {
 			b.WriteString("\n\n")
-			b.WriteString(BoxStyle.Render(pkg.Spec.Description))
+			b.WriteString(BoxStyle.Render(pkg.Entry.Description))
 		}
 	}
 

@@ -188,8 +188,9 @@ func TestAdoptIntegration(t *testing.T) {
 	os.MkdirAll(backupRoot, 0755)
 
 	cfg := &config.Config{
+		Version:    2,
 		BackupRoot: backupRoot,
-		Paths: []config.PathSpec{
+		Entries: []config.Entry{
 			{
 				Name:   "nvim",
 				Files:  []string{},

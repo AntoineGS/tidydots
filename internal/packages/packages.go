@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/AntoineGS/dot-manager/internal/config"
 	"github.com/AntoineGS/dot-manager/internal/platform"
 )
 
@@ -377,4 +378,44 @@ func (m *Manager) GetInstallMethod(pkg Package) string {
 		return "url"
 	}
 	return "none"
+}
+
+// FromEntry creates a Package from a config.Entry
+func FromEntry(e config.Entry) *Package {
+	if e.Package == nil {
+		return nil
+	}
+
+	managers := make(map[PackageManager]string)
+	for k, v := range e.Package.Managers {
+		managers[PackageManager(k)] = v
+	}
+
+	urlInstalls := make(map[string]URLInstall)
+	for k, v := range e.Package.URL {
+		urlInstalls[k] = URLInstall{
+			URL:     v.URL,
+			Command: v.Command,
+		}
+	}
+
+	return &Package{
+		Name:        e.Name,
+		Description: e.Description,
+		Managers:    managers,
+		Custom:      e.Package.Custom,
+		URL:         urlInstalls,
+		Tags:        e.Tags,
+	}
+}
+
+// FromEntries creates a slice of Packages from a slice of config.Entry
+func FromEntries(entries []config.Entry) []Package {
+	var result []Package
+	for _, e := range entries {
+		if pkg := FromEntry(e); pkg != nil {
+			result = append(result, *pkg)
+		}
+	}
+	return result
 }

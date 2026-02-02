@@ -139,14 +139,14 @@ type Model struct {
 }
 
 type PathItem struct {
-	Spec     config.PathSpec
+	Entry    config.Entry
 	Target   string
 	Selected bool
 	State    PathState
 }
 
 type PackageItem struct {
-	Spec     config.PackageSpec
+	Entry    config.Entry
 	Method   string // How it would be installed (pacman, apt, custom, url, none)
 	Selected bool
 }
@@ -158,30 +158,30 @@ type ResultItem struct {
 }
 
 func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
-	paths := cfg.Paths
-	if plat.IsRoot {
-		paths = cfg.RootPaths
-	}
+	// Get config entries for the current user type (root or regular)
+	configEntries := cfg.GetConfigEntries(plat.IsRoot)
 
-	items := make([]PathItem, 0, len(paths))
-	for _, p := range paths {
-		target := p.GetTarget(plat.OS)
+	items := make([]PathItem, 0, len(configEntries))
+	for _, e := range configEntries {
+		target := e.GetTarget(plat.OS)
 		if target != "" {
 			items = append(items, PathItem{
-				Spec:     p,
+				Entry:    e,
 				Target:   target,
 				Selected: true, // Select all by default
 			})
 		}
 	}
 
-	// Initialize packages
-	pkgItems := make([]PackageItem, 0, len(cfg.Packages.Items))
-	for _, pkg := range cfg.Packages.Items {
-		method := getPackageInstallMethod(pkg, plat.OS)
+	// Initialize packages from entries with package configuration
+	packageEntries := cfg.GetPackageEntries()
+	pkgItems := make([]PackageItem, 0, len(packageEntries))
+	for _, e := range packageEntries {
+		spec := e.ToPackageSpec()
+		method := getPackageInstallMethod(spec, plat.OS)
 		if method != "none" {
 			pkgItems = append(pkgItems, PackageItem{
-				Spec:     pkg,
+				Entry:    e,
 				Method:   method,
 				Selected: true, // Select all by default
 			})
@@ -251,7 +251,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case PackageInstallMsg:
 		// Record result
 		m.results = append(m.results, ResultItem{
-			Name:    msg.Package.Spec.Name,
+			Name:    msg.Package.Entry.Name,
 			Success: msg.Success,
 			Message: msg.Message,
 		})
@@ -366,11 +366,11 @@ type PackageInstallMsg struct {
 
 // detectPathState determines the state of a path item
 func (m *Model) detectPathState(item *PathItem) PathState {
-	backupPath := m.resolvePath(item.Spec.Backup)
+	backupPath := m.resolvePath(item.Entry.Backup)
 	targetPath := item.Target
 
 	// For folder-based paths
-	if item.Spec.IsFolder() {
+	if item.Entry.IsFolder() {
 		// Check if target is already a symlink
 		if info, err := os.Lstat(targetPath); err == nil {
 			if info.Mode()&os.ModeSymlink != 0 {
@@ -395,7 +395,7 @@ func (m *Model) detectPathState(item *PathItem) PathState {
 	anyBackup := false
 	anyTarget := false
 
-	for _, file := range item.Spec.Files {
+	for _, file := range item.Entry.Files {
 		srcFile := filepath.Join(backupPath, file)
 		dstFile := filepath.Join(targetPath, file)
 
@@ -416,7 +416,7 @@ func (m *Model) detectPathState(item *PathItem) PathState {
 		}
 	}
 
-	if allLinked && len(item.Spec.Files) > 0 {
+	if allLinked && len(item.Entry.Files) > 0 {
 		return StateLinked
 	}
 	if anyBackup {

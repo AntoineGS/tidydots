@@ -25,10 +25,11 @@ func New(cfg *config.Config, plat *platform.Platform) *Manager {
 }
 
 func (m *Manager) GetPaths() []config.PathSpec {
-	if m.Platform.IsRoot {
-		return m.Config.RootPaths
-	}
-	return m.Config.Paths
+	return m.Config.GetPaths(m.Platform.IsRoot)
+}
+
+func (m *Manager) GetEntries() []config.Entry {
+	return m.Config.GetConfigEntries(m.Platform.IsRoot)
 }
 
 func (m *Manager) log(format string, args ...interface{}) {

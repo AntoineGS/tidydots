@@ -104,7 +104,7 @@ func (m Model) viewPathSelect() string {
 		if isSelected {
 			nameStyle = SelectedListItemStyle
 		}
-		name := nameStyle.Render(item.Spec.Name)
+		name := nameStyle.Render(item.Entry.Name)
 
 		// State badge (only for Restore operation)
 		stateBadge := ""
@@ -114,7 +114,7 @@ func (m Model) viewPathSelect() string {
 
 		// Badge for folders
 		folderBadge := ""
-		if item.Spec.IsFolder() {
+		if item.Entry.IsFolder() {
 			folderBadge = FolderBadgeStyle.Render("folder")
 		}
 
@@ -125,7 +125,7 @@ func (m Model) viewPathSelect() string {
 		// Show target on selected line
 		if isSelected {
 			targetLine := fmt.Sprintf("      %s → %s",
-				PathBackupStyle.Render(truncatePath(m.resolvePath(item.Spec.Backup), 30)),
+				PathBackupStyle.Render(truncatePath(m.resolvePath(item.Entry.Backup), 30)),
 				PathTargetStyle.Render(truncatePath(item.Target, 30)),
 			)
 			b.WriteString(targetLine)

@@ -48,20 +48,20 @@ func (m *Model) initAddFormWithIndex(editIndex int) {
 
 	// Populate with existing data if editing
 	if editIndex >= 0 && editIndex < len(m.Paths) {
-		spec := m.Paths[editIndex].Spec
-		nameInput.SetValue(spec.Name)
-		if target, ok := spec.Targets["linux"]; ok {
+		entry := m.Paths[editIndex].Entry
+		nameInput.SetValue(entry.Name)
+		if target, ok := entry.Targets["linux"]; ok {
 			linuxTargetInput.SetValue(target)
 		}
-		if target, ok := spec.Targets["windows"]; ok {
+		if target, ok := entry.Targets["windows"]; ok {
 			windowsTargetInput.SetValue(target)
 		}
-		backupInput.SetValue(spec.Backup)
-		isFolder = spec.IsFolder()
+		backupInput.SetValue(entry.Backup)
+		isFolder = entry.IsFolder()
 		if !isFolder {
 			// Copy the files slice
-			files = make([]string, len(spec.Files))
-			copy(files, spec.Files)
+			files = make([]string, len(entry.Files))
+			copy(files, entry.Files)
 		}
 	}
 
@@ -772,7 +772,7 @@ func (m Model) renderSuggestions() string {
 	return b.String()
 }
 
-// saveNewPath validates the form and saves the new path to the config
+// saveNewPath validates the form and saves the new entry to the config
 func (m *Model) saveNewPath() error {
 	name := strings.TrimSpace(m.addForm.nameInput.Value())
 	linuxTarget := strings.TrimSpace(m.addForm.linuxTargetInput.Value())
@@ -791,13 +791,13 @@ func (m *Model) saveNewPath() error {
 	}
 
 	// Check for duplicate names (skip the item being edited)
-	for i, p := range m.Config.Paths {
-		if p.Name == name && i != m.addForm.editIndex {
-			return fmt.Errorf("a path with name '%s' already exists", name)
+	for i, e := range m.Config.Entries {
+		if e.Name == name && i != m.addForm.editIndex {
+			return fmt.Errorf("an entry with name '%s' already exists", name)
 		}
 	}
 
-	// Create PathSpec with targets
+	// Create targets map
 	targets := make(map[string]string)
 	if linuxTarget != "" {
 		targets["linux"] = linuxTarget
@@ -816,17 +816,30 @@ func (m *Model) saveNewPath() error {
 		copy(files, m.addForm.files)
 	}
 
-	newPath := config.PathSpec{
+	newEntry := config.Entry{
 		Name:    name,
 		Files:   files,
 		Backup:  backup,
 		Targets: targets,
 	}
 
-	// Editing existing path
+	// Editing existing entry
 	if m.addForm.editIndex >= 0 {
-		// Update in config
-		m.Config.Paths[m.addForm.editIndex] = newPath
+		// Find and update the entry in config
+		// First, find which entry index this corresponds to
+		configIdx := m.findConfigEntryIndex(m.addForm.editIndex)
+		if configIdx >= 0 {
+			// Preserve package info if it exists
+			if m.Config.Entries[configIdx].Package != nil {
+				newEntry.Package = m.Config.Entries[configIdx].Package
+			}
+			// Preserve other fields
+			newEntry.Description = m.Config.Entries[configIdx].Description
+			newEntry.Tags = m.Config.Entries[configIdx].Tags
+			newEntry.Root = m.Config.Entries[configIdx].Root
+
+			m.Config.Entries[configIdx] = newEntry
+		}
 
 		// Save config to file
 		if err := config.Save(m.Config, m.ConfigPath); err != nil {
@@ -834,10 +847,10 @@ func (m *Model) saveNewPath() error {
 		}
 
 		// Update the Paths slice in the model
-		currentTarget := newPath.GetTarget(m.Platform.OS)
+		currentTarget := newEntry.GetTarget(m.Platform.OS)
 		if currentTarget != "" {
 			m.Paths[m.addForm.editIndex] = PathItem{
-				Spec:     newPath,
+				Entry:    newEntry,
 				Target:   currentTarget,
 				Selected: true,
 			}
@@ -848,21 +861,21 @@ func (m *Model) saveNewPath() error {
 		return nil
 	}
 
-	// Adding new path
-	m.Config.Paths = append(m.Config.Paths, newPath)
+	// Adding new entry
+	m.Config.Entries = append(m.Config.Entries, newEntry)
 
 	// Save config to file
 	if err := config.Save(m.Config, m.ConfigPath); err != nil {
-		// Remove the path we just added since save failed
-		m.Config.Paths = m.Config.Paths[:len(m.Config.Paths)-1]
+		// Remove the entry we just added since save failed
+		m.Config.Entries = m.Config.Entries[:len(m.Config.Entries)-1]
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
 	// Update the Paths slice in the model (only if current platform has a target)
-	currentTarget := newPath.GetTarget(m.Platform.OS)
+	currentTarget := newEntry.GetTarget(m.Platform.OS)
 	if currentTarget != "" {
 		m.Paths = append(m.Paths, PathItem{
-			Spec:     newPath,
+			Entry:    newEntry,
 			Target:   currentTarget,
 			Selected: true,
 		})
@@ -872,4 +885,18 @@ func (m *Model) saveNewPath() error {
 	}
 
 	return nil
+}
+
+// findConfigEntryIndex finds the config entry index corresponding to a Paths slice index
+func (m *Model) findConfigEntryIndex(pathsIndex int) int {
+	if pathsIndex < 0 || pathsIndex >= len(m.Paths) {
+		return -1
+	}
+	entryName := m.Paths[pathsIndex].Entry.Name
+	for i, e := range m.Config.Entries {
+		if e.Name == entryName {
+			return i
+		}
+	}
+	return -1
 }

@@ -40,11 +40,10 @@ func TestNew(t *testing.T) {
 func TestGetPaths(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{
-		Paths: []config.PathSpec{
-			{Name: "user-path"},
-		},
-		RootPaths: []config.PathSpec{
-			{Name: "root-path"},
+		Version: 2,
+		Entries: []config.Entry{
+			{Name: "user-path", Backup: "./user", Targets: map[string]string{"linux": "~/.config"}},
+			{Name: "root-path", Root: true, Backup: "./root", Targets: map[string]string{"linux": "/etc"}},
 		},
 	}
 
