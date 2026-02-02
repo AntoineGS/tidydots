@@ -49,7 +49,8 @@ var (
 	ListItemStyle = lipgloss.NewStyle()
 
 	SelectedListItemStyle = lipgloss.NewStyle().
-				Foreground(primaryColor).
+				Foreground(textColor).
+				Background(primaryColor).
 				Bold(true)
 
 	CheckedStyle = lipgloss.NewStyle().
