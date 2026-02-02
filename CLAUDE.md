@@ -90,3 +90,39 @@ entries:
 - `-n, --dry-run` - Preview without changes
 - `-v, --verbose` - Verbose output
 - `-i` - Interactive TUI mode (for restore, backup, install)
+
+### TUI Patterns (internal/tui/)
+
+The TUI uses Bubble Tea with consistent interaction patterns across all components:
+
+**Two-Phase Editing for Text Fields**
+All text inputs use a two-phase approach:
+1. **Navigation mode**: Field is focused but not editable. Use `↑/k` and `↓/j` to navigate between fields.
+2. **Edit mode**: Press `enter` or `e` to enter edit mode. The text input becomes active and accepts typing. Press `enter` to save or `esc` to cancel.
+
+This applies to: name, description, targets, backup path, repo URL, branch, file list items, and filter values.
+
+**Consistent Keybindings**
+- `↑/k`, `↓/j` - Navigate between fields/items (vim-style)
+- `←/h`, `→/l` - Navigate horizontally (for selections like include/exclude)
+- `enter`, `e` - Enter edit mode or activate item
+- `esc` - Cancel/go back (exits edit mode first, then exits screen)
+- `tab`, `shift+tab` - Navigate forward/backward through fields
+- `space` - Toggle boolean fields
+- `d`, `delete`, `backspace` - Delete list items
+- `s`, `ctrl+s` - Save form
+
+**Visual States** (see `styles.go`)
+- **Unfocused**: Plain text or `MutedTextStyle` for placeholders
+- **Focused (not editing)**: `SelectedMenuItemStyle` highlight
+- **Editing**: Show the `textinput.Model.View()` with cursor
+
+**List Field Pattern** (files, filters)
+List fields have their own cursor (`filesCursor`, `filtersCursor`) separate from `focusIndex`:
+- When focused on a list field, `↑/k` and `↓/j` navigate within the list
+- At list boundaries, navigation moves to adjacent form fields
+- `enter`/`e` on an item enters edit mode for that item
+- `enter`/`e` on "Add" button starts adding a new item
+
+**Help Text**
+Use `RenderHelp()` to show context-sensitive help. Update help based on current state (editing vs navigating). Include vim-style keys alongside arrows (e.g., `"↑/k ↓/j", "navigate"`).
