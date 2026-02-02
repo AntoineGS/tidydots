@@ -116,6 +116,11 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Delegate to 2-level app view if using v3 config with Applications
+	if m.Operation == OpList && m.Config.Version == 3 && len(m.Applications) > 0 {
+		return m.updateApplicationSelect(msg)
+	}
+
 	switch msg.String() {
 	case "/":
 		// Enter filter mode
@@ -278,6 +283,10 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) viewResults() string {
 	// Use table view for List operation
 	if m.Operation == OpList {
+		// Use 2-level hierarchical view for v3 configs, flat table for v2
+		if m.Config.Version == 3 && len(m.Applications) > 0 {
+			return m.viewApplicationSelect()
+		}
 		return m.viewListTable()
 	}
 

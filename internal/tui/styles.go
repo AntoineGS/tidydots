@@ -98,8 +98,7 @@ var (
 				MarginLeft(1)
 
 	StateBadgeLinkedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#fff")).
-				Background(primaryColor). // Purple
+				Foreground(mutedColor).
 				Padding(0, 1).
 				MarginLeft(1)
 

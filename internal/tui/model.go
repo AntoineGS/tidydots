@@ -157,16 +157,17 @@ type Model struct {
 	ConfigPath string // Path to config file for saving
 	Platform   *platform.Platform
 	FilterCtx  *config.FilterContext // Filter context for entry filtering
-	Manager    *manager.Manager
-	Paths      []PathItem
-	Packages   []PackageItem
-	DryRun     bool
-
+	Manager      *manager.Manager
+	Paths        []PathItem
+	Packages     []PackageItem
+	Applications []ApplicationItem // 2-level hierarchical view for v3 configs
+	DryRun       bool
 
 	// UI state
 	menuCursor    int
 	pathCursor    int
 	packageCursor int
+	appCursor     int  // Cursor for 2-level application view (counts both app and sub-entry rows)
 	scrollOffset  int
 	viewHeight    int
 	listCursor    int  // Cursor for list table view
@@ -221,6 +222,25 @@ type PackageItem struct {
 	Entry    config.Entry
 	Method   string // How it would be installed (pacman, apt, custom, url, none)
 	Selected bool
+}
+
+// ApplicationItem represents a top-level application with sub-entries
+type ApplicationItem struct {
+	Application  config.Application
+	Selected     bool
+	Expanded     bool
+	SubItems     []SubEntryItem
+	PkgMethod    string // How package would be installed (pacman, apt, custom, url, none)
+	PkgInstalled *bool  // nil = no package, true = installed, false = not installed
+}
+
+// SubEntryItem represents a sub-entry within an application (config or git)
+type SubEntryItem struct {
+	SubEntry config.SubEntry
+	Target   string
+	Selected bool
+	State    PathState
+	AppName  string // Parent application name for context
 }
 
 type ResultItem struct {
