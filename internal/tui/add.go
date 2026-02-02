@@ -1953,12 +1953,39 @@ func (m *Model) saveNewPath() error {
 	}
 
 	// Adding new entry
-	m.Config.Entries = append(m.Config.Entries, newEntry)
+	if m.Config.Version == 3 {
+		// v3: Wrap in Application with SubEntry
+		app := config.Application{
+			Name:        newEntry.Name,
+			Description: newEntry.Description,
+			Package:     newEntry.Package,
+			Filters:     newEntry.Filters,
+			Entries: []config.SubEntry{
+				{
+					Name:    newEntry.Name,
+					Backup:  newEntry.Backup,
+					Targets: newEntry.Targets,
+					Files:   newEntry.Files,
+					Repo:    newEntry.Repo,
+					Branch:  newEntry.Branch,
+					Sudo:    newEntry.Sudo,
+				},
+			},
+		}
+		m.Config.Applications = append(m.Config.Applications, app)
+	} else {
+		// v2: Add as flat entry
+		m.Config.Entries = append(m.Config.Entries, newEntry)
+	}
 
 	// Save config to file
 	if err := config.Save(m.Config, m.ConfigPath); err != nil {
 		// Remove the entry we just added since save failed
-		m.Config.Entries = m.Config.Entries[:len(m.Config.Entries)-1]
+		if m.Config.Version == 3 {
+			m.Config.Applications = m.Config.Applications[:len(m.Config.Applications)-1]
+		} else {
+			m.Config.Entries = m.Config.Entries[:len(m.Config.Entries)-1]
+		}
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
