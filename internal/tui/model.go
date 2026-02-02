@@ -129,6 +129,10 @@ type Model struct {
 	processing bool
 	err        error
 
+	// Package installation state (for sequential tea.Exec calls)
+	pendingPackages     []PackageItem
+	currentPackageIndex int
+
 	// Window size
 	width  int
 	height int
@@ -244,6 +248,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case PackageInstallMsg:
+		// Record result
+		m.results = append(m.results, ResultItem{
+			Name:    msg.Package.Spec.Name,
+			Success: msg.Success,
+			Message: msg.Message,
+		})
+		m.currentPackageIndex++
+
+		// Check if there are more packages to install
+		if m.currentPackageIndex < len(m.pendingPackages) {
+			return m, m.installNextPackage()
+		}
+
+		// All done
+		m.processing = false
+		m.pendingPackages = nil
+		m.currentPackageIndex = 0
+		m.Screen = ScreenResults
+		return m, nil
+
 	case OperationCompleteMsg:
 		m.processing = false
 		m.results = msg.Results
@@ -328,6 +353,14 @@ func (m Model) View() string {
 // Messages
 type OperationCompleteMsg struct {
 	Results []ResultItem
+	Err     error
+}
+
+// PackageInstallMsg is sent after each individual package installation completes
+type PackageInstallMsg struct {
+	Package PackageItem
+	Success bool
+	Message string
 	Err     error
 }
 

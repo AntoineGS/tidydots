@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -17,6 +16,28 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.Screen = ScreenProgress
 		m.processing = true
 		m.results = nil
+
+		if m.Operation == OpInstallPackages {
+			// Initialize package installation state
+			m.pendingPackages = nil
+			m.currentPackageIndex = 0
+
+			for _, pkg := range m.Packages {
+				if pkg.Selected {
+					m.pendingPackages = append(m.pendingPackages, pkg)
+				}
+			}
+
+			if len(m.pendingPackages) == 0 {
+				return m, func() tea.Msg {
+					return OperationCompleteMsg{Results: nil, Err: nil}
+				}
+			}
+
+			// Start installing the first package
+			return m, m.installNextPackage()
+		}
+
 		return m, m.startOperation()
 	case "n", "N", "esc":
 		if m.Operation == OpInstallPackages {
@@ -128,38 +149,22 @@ func (m Model) viewConfirm() string {
 }
 
 func (m Model) startOperation() tea.Cmd {
+	// Handle path operations (restore) - these don't need sudo
 	return func() tea.Msg {
 		var results []ResultItem
 
-		if m.Operation == OpInstallPackages {
-			// Handle package installation
-			for _, pkg := range m.Packages {
-				if !pkg.Selected {
-					continue
-				}
-
-				success, message := m.performPackageInstall(pkg)
-				results = append(results, ResultItem{
-					Name:    pkg.Spec.Name,
-					Success: success,
-					Message: message,
-				})
+		for _, item := range m.Paths {
+			if !item.Selected {
+				continue
 			}
-		} else {
-			// Handle path operations (restore)
-			for _, item := range m.Paths {
-				if !item.Selected {
-					continue
-				}
 
-				success, message := m.performRestore(item)
+			success, message := m.performRestore(item)
 
-				results = append(results, ResultItem{
-					Name:    item.Spec.Name,
-					Success: success,
-					Message: message,
-				})
-			}
+			results = append(results, ResultItem{
+				Name:    item.Spec.Name,
+				Success: success,
+				Message: message,
+			})
 		}
 
 		return OperationCompleteMsg{
@@ -167,6 +172,119 @@ func (m Model) startOperation() tea.Cmd {
 			Err:     nil,
 		}
 	}
+}
+
+func (m Model) installNextPackage() tea.Cmd {
+	if m.currentPackageIndex >= len(m.pendingPackages) {
+		return nil
+	}
+
+	pkg := m.pendingPackages[m.currentPackageIndex]
+
+	// Handle dry run
+	if m.DryRun {
+		return func() tea.Msg {
+			return PackageInstallMsg{
+				Package: pkg,
+				Success: true,
+				Message: fmt.Sprintf("Would install via %s", pkg.Method),
+			}
+		}
+	}
+
+	// Build the command
+	cmd := m.buildInstallCommand(pkg)
+	if cmd == nil {
+		return func() tea.Msg {
+			return PackageInstallMsg{
+				Package: pkg,
+				Success: false,
+				Message: "No installation method available",
+			}
+		}
+	}
+
+	// Use tea.ExecProcess to properly suspend the TUI and give terminal control to the command
+	// This allows sudo to prompt for password correctly
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		if err != nil {
+			return PackageInstallMsg{
+				Package: pkg,
+				Success: false,
+				Message: fmt.Sprintf("Installation failed: %v", err),
+				Err:     err,
+			}
+		}
+		return PackageInstallMsg{
+			Package: pkg,
+			Success: true,
+			Message: fmt.Sprintf("Installed via %s", pkg.Method),
+		}
+	})
+}
+
+func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
+	// Try package managers first
+	if pkgName, ok := pkg.Spec.Managers[pkg.Method]; ok {
+		switch pkg.Method {
+		case "pacman":
+			return exec.Command("sudo", "pacman", "-S", "--noconfirm", pkgName)
+		case "yay":
+			return exec.Command("yay", "-S", "--noconfirm", pkgName)
+		case "paru":
+			return exec.Command("paru", "-S", "--noconfirm", pkgName)
+		case "apt":
+			return exec.Command("sudo", "apt-get", "install", "-y", pkgName)
+		case "dnf":
+			return exec.Command("sudo", "dnf", "install", "-y", pkgName)
+		case "brew":
+			return exec.Command("brew", "install", pkgName)
+		case "winget":
+			return exec.Command("winget", "install", "--accept-package-agreements", "--accept-source-agreements", pkgName)
+		case "scoop":
+			return exec.Command("scoop", "install", pkgName)
+		case "choco":
+			return exec.Command("choco", "install", "-y", pkgName)
+		}
+	}
+
+	// Try custom command
+	if pkg.Method == "custom" {
+		if customCmd, ok := pkg.Spec.Custom[m.Platform.OS]; ok {
+			if m.Platform.OS == "windows" {
+				return exec.Command("powershell", "-Command", customCmd)
+			}
+			return exec.Command("sh", "-c", customCmd)
+		}
+	}
+
+	// Try URL install - wrap download + install in a single shell command
+	if pkg.Method == "url" {
+		if urlSpec, ok := pkg.Spec.URL[m.Platform.OS]; ok {
+			if m.Platform.OS == "windows" {
+				// PowerShell: download to temp, run install command
+				script := fmt.Sprintf(`
+					$tmpFile = [System.IO.Path]::GetTempFileName()
+					Invoke-WebRequest -Uri '%s' -OutFile $tmpFile
+					$command = '%s' -replace '\{file\}', $tmpFile
+					Invoke-Expression $command
+					Remove-Item $tmpFile -ErrorAction SilentlyContinue
+				`, urlSpec.URL, urlSpec.Command)
+				return exec.Command("powershell", "-Command", script)
+			}
+			// Unix: download to temp, chmod, run install command, cleanup
+			script := fmt.Sprintf(`
+				tmpfile=$(mktemp)
+				trap "rm -f $tmpfile" EXIT
+				curl -fsSL -o "$tmpfile" '%s' && \
+				chmod +x "$tmpfile" && \
+				%s
+			`, urlSpec.URL, strings.ReplaceAll(urlSpec.Command, "{file}", "$tmpfile"))
+			return exec.Command("sh", "-c", script)
+		}
+	}
+
+	return nil
 }
 
 func (m Model) performRestore(item PathItem) (bool, string) {
@@ -376,132 +494,4 @@ func copyFileSimple(src, dst string) error {
 	}
 
 	return os.WriteFile(dst, data, info.Mode())
-}
-
-func (m Model) performPackageInstall(pkg PackageItem) (bool, string) {
-	if m.DryRun {
-		return true, fmt.Sprintf("Would install via %s", pkg.Method)
-	}
-
-	// Try package managers first
-	if pkgName, ok := pkg.Spec.Managers[pkg.Method]; ok {
-		return m.installWithManager(pkg.Method, pkgName)
-	}
-
-	// Try custom command
-	if cmd, ok := pkg.Spec.Custom[m.Platform.OS]; ok {
-		return m.runCustomCommand(cmd)
-	}
-
-	// Try URL install
-	if urlSpec, ok := pkg.Spec.URL[m.Platform.OS]; ok {
-		return m.installFromURL(urlSpec)
-	}
-
-	return false, "No installation method available"
-}
-
-func (m Model) installWithManager(manager, pkgName string) (bool, string) {
-	var cmd *exec.Cmd
-
-	switch manager {
-	case "pacman":
-		cmd = exec.Command("sudo", "pacman", "-S", "--noconfirm", pkgName)
-	case "yay":
-		cmd = exec.Command("yay", "-S", "--noconfirm", pkgName)
-	case "paru":
-		cmd = exec.Command("paru", "-S", "--noconfirm", pkgName)
-	case "apt":
-		cmd = exec.Command("sudo", "apt-get", "install", "-y", pkgName)
-	case "dnf":
-		cmd = exec.Command("sudo", "dnf", "install", "-y", pkgName)
-	case "brew":
-		cmd = exec.Command("brew", "install", pkgName)
-	case "winget":
-		cmd = exec.Command("winget", "install", "--accept-package-agreements", "--accept-source-agreements", pkgName)
-	case "scoop":
-		cmd = exec.Command("scoop", "install", pkgName)
-	case "choco":
-		cmd = exec.Command("choco", "install", "-y", pkgName)
-	default:
-		return false, fmt.Sprintf("Unknown package manager: %s", manager)
-	}
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if err := cmd.Run(); err != nil {
-		return false, fmt.Sprintf("Installation failed: %v", err)
-	}
-
-	return true, fmt.Sprintf("Installed via %s", manager)
-}
-
-func (m Model) runCustomCommand(command string) (bool, string) {
-	var cmd *exec.Cmd
-	if m.Platform.OS == "windows" {
-		cmd = exec.Command("powershell", "-Command", command)
-	} else {
-		cmd = exec.Command("sh", "-c", command)
-	}
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if err := cmd.Run(); err != nil {
-		return false, fmt.Sprintf("Custom command failed: %v", err)
-	}
-
-	return true, "Installed via custom command"
-}
-
-func (m Model) installFromURL(urlSpec config.URLInstallSpec) (bool, string) {
-	// Create temp file
-	tmpFile, err := os.CreateTemp("", "dot-manager-*")
-	if err != nil {
-		return false, fmt.Sprintf("Failed to create temp file: %v", err)
-	}
-	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
-
-	// Download file
-	var downloadCmd *exec.Cmd
-	if m.Platform.OS == "windows" {
-		downloadCmd = exec.Command("powershell", "-Command",
-			fmt.Sprintf("Invoke-WebRequest -Uri '%s' -OutFile '%s'", urlSpec.URL, tmpPath))
-	} else {
-		downloadCmd = exec.Command("curl", "-fsSL", "-o", tmpPath, urlSpec.URL)
-	}
-
-	if err := downloadCmd.Run(); err != nil {
-		return false, fmt.Sprintf("Download failed: %v", err)
-	}
-
-	// Make executable on Unix
-	if m.Platform.OS != "windows" {
-		os.Chmod(tmpPath, 0755)
-	}
-
-	// Run install command
-	command := strings.ReplaceAll(urlSpec.Command, "{file}", tmpPath)
-
-	var installCmd *exec.Cmd
-	if m.Platform.OS == "windows" {
-		installCmd = exec.Command("powershell", "-Command", command)
-	} else {
-		installCmd = exec.Command("sh", "-c", command)
-	}
-
-	installCmd.Stdout = os.Stdout
-	installCmd.Stderr = os.Stderr
-	installCmd.Stdin = os.Stdin
-
-	if err := installCmd.Run(); err != nil {
-		return false, fmt.Sprintf("Install command failed: %v", err)
-	}
-
-	return true, "Installed via URL"
 }
