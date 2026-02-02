@@ -123,7 +123,7 @@ func (m Model) viewPackageSelect() string {
 		"a", "all",
 		"n", "none",
 		"enter", "confirm",
-		"esc", "back",
+		"q", "back",
 	))
 
 	return BaseStyle.Render(b.String())

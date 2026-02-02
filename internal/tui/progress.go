@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Layout constants for list table view
@@ -35,22 +36,58 @@ func (m Model) viewProgress() string {
 }
 
 func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle filter mode input
+	if m.Operation == OpList && m.filtering {
+		switch msg.String() {
+		case "esc":
+			// Clear filter and exit filter mode
+			m.filtering = false
+			m.filterText = ""
+			m.filterInput.SetValue("")
+			m.filterInput.Blur()
+			// Reset cursor and scroll to beginning
+			m.listCursor = 0
+			m.scrollOffset = 0
+			return m, nil
+		case "enter":
+			// Confirm filter and return to navigation mode
+			m.filtering = false
+			m.filterInput.Blur()
+			return m, nil
+		default:
+			// Pass key to text input
+			var cmd tea.Cmd
+			m.filterInput, cmd = m.filterInput.Update(msg)
+			m.filterText = m.filterInput.Value()
+			// Reset cursor when filter changes
+			m.listCursor = 0
+			m.scrollOffset = 0
+			return m, cmd
+		}
+	}
+
 	// Handle delete confirmation
 	if m.Operation == OpList && m.confirmingDelete {
 		switch msg.String() {
 		case "y", "Y", "enter":
-			// Confirm delete
+			// Confirm delete - get real index from filtered list
 			m.confirmingDelete = false
-			if err := m.deleteEntry(m.listCursor); err == nil {
-				// Adjust cursor if needed
-				if m.listCursor >= len(m.Paths) && m.listCursor > listStartIndex {
-					m.listCursor--
-				}
-				// Adjust scroll offset if needed
-				if m.scrollOffset > listStartIndex && m.scrollOffset >= len(m.Paths) {
-					m.scrollOffset = len(m.Paths) - 1
-					if m.scrollOffset < listStartIndex {
-						m.scrollOffset = listStartIndex
+			filteredIndices := m.getFilteredPaths()
+			if m.listCursor < len(filteredIndices) {
+				realIdx := filteredIndices[m.listCursor]
+				if err := m.deleteEntry(realIdx); err == nil {
+					// Recalculate filtered indices after deletion
+					newFiltered := m.getFilteredPaths()
+					// Adjust cursor if needed
+					if m.listCursor >= len(newFiltered) && m.listCursor > 0 {
+						m.listCursor--
+					}
+					// Adjust scroll offset if needed
+					if m.scrollOffset > 0 && m.scrollOffset >= len(newFiltered) {
+						m.scrollOffset = len(newFiltered) - 1
+						if m.scrollOffset < 0 {
+							m.scrollOffset = 0
+						}
 					}
 				}
 			}
@@ -67,9 +104,11 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.Operation == OpList && m.showingDetail {
 		switch msg.String() {
 		case "esc", "enter", "h", "left":
+			// Close detail popup (ESC cancels/closes the popup)
 			m.showingDetail = false
 			return m, nil
 		case "q":
+			// q closes popup and goes back to menu
 			m.showingDetail = false
 			m.Screen = ScreenMenu
 			return m, nil
@@ -78,13 +117,21 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
+	case "/":
+		// Enter filter mode
+		if m.Operation == OpList && !m.confirmingDelete && !m.showingDetail {
+			m.filtering = true
+			m.filterInput.Focus()
+			return m, nil
+		}
 	case "q":
 		if m.Operation == OpList {
 			m.Screen = ScreenMenu
 			return m, nil
 		}
 		return m, tea.Quit
-	case "esc", "h", "left":
+	case "h", "left":
+		// h/left navigate back (same as q for list view)
 		if m.Operation == OpList {
 			m.Screen = ScreenMenu
 			return m, nil
@@ -101,10 +148,14 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "e":
 		// Edit selected path (only in List view)
-		if m.Operation == OpList && len(m.Paths) > 0 {
-			m.initAddFormWithIndex(m.listCursor)
-			m.Screen = ScreenAddForm
-			return m, nil
+		if m.Operation == OpList {
+			filteredIndices := m.getFilteredPaths()
+			if len(filteredIndices) > 0 && m.listCursor < len(filteredIndices) {
+				realIdx := filteredIndices[m.listCursor]
+				m.initAddFormWithIndex(realIdx)
+				m.Screen = ScreenAddForm
+				return m, nil
+			}
 		}
 	case "a":
 		// Add new path (only in List view)
@@ -115,26 +166,33 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "d", "delete", "backspace":
 		// Ask for delete confirmation (only in List view)
-		if m.Operation == OpList && len(m.Paths) > listStartIndex {
-			m.confirmingDelete = true
-			return m, nil
+		if m.Operation == OpList {
+			filteredIndices := m.getFilteredPaths()
+			if len(filteredIndices) > 0 {
+				m.confirmingDelete = true
+				return m, nil
+			}
 		}
 	case "i":
 		// Install package for selected entry (only in List view)
-		if m.Operation == OpList && len(m.Paths) > 0 {
-			item := m.Paths[m.listCursor]
-			if item.PkgInstalled != nil && !*item.PkgInstalled {
-				// Setup for package installation
-				m.Operation = OpInstallPackages
-				m.pendingPackages = []PackageItem{{
-					Entry:    item.Entry,
-					Method:   item.PkgMethod,
-					Selected: true,
-				}}
-				m.currentPackageIndex = 0
-				m.results = nil
-				m.Screen = ScreenProgress
-				return m, m.installNextPackage()
+		if m.Operation == OpList {
+			filteredIndices := m.getFilteredPaths()
+			if len(filteredIndices) > 0 && m.listCursor < len(filteredIndices) {
+				realIdx := filteredIndices[m.listCursor]
+				item := m.Paths[realIdx]
+				if item.PkgInstalled != nil && !*item.PkgInstalled {
+					// Setup for package installation
+					m.Operation = OpInstallPackages
+					m.pendingPackages = []PackageItem{{
+						Entry:    item.Entry,
+						Method:   item.PkgMethod,
+						Selected: true,
+					}}
+					m.currentPackageIndex = 0
+					m.results = nil
+					m.Screen = ScreenProgress
+					return m, m.installNextPackage()
+				}
 			}
 		}
 		return m, nil
@@ -163,21 +221,25 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		// Restore selected entry (only in List view for config/git entries)
-		if m.Operation == OpList && len(m.Paths) > 0 {
-			item := m.Paths[m.listCursor]
-			// Only restore config or git entries (not package-only)
-			if item.EntryType != EntryTypePackage {
-				success, message := m.performRestore(item)
-				// Update the state after restore
-				if success {
-					m.Paths[m.listCursor].State = m.detectPathState(&m.Paths[m.listCursor])
+		if m.Operation == OpList {
+			filteredIndices := m.getFilteredPaths()
+			if len(filteredIndices) > 0 && m.listCursor < len(filteredIndices) {
+				realIdx := filteredIndices[m.listCursor]
+				item := m.Paths[realIdx]
+				// Only restore config or git entries (not package-only)
+				if item.EntryType != EntryTypePackage {
+					success, message := m.performRestore(item)
+					// Update the state after restore
+					if success {
+						m.Paths[realIdx].State = m.detectPathState(&m.Paths[realIdx])
+					}
+					// Show result briefly in results
+					m.results = []ResultItem{{
+						Name:    item.Entry.Name,
+						Success: success,
+						Message: message,
+					}}
 				}
-				// Show result briefly in results
-				m.results = []ResultItem{{
-					Name:    item.Entry.Name,
-					Success: success,
-					Message: message,
-				}}
 			}
 		}
 		return m, nil
@@ -194,7 +256,8 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "down", "j":
 		if m.Operation == OpList {
-			if m.listCursor < len(m.Paths)-1 {
+			filteredIndices := m.getFilteredPaths()
+			if m.listCursor < len(filteredIndices)-1 {
 				m.listCursor++
 				// Scroll down if cursor goes below visible area
 				// Use same calculation as viewListTable for visible rows
@@ -314,7 +377,19 @@ func (m Model) viewListTable() string {
 
 	// Title
 	b.WriteString(TitleStyle.Render("󰋗  Manage"))
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+
+	// Filter input (show when filtering or when filter is active)
+	if m.filtering || m.filterText != "" {
+		b.WriteString("  / ")
+		if m.filtering {
+			b.WriteString(m.filterInput.View())
+		} else {
+			b.WriteString(FilterInputStyle.Render(m.filterText))
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
 
 	// Calculate column widths based on terminal width
 	// Reserve space for: padding (4) + cursor (2) + separators (10) + minimum content
@@ -355,14 +430,23 @@ func (m Model) viewListTable() string {
 	b.WriteString(MutedTextStyle.Render(separator))
 	b.WriteString("\n")
 
+	// Get filtered paths
+	filteredIndices := m.getFilteredPaths()
+	totalFiltered := len(filteredIndices)
+
 	// Calculate detail height if showing
 	detailHeight := 0
-	if m.showingDetail && m.listCursor < len(m.Paths) {
-		detailHeight = m.calcDetailHeight(m.Paths[m.listCursor])
+	if m.showingDetail && m.listCursor < totalFiltered {
+		realIdx := filteredIndices[m.listCursor]
+		detailHeight = m.calcDetailHeight(m.Paths[realIdx])
 	}
 
 	// Calculate how many table rows can fit
 	maxTableRows := m.viewHeight - listTableOverhead
+	// Account for filter bar
+	if m.filtering || m.filterText != "" {
+		maxTableRows--
+	}
 	if maxTableRows < minVisibleRows {
 		maxTableRows = minVisibleRows
 	}
@@ -375,12 +459,15 @@ func (m Model) viewListTable() string {
 			maxVisible = minVisibleWithDetail
 		}
 	}
-	if maxVisible > len(m.Paths) {
-		maxVisible = len(m.Paths)
+	if maxVisible > totalFiltered {
+		maxVisible = totalFiltered
 	}
 
 	// Keep the same scroll offset - don't change start when toggling detail
 	start := m.scrollOffset
+	if start >= totalFiltered {
+		start = 0
+	}
 
 	// Ensure cursor is visible within the reduced window when detail is showing
 	if m.showingDetail {
@@ -395,12 +482,13 @@ func (m Model) viewListTable() string {
 	}
 
 	end := start + maxVisible
-	if end > len(m.Paths) {
-		end = len(m.Paths)
+	if end > totalFiltered {
+		end = totalFiltered
 	}
 
 	for i := start; i < end; i++ {
-		item := m.Paths[i]
+		realIdx := filteredIndices[i]
+		item := m.Paths[realIdx]
 		isSelected := i == m.listCursor
 		cursor := RenderCursor(isSelected)
 
@@ -454,26 +542,44 @@ func (m Model) viewListTable() string {
 		name = truncateStr(name, maxNameLen) + suffix
 		target := truncateStr(unexpandHome(item.Entry.Targets[m.Platform.OS]), pathWidth)
 
-		// Build row with fixed-width columns
-		row := fmt.Sprintf("%-*s  %-*s  ",
-			nameWidth, name,
-			typeWidth, typeStr)
+		// Build row with fixed-width columns and optional highlighting
+		var rowBuilder strings.Builder
 
-		// Add package indicator (no styling here - will be styled with whole row)
-		row += pkgIndicator
-		row += "  " // separator after pkg column
-
-		row += fmt.Sprintf("%-*s  %-*s",
-			pathWidth, sourceStr,
-			pathWidth, target)
-
-		// Apply styling based on selection (cursor always outside styled content)
-		// Style the row first, then add colored package indicator separately if needed
+		// Choose base style based on selection
+		baseStyle := MutedTextStyle
 		if isSelected {
-			b.WriteString(cursor + SelectedListItemStyle.Render(row))
-		} else {
-			b.WriteString(cursor + MutedTextStyle.Render(row))
+			baseStyle = SelectedListItemStyle
 		}
+
+		// Render each column with highlighting if filter is active
+		if m.filterText != "" {
+			// Pad strings to fixed width for alignment
+			namePadded := fmt.Sprintf("%-*s", nameWidth, name)
+			typePadded := fmt.Sprintf("%-*s", typeWidth, typeStr)
+			sourcePadded := fmt.Sprintf("%-*s", pathWidth, sourceStr)
+			targetPadded := fmt.Sprintf("%-*s", pathWidth, target)
+
+			rowBuilder.WriteString(highlightText(namePadded, m.filterText, baseStyle))
+			rowBuilder.WriteString(baseStyle.Render("  "))
+			rowBuilder.WriteString(highlightText(typePadded, m.filterText, baseStyle))
+			rowBuilder.WriteString(baseStyle.Render("  "))
+			rowBuilder.WriteString(baseStyle.Render(pkgIndicator))
+			rowBuilder.WriteString(baseStyle.Render("  "))
+			rowBuilder.WriteString(highlightText(sourcePadded, m.filterText, baseStyle))
+			rowBuilder.WriteString(baseStyle.Render("  "))
+			rowBuilder.WriteString(highlightText(targetPadded, m.filterText, baseStyle))
+		} else {
+			// No filter - render row as single styled string
+			row := fmt.Sprintf("%-*s  %-*s  %s  %-*s  %-*s",
+				nameWidth, name,
+				typeWidth, typeStr,
+				pkgIndicator,
+				pathWidth, sourceStr,
+				pathWidth, target)
+			rowBuilder.WriteString(baseStyle.Render(row))
+		}
+
+		b.WriteString(cursor + rowBuilder.String())
 		b.WriteString("\n")
 
 		// Show inline detail panel below selected row
@@ -484,14 +590,20 @@ func (m Model) viewListTable() string {
 
 	// Scroll indicators (always show line, even if empty, for consistent height)
 	scrollInfo := ""
-	if start > 0 || end < len(m.Paths) {
-		scrollInfo = fmt.Sprintf("Showing %d-%d of %d", start+1, end, len(m.Paths))
+	if start > 0 || end < totalFiltered {
+		if m.filterText != "" {
+			scrollInfo = fmt.Sprintf("Showing %d-%d of %d (filtered)", start+1, end, totalFiltered)
+		} else {
+			scrollInfo = fmt.Sprintf("Showing %d-%d of %d", start+1, end, totalFiltered)
+		}
 		if start > 0 {
 			scrollInfo = "↑ " + scrollInfo
 		}
-		if end < len(m.Paths) {
+		if end < totalFiltered {
 			scrollInfo = scrollInfo + " ↓"
 		}
+	} else if m.filterText != "" && totalFiltered < len(m.Paths) {
+		scrollInfo = fmt.Sprintf("Showing %d of %d (filtered)", totalFiltered, len(m.Paths))
 	}
 	b.WriteString(SubtitleStyle.Render(scrollInfo))
 	b.WriteString("\n")
@@ -500,18 +612,25 @@ func (m Model) viewListTable() string {
 	b.WriteString("\n")
 	if m.confirmingDelete {
 		// Show delete confirmation prompt
-		if m.listCursor < len(m.Paths) {
-			name := m.Paths[m.listCursor].Entry.Name
+		if m.listCursor < totalFiltered {
+			realIdx := filteredIndices[m.listCursor]
+			name := m.Paths[realIdx].Entry.Name
 			b.WriteString(WarningStyle.Render(fmt.Sprintf("Delete '%s'? ", name)))
 			b.WriteString(RenderHelpWithWidth(m.width, "y/enter", "yes", "n/esc", "no"))
 		}
+	} else if m.filtering {
+		b.WriteString(RenderHelpWithWidth(m.width,
+			"enter", "confirm",
+			"esc", "clear",
+		))
 	} else if m.showingDetail {
 		b.WriteString(RenderHelpWithWidth(m.width,
 			"h/←/esc", "close",
-			"q", "back",
+			"q", "menu",
 		))
 	} else {
 		b.WriteString(RenderHelpWithWidth(m.width,
+			"/", "filter",
 			"l/→", "details",
 			"a", "add",
 			"e", "edit",
@@ -726,6 +845,89 @@ func (m Model) renderInlineDetail(item PathItem, tableWidth int) string {
 	detail.WriteString("\n")
 
 	return detail.String()
+}
+
+// getFilteredPaths returns indices of paths that match the filter text
+func (m Model) getFilteredPaths() []int {
+	if m.filterText == "" {
+		// Return all indices
+		indices := make([]int, len(m.Paths))
+		for i := range m.Paths {
+			indices[i] = i
+		}
+		return indices
+	}
+
+	filterLower := strings.ToLower(m.filterText)
+	var indices []int
+	for i, item := range m.Paths {
+		// Search in name, type, source, and target
+		name := strings.ToLower(item.Entry.Name)
+		target := strings.ToLower(item.Entry.Targets[m.Platform.OS])
+		source := ""
+		typeStr := ""
+
+		switch item.EntryType {
+		case EntryTypeGit:
+			typeStr = "git"
+			source = strings.ToLower(item.Entry.Repo)
+		case EntryTypePackage:
+			typeStr = "package"
+			source = strings.ToLower(item.PkgMethod)
+		default:
+			if item.Entry.IsFolder() {
+				typeStr = "folder"
+			} else {
+				typeStr = "files"
+			}
+			source = strings.ToLower(item.Entry.Backup)
+		}
+
+		// Check if filter matches any visible field
+		if strings.Contains(name, filterLower) ||
+			strings.Contains(typeStr, filterLower) ||
+			strings.Contains(source, filterLower) ||
+			strings.Contains(target, filterLower) {
+			indices = append(indices, i)
+		}
+	}
+	return indices
+}
+
+// highlightText returns the text with matching portions highlighted
+func highlightText(text, filter string, baseStyle lipgloss.Style) string {
+	if filter == "" {
+		return baseStyle.Render(text)
+	}
+
+	filterLower := strings.ToLower(filter)
+	textLower := strings.ToLower(text)
+
+	var result strings.Builder
+	lastEnd := 0
+
+	for {
+		idx := strings.Index(textLower[lastEnd:], filterLower)
+		if idx == -1 {
+			// No more matches, append remaining text
+			result.WriteString(baseStyle.Render(text[lastEnd:]))
+			break
+		}
+
+		// Append text before match
+		matchStart := lastEnd + idx
+		if matchStart > lastEnd {
+			result.WriteString(baseStyle.Render(text[lastEnd:matchStart]))
+		}
+
+		// Append highlighted match
+		matchEnd := matchStart + len(filter)
+		result.WriteString(FilterHighlightStyle.Render(text[matchStart:matchEnd]))
+
+		lastEnd = matchEnd
+	}
+
+	return result.String()
 }
 
 func truncateStr(s string, maxLen int) string {

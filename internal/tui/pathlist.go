@@ -141,7 +141,7 @@ func (m Model) viewPathSelect() string {
 		"space", "toggle",
 		"a/n/i", "all/none/invert",
 		"enter", "confirm",
-		"esc", "back",
+		"q", "back",
 	))
 
 	return BaseStyle.Render(b.String())

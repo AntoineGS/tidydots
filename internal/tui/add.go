@@ -184,7 +184,7 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m, tea.Quit
 
-	case "esc":
+	case "q":
 		// Return to list if editing, menu if adding
 		if m.addForm.editIndex >= 0 {
 			m.Screen = ScreenResults
@@ -462,7 +462,7 @@ func (m Model) updateFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m, tea.Quit
 
-	case "esc":
+	case "q":
 		// Return to list if editing, menu if adding
 		if m.addForm.editIndex >= 0 {
 			m.Screen = ScreenResults
@@ -598,7 +598,7 @@ func (m Model) updateFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m, tea.Quit
 
-	case "esc":
+	case "q":
 		// Return to list if editing, menu if adding
 		if m.addForm.editIndex >= 0 {
 			m.Screen = ScreenResults
@@ -1522,13 +1522,13 @@ func (m Model) renderAddFormHelp() string {
 			return RenderHelp(
 					"enter/e", "edit",
 				"d/del", "remove",
-				"esc", "back",
+				"q", "back",
 			)
 		}
 		return RenderHelp(
 			"enter/e", "add file",
 			"s", "save",
-			"esc", "back",
+			"q", "back",
 		)
 	}
 	if ft == fieldTypeFilters {
@@ -1538,13 +1538,13 @@ func (m Model) renderAddFormHelp() string {
 					"enter", "edit",
 				"d/del", "remove",
 				"s", "save",
-				"esc", "back",
+				"q", "back",
 			)
 		}
 		return RenderHelp(
 			"enter", "add filter",
 			"s", "save",
-			"esc", "back",
+			"q", "back",
 		)
 	}
 	if m.isTextInputField() {
@@ -1552,7 +1552,7 @@ func (m Model) renderAddFormHelp() string {
 		return RenderHelp(
 			"enter/e", "edit",
 			"s", "save",
-			"esc", "back",
+			"q", "back",
 		)
 	}
 	if m.isToggleField() {
@@ -1560,13 +1560,13 @@ func (m Model) renderAddFormHelp() string {
 		return RenderHelp(
 			"enter/space", "toggle",
 			"s", "save",
-			"esc", "back",
+			"q", "back",
 		)
 	}
 	return RenderHelp(
 		"enter/e", "edit",
 		"s", "save",
-		"esc", "back",
+		"q", "back",
 	)
 }
 

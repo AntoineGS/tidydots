@@ -167,6 +167,11 @@ type Model struct {
 	// Confirmation state for list view
 	confirmingDelete bool // Whether we're confirming a delete
 
+	// Filter state for list view
+	filtering   bool              // Whether we're in filter mode
+	filterInput textinput.Model   // Text input for filter
+	filterText  string            // Current filter text (for highlighting)
+
 	// Add form
 	addForm AddForm
 
@@ -319,17 +324,23 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 		}
 	}
 
+	// Initialize filter input
+	filterInput := textinput.New()
+	filterInput.Placeholder = "type to filter..."
+	filterInput.CharLimit = 100
+
 	m := Model{
-		Screen:     ScreenMenu,
-		Config:     cfg,
-		Platform:   plat,
-		FilterCtx:  filterCtx,
-		Paths:      items,
-		Packages:   pkgItems,
-		DryRun:     dryRun,
-		viewHeight: 15,
-		width:      80,
-		height:     24,
+		Screen:      ScreenMenu,
+		Config:      cfg,
+		Platform:    plat,
+		FilterCtx:   filterCtx,
+		Paths:       items,
+		Packages:    pkgItems,
+		DryRun:      dryRun,
+		viewHeight:  15,
+		width:       80,
+		height:      24,
+		filterInput: filterInput,
 	}
 
 	// Detect initial path states
@@ -463,13 +474,12 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "esc":
-		// Let the Results screen handle ESC when in List view
+		// ESC is only for canceling operations, not navigation
+		// Let screens that need it handle it (filter mode, delete confirmation, detail popup)
 		if m.Screen == ScreenResults && m.Operation == OpList {
 			return m.updateResults(msg)
 		}
-		if m.Screen != ScreenMenu && !m.processing {
-			m.Screen = ScreenMenu
-		}
+		// For other screens, ESC does nothing (use q to go back)
 		return m, nil
 	}
 

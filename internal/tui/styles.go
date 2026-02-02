@@ -150,6 +150,17 @@ var (
 	// Spinner
 	SpinnerStyle = lipgloss.NewStyle().
 			Foreground(primaryColor)
+
+	// Filter styles
+	FilterInputStyle = lipgloss.NewStyle().
+				Foreground(textColor).
+				Background(lipgloss.Color("#1F2937")).
+				Padding(0, 1)
+
+	FilterHighlightStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#000")).
+				Background(accentColor).
+				Bold(true)
 )
 
 func RenderHelp(keys ...string) string {
