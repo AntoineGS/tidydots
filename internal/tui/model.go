@@ -162,6 +162,10 @@ type Model struct {
 	Packages   []PackageItem
 	DryRun     bool
 
+	// v3 structure
+	Applications []ApplicationItem // For v3 config format
+	appCursor    int               // Cursor for application list (v3)
+
 	// UI state
 	menuCursor    int
 	pathCursor    int
@@ -214,6 +218,27 @@ type PathItem struct {
 	// Package fields
 	PkgMethod    string // How package would be installed (pacman, apt, custom, url, none)
 	PkgInstalled *bool  // nil = no package, true = installed, false = not installed
+}
+
+// ApplicationItem represents an application in the 2-level table
+type ApplicationItem struct {
+	Application config.Application
+	Selected    bool
+	Expanded    bool // Whether sub-items are shown
+	SubItems    []SubEntryItem
+
+	// Package fields
+	PkgMethod    string
+	PkgInstalled *bool
+}
+
+// SubEntryItem represents a sub-entry (config or git) under an application
+type SubEntryItem struct {
+	SubEntry     config.SubEntry
+	Target       string
+	Selected     bool
+	State        PathState // Ready, Adopt, Missing, Linked
+	AppName      string    // Parent application name
 }
 
 type PackageItem struct {
@@ -352,6 +377,11 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 
 	// Detect initial path states
 	m.refreshPathStates()
+
+	// Initialize v3 application items if using v3 config
+	if cfg.Version == 3 {
+		m.initApplicationItems()
+	}
 
 	return m
 }
@@ -494,6 +524,9 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case ScreenMenu:
 		return m.updateMenu(msg)
 	case ScreenPathSelect:
+		if m.Config.Version == 3 {
+			return m.updateApplicationSelect(msg)
+		}
 		return m.updatePathSelect(msg)
 	case ScreenPackageSelect:
 		return m.updatePackageSelect(msg)
@@ -511,6 +544,9 @@ func (m Model) View() string {
 	case ScreenMenu:
 		return m.viewMenu()
 	case ScreenPathSelect:
+		if m.Config.Version == 3 {
+			return m.viewApplicationSelect()
+		}
 		return m.viewPathSelect()
 	case ScreenPackageSelect:
 		return m.viewPackageSelect()
