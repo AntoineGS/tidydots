@@ -221,6 +221,14 @@ func (m *Model) getVisibleRowCount() int {
 	return count
 }
 
+// padRight pads a string with spaces to the right to reach the specified width
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
+}
+
 // getAggregateState returns the worst state among all sub-entries in an application
 func (m Model) getAggregateState(app ApplicationItem) PathState {
 	if len(app.SubItems) == 0 {
@@ -702,18 +710,62 @@ func (m Model) viewListTable() string {
 		end = totalVisibleRows
 	}
 
+	// Calculate column widths for alignment
+	filtered := m.getFilteredApplications()
+	maxAppNameWidth := 0
+	maxSubNameWidth := 0
+	maxTypeWidth := 0
+	maxSourceWidth := 0
+
+	for _, app := range filtered {
+		if len(app.Application.Name) > maxAppNameWidth {
+			maxAppNameWidth = len(app.Application.Name)
+		}
+		if app.Expanded {
+			for _, subItem := range app.SubItems {
+				if len(subItem.SubEntry.Name) > maxSubNameWidth {
+					maxSubNameWidth = len(subItem.SubEntry.Name)
+				}
+
+				// Type info width
+				typeInfo := ""
+				if subItem.SubEntry.IsGit() {
+					typeInfo = "git"
+				} else if subItem.SubEntry.IsFolder() {
+					typeInfo = "folder"
+				} else {
+					fileCount := len(subItem.SubEntry.Files)
+					if fileCount == 1 {
+						typeInfo = "1 file"
+					} else {
+						typeInfo = fmt.Sprintf("%d files", fileCount)
+					}
+				}
+				if len(typeInfo) > maxTypeWidth {
+					maxTypeWidth = len(typeInfo)
+				}
+
+				// Source path width
+				sourcePath := ""
+				if subItem.SubEntry.IsGit() {
+					sourcePath = truncateStr(subItem.SubEntry.Repo, 30)
+				} else {
+					sourcePath = truncateStr(m.resolvePath(subItem.SubEntry.Backup), 30)
+				}
+				if len(sourcePath) > maxSourceWidth {
+					maxSourceWidth = len(sourcePath)
+				}
+			}
+		}
+	}
+
 	// Render hierarchical tree structure
 	visualRow := 0
-	for _, app := range m.Applications {
+	for _, app := range filtered {
 		// Render Application row
 		if visualRow >= start && visualRow < end {
 			isSelected := visualRow == m.appCursor
 			cursor := RenderCursor(isSelected)
-
-			nameStyle := ListItemStyle
-			if isSelected {
-				nameStyle = SelectedListItemStyle
-			}
 
 			// Aggregate state for app (show worst state among sub-entries)
 			aggregateState := m.getAggregateState(app)
@@ -726,19 +778,31 @@ func (m Model) viewListTable() string {
 			var pkgIndicator string
 			if app.PkgInstalled != nil {
 				if *app.PkgInstalled {
-					pkgIndicator = " ✓"
+					pkgIndicator = "✓"
 				} else {
-					pkgIndicator = " ✗"
+					pkgIndicator = "✗"
 				}
 			} else {
-				pkgIndicator = ""
+				pkgIndicator = " "
 			}
 
-			line := fmt.Sprintf("%s%s %s  %s%s",
+			// Pad to column widths before applying styles
+			paddedName := padRight(app.Application.Name, maxAppNameWidth)
+			paddedCount := padRight(entryCount, 12) // Fixed width for entry count
+
+			// Apply styles after padding
+			nameStyled := paddedName
+			if isSelected {
+				nameStyled = SelectedListItemStyle.Render(paddedName)
+			} else {
+				nameStyled = ListItemStyle.Render(paddedName)
+			}
+
+			line := fmt.Sprintf("%s%s  %s  %s  %s",
 				cursor,
-				nameStyle.Render(app.Application.Name),
+				nameStyled,
 				stateBadge,
-				MutedTextStyle.Render(entryCount),
+				MutedTextStyle.Render(paddedCount),
 				pkgIndicator)
 			b.WriteString(line)
 			b.WriteString("\n")
@@ -764,11 +828,6 @@ func (m Model) viewListTable() string {
 
 					// Cursor or spacing
 					cursor := RenderCursor(isSelected)
-
-					nameStyle := ListItemStyle
-					if isSelected {
-						nameStyle = SelectedListItemStyle
-					}
 
 					// Type info
 					typeInfo := ""
@@ -796,12 +855,25 @@ func (m Model) viewListTable() string {
 					// Target path
 					targetPath := truncateStr(subItem.Target, 30)
 
+					// Pad to column widths before applying styles
+					paddedName := padRight(subItem.SubEntry.Name, maxSubNameWidth)
+					paddedType := padRight(typeInfo, maxTypeWidth)
+					paddedSource := padRight(sourcePath, maxSourceWidth)
+
+					// Apply styles after padding
+					nameStyled := paddedName
+					if isSelected {
+						nameStyled = SelectedListItemStyle.Render(paddedName)
+					} else {
+						nameStyled = ListItemStyle.Render(paddedName)
+					}
+
 					line := fmt.Sprintf("%s  %s %s  %s  %s  %s",
 						cursor,
 						treePrefix,
-						nameStyle.Render(subItem.SubEntry.Name),
-						MutedTextStyle.Render(typeInfo),
-						PathBackupStyle.Render(sourcePath),
+						nameStyled,
+						MutedTextStyle.Render(paddedType),
+						PathBackupStyle.Render(paddedSource),
 						PathTargetStyle.Render(targetPath))
 					b.WriteString(line)
 					b.WriteString("\n")
