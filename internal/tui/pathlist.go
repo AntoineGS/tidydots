@@ -155,16 +155,17 @@ func truncatePath(path string, maxLen int) string {
 }
 
 func renderStateBadge(state PathState) string {
-	// Pad to 7 chars (length of "Missing") for consistent alignment
+	// Render styled text, then pad to 7 chars (length of "Missing") for consistent alignment
+	// Padding is added AFTER styling so spaces aren't highlighted
 	switch state {
 	case StateReady:
-		return StateBadgeReadyStyle.Render("Ready  ")
+		return StateBadgeReadyStyle.Render("Ready") + "  "
 	case StateAdopt:
-		return StateBadgeAdoptStyle.Render("Adopt  ")
+		return StateBadgeAdoptStyle.Render("Adopt") + "  "
 	case StateMissing:
 		return StateBadgeMissingStyle.Render("Missing")
 	case StateLinked:
-		return StateBadgeLinkedStyle.Render("Linked ")
+		return StateBadgeLinkedStyle.Render("Linked") + " "
 	}
 	return "       " // 7 spaces for empty state
 }
