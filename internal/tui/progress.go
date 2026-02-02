@@ -545,10 +545,13 @@ func (m Model) viewListTable() string {
 		// Build row with fixed-width columns and optional highlighting
 		var rowBuilder strings.Builder
 
-		// Choose base style based on selection
-		baseStyle := MutedTextStyle
+		// Choose styles based on selection
+		// Name uses a non-muted style, rest uses muted
+		nameStyle := PathNameStyle
+		restStyle := MutedTextStyle
 		if isSelected {
-			baseStyle = SelectedListItemStyle
+			nameStyle = SelectedListItemStyle
+			restStyle = SelectedListItemStyle
 		}
 
 		// Render each column with highlighting if filter is active
@@ -559,24 +562,25 @@ func (m Model) viewListTable() string {
 			sourcePadded := fmt.Sprintf("%-*s", pathWidth, sourceStr)
 			targetPadded := fmt.Sprintf("%-*s", pathWidth, target)
 
-			rowBuilder.WriteString(highlightText(namePadded, m.filterText, baseStyle))
-			rowBuilder.WriteString(baseStyle.Render("  "))
-			rowBuilder.WriteString(highlightText(typePadded, m.filterText, baseStyle))
-			rowBuilder.WriteString(baseStyle.Render("  "))
-			rowBuilder.WriteString(baseStyle.Render(pkgIndicator))
-			rowBuilder.WriteString(baseStyle.Render("  "))
-			rowBuilder.WriteString(highlightText(sourcePadded, m.filterText, baseStyle))
-			rowBuilder.WriteString(baseStyle.Render("  "))
-			rowBuilder.WriteString(highlightText(targetPadded, m.filterText, baseStyle))
+			rowBuilder.WriteString(highlightText(namePadded, m.filterText, nameStyle))
+			rowBuilder.WriteString(restStyle.Render("  "))
+			rowBuilder.WriteString(highlightText(typePadded, m.filterText, restStyle))
+			rowBuilder.WriteString(restStyle.Render("  "))
+			rowBuilder.WriteString(restStyle.Render(pkgIndicator))
+			rowBuilder.WriteString(restStyle.Render("  "))
+			rowBuilder.WriteString(highlightText(sourcePadded, m.filterText, restStyle))
+			rowBuilder.WriteString(restStyle.Render("  "))
+			rowBuilder.WriteString(highlightText(targetPadded, m.filterText, restStyle))
 		} else {
-			// No filter - render row as single styled string
-			row := fmt.Sprintf("%-*s  %-*s  %s  %-*s  %-*s",
-				nameWidth, name,
+			// No filter - render name with nameStyle, rest with restStyle
+			namePadded := fmt.Sprintf("%-*s", nameWidth, name)
+			restOfRow := fmt.Sprintf("  %-*s  %s  %-*s  %-*s",
 				typeWidth, typeStr,
 				pkgIndicator,
 				pathWidth, sourceStr,
 				pathWidth, target)
-			rowBuilder.WriteString(baseStyle.Render(row))
+			rowBuilder.WriteString(nameStyle.Render(namePadded))
+			rowBuilder.WriteString(restStyle.Render(restOfRow))
 		}
 
 		b.WriteString(cursor + rowBuilder.String())
