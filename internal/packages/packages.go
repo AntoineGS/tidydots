@@ -11,7 +11,10 @@ import (
 	"github.com/AntoineGS/dot-manager/internal/platform"
 )
 
-// PackageManager represents a supported package manager
+// PackageManager represents a supported package manager identifier.
+// It is used to specify which package manager should be used for installing
+// a package, such as pacman, apt, brew, winget, etc. The supported values
+// are defined as constants (Pacman, Yay, Paru, Apt, Dnf, Brew, Winget, Scoop, Choco).
 type PackageManager string
 
 const (
@@ -26,7 +29,12 @@ const (
 	Choco  PackageManager = "choco"
 )
 
-// Package represents a package to install
+// Package represents a package to install with multiple installation methods.
+// A package can be installed via a package manager (Managers), a custom shell
+// command (Custom), or by downloading from a URL (URL). The installation method
+// is selected based on availability, with package managers tried first, then
+// custom commands, and finally URL-based installation. Filters can be used to
+// conditionally include the package based on OS, distro, hostname, or user.
 type Package struct {
 	Name        string                    `yaml:"name"`
 	Description string                    `yaml:"description,omitempty"`
@@ -36,20 +44,31 @@ type Package struct {
 	Filters     []config.Filter           `yaml:"filters,omitempty"`
 }
 
-// URLInstall represents installation from a URL
+// URLInstall represents installation from a URL with download and command execution.
+// The URL field specifies where to download the installer file, and the Command
+// field specifies the shell command to run after download. Use {file} as a
+// placeholder in Command to reference the downloaded file path.
 type URLInstall struct {
 	URL     string `yaml:"url"`
 	Command string `yaml:"command"` // Command to run after download, use {file} as placeholder
 }
 
-// PackagesConfig holds the packages configuration
+// PackagesConfig holds the packages configuration including the list of packages
+// to manage, default package manager settings, and priority ordering for manager
+// selection. DefaultManager specifies which manager to prefer when multiple are
+// available, and ManagerPriority allows fine-grained control over the order in
+// which package managers are tried.
 type PackagesConfig struct {
 	Packages        []Package        `yaml:"packages"`
 	DefaultManager  PackageManager   `yaml:"default_manager,omitempty"`
 	ManagerPriority []PackageManager `yaml:"manager_priority,omitempty"`
 }
 
-// Manager handles package installation
+// Manager handles package installation with platform detection and manager selection.
+// It detects available package managers on the system, selects a preferred manager
+// based on configuration and OS, and provides methods to install packages using
+// the appropriate installation method. It supports dry-run mode for previewing
+// operations and verbose mode for detailed output.
 type Manager struct {
 	Config    *PackagesConfig
 	OS        string
@@ -59,7 +78,11 @@ type Manager struct {
 	Preferred PackageManager
 }
 
-// NewManager creates a new package manager
+// NewManager creates a new package Manager with the given configuration.
+// It detects available package managers on the system and selects a preferred
+// manager based on the configuration priority, default manager setting, or
+// OS-specific defaults. The osType parameter specifies the target OS (linux/windows),
+// and dryRun/verbose control the execution mode.
 func NewManager(cfg *PackagesConfig, osType string, dryRun, verbose bool) *Manager {
 	m := &Manager{
 		Config:  cfg,
@@ -114,7 +137,8 @@ func (m *Manager) selectPreferredManager() {
 	}
 }
 
-// HasManager checks if a package manager is available
+// HasManager checks if a package manager is available on the system.
+// It returns true if the specified manager was detected during initialization.
 func (m *Manager) HasManager(mgr PackageManager) bool {
 	for _, available := range m.Available {
 		if available == mgr {
@@ -124,7 +148,10 @@ func (m *Manager) HasManager(mgr PackageManager) bool {
 	return false
 }
 
-// InstallResult represents the result of an installation
+// InstallResult represents the result of a package installation attempt.
+// It contains the package name, whether the installation succeeded, a message
+// describing the outcome, and the method used (e.g., "pacman", "custom", "url").
+// This is returned by Install and InstallAll methods to report installation status.
 type InstallResult struct {
 	Package string
 	Success bool
@@ -132,7 +159,10 @@ type InstallResult struct {
 	Method  string // e.g., "pacman", "custom", "url"
 }
 
-// Install installs a single package
+// Install installs a single package using the best available method.
+// It tries package managers first (in order of availability), then custom
+// commands, and finally URL-based installation. Returns an InstallResult
+// indicating success or failure with a descriptive message.
 func (m *Manager) Install(pkg Package) InstallResult {
 	result := InstallResult{Package: pkg.Name}
 
@@ -300,7 +330,9 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 	return true, "Installed via URL"
 }
 
-// InstallAll installs all packages
+// InstallAll installs all packages in the provided slice sequentially.
+// It returns a slice of InstallResult, one for each package, indicating
+// the success or failure of each installation.
 func (m *Manager) InstallAll(packages []Package) []InstallResult {
 	var results []InstallResult
 	for _, pkg := range packages {
@@ -309,7 +341,9 @@ func (m *Manager) InstallAll(packages []Package) []InstallResult {
 	return results
 }
 
-// FilterPackages returns packages that match the given filter context
+// FilterPackages returns packages that match the given filter context.
+// It evaluates each package's Filters against the context (OS, distro,
+// hostname, user) and returns only those that match.
 func FilterPackages(packages []Package, ctx *config.FilterContext) []Package {
 	var result []Package
 	for _, pkg := range packages {
@@ -320,7 +354,9 @@ func FilterPackages(packages []Package, ctx *config.FilterContext) []Package {
 	return result
 }
 
-// CanInstall checks if a package can be installed on this system
+// CanInstall checks if a package can be installed on this system.
+// It returns true if any of the package's installation methods (manager,
+// custom command, or URL) are available for the current OS and package managers.
 func (m *Manager) CanInstall(pkg Package) bool {
 	// Check managers
 	for _, mgr := range m.Available {
@@ -339,7 +375,9 @@ func (m *Manager) CanInstall(pkg Package) bool {
 	return false
 }
 
-// GetInstallablePackages returns packages that can be installed on this system
+// GetInstallablePackages returns packages from the configuration that can be
+// installed on this system. It filters the configured packages to only those
+// with at least one available installation method.
 func (m *Manager) GetInstallablePackages() []Package {
 	var result []Package
 	for _, pkg := range m.Config.Packages {
@@ -350,7 +388,10 @@ func (m *Manager) GetInstallablePackages() []Package {
 	return result
 }
 
-// GetInstallMethod returns the method that would be used to install a package
+// GetInstallMethod returns the method that would be used to install a package.
+// It returns the name of the first available package manager, "custom" if a
+// custom command is available, "url" for URL-based installation, or "none"
+// if no installation method is available.
 func (m *Manager) GetInstallMethod(pkg Package) string {
 	for _, mgr := range m.Available {
 		if _, ok := pkg.Managers[mgr]; ok {
@@ -366,7 +407,10 @@ func (m *Manager) GetInstallMethod(pkg Package) string {
 	return "none"
 }
 
-// FromEntry creates a Package from a config.Entry
+// FromEntry creates a Package from a config.Entry.
+// It converts the entry's package configuration into a Package struct,
+// mapping managers and URL install configurations. Returns nil if the
+// entry does not have a package configuration.
 func FromEntry(e config.Entry) *Package {
 	if e.Package == nil {
 		return nil
@@ -395,7 +439,9 @@ func FromEntry(e config.Entry) *Package {
 	}
 }
 
-// FromEntries creates a slice of Packages from a slice of config.Entry
+// FromEntries creates a slice of Packages from a slice of config.Entry.
+// It filters the entries to only those with package configurations and
+// converts each to a Package struct.
 func FromEntries(entries []config.Entry) []Package {
 	var result []Package
 	for _, e := range entries {

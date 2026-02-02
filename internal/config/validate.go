@@ -19,6 +19,22 @@ func (e ValidationError) Error() string {
 	return fmt.Sprintf("entry '%s': %s", e.EntryName, e.Message)
 }
 
+// ValidatePath checks a path for potential security issues.
+// It returns an error if the path contains null bytes or suspicious patterns.
+func ValidatePath(path string) error {
+	// Check for null bytes
+	if strings.ContainsRune(path, '\x00') {
+		return fmt.Errorf("path contains null byte")
+	}
+
+	// Check for path traversal patterns
+	if strings.Contains(path, "..") {
+		return fmt.Errorf("path contains traversal pattern '..'")
+	}
+
+	return nil
+}
+
 // ValidateEntry validates a single entry
 func ValidateEntry(e *Entry) error {
 	// Name is required
@@ -84,6 +100,14 @@ func validateConfigFields(e *Entry) error {
 		}
 	}
 
+	if err := ValidatePath(e.Backup); err != nil {
+		return ValidationError{
+			EntryName: e.Name,
+			Field:     "backup",
+			Message:   err.Error(),
+		}
+	}
+
 	// At least one target is required
 	if len(e.Targets) == 0 {
 		return ValidationError{
@@ -102,6 +126,13 @@ func validateConfigFields(e *Entry) error {
 				Message:   "target path cannot be empty",
 			}
 		}
+		if err := ValidatePath(target); err != nil {
+			return ValidationError{
+				EntryName: e.Name,
+				Field:     fmt.Sprintf("targets.%s", os),
+				Message:   err.Error(),
+			}
+		}
 	}
 
 	return nil
@@ -109,6 +140,14 @@ func validateConfigFields(e *Entry) error {
 
 func validateGitFields(e *Entry) error {
 	// Repo is already validated by IsGit() being true
+
+	if err := ValidatePath(e.Repo); err != nil {
+		return ValidationError{
+			EntryName: e.Name,
+			Field:     "repo",
+			Message:   err.Error(),
+		}
+	}
 
 	// At least one target is required for git entries
 	if len(e.Targets) == 0 {
@@ -126,6 +165,13 @@ func validateGitFields(e *Entry) error {
 				EntryName: e.Name,
 				Field:     fmt.Sprintf("targets.%s", os),
 				Message:   "target path cannot be empty",
+			}
+		}
+		if err := ValidatePath(target); err != nil {
+			return ValidationError{
+				EntryName: e.Name,
+				Field:     fmt.Sprintf("targets.%s", os),
+				Message:   err.Error(),
 			}
 		}
 	}

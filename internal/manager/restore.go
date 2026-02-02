@@ -187,6 +187,14 @@ func (m *Manager) restoreFiles(name string, files []string, source, target strin
 }
 
 func createSymlink(source, target string) error {
+	// Validate source exists
+	if _, err := os.Stat(source); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("symlink source does not exist: %s", source)
+		}
+		return fmt.Errorf("cannot access symlink source %s: %w", source, err)
+	}
+
 	if runtime.GOOS == "windows" {
 		// Check if source is a directory
 		info, err := os.Stat(source)

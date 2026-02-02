@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"log/slog"
 	"os"
 	"os/exec"
 	"os/user"
@@ -13,6 +14,8 @@ const (
 	OSWindows = "windows"
 )
 
+// Platform holds detected platform information including the operating system,
+// Linux distribution, hostname, current user, and privilege status.
 type Platform struct {
 	OS       string
 	Distro   string // Linux distribution ID (e.g., "arch", "ubuntu", "fedora")
@@ -23,6 +26,8 @@ type Platform struct {
 	EnvVars  map[string]string
 }
 
+// Detect detects the current platform characteristics including OS type,
+// Linux distribution (if applicable), hostname, current user, and root status.
 func Detect() *Platform {
 	p := &Platform{
 		OS:       detectOS(),
@@ -49,6 +54,7 @@ func Detect() *Platform {
 func detectDistro() string {
 	data, err := os.ReadFile("/etc/os-release")
 	if err != nil {
+		slog.Debug("failed to read /etc/os-release", "error", err)
 		return ""
 	}
 
@@ -65,13 +71,18 @@ func detectDistro() string {
 }
 
 func detectHostname() string {
-	hostname, _ := os.Hostname()
+	hostname, err := os.Hostname()
+	if err != nil {
+		slog.Debug("failed to detect hostname", "error", err)
+		return ""
+	}
 	return hostname
 }
 
 func detectUser() string {
 	u, err := user.Current()
 	if err != nil {
+		slog.Debug("failed to detect current user", "error", err)
 		return ""
 	}
 	return u.Username
@@ -134,24 +145,28 @@ func getDirname(path string) string {
 	return "."
 }
 
+// WithOS returns a copy of the Platform with the OS field overridden.
 func (p *Platform) WithOS(osType string) *Platform {
 	newP := *p
 	newP.OS = osType
 	return &newP
 }
 
+// WithHostname returns a copy of the Platform with the Hostname field overridden.
 func (p *Platform) WithHostname(hostname string) *Platform {
 	newP := *p
 	newP.Hostname = hostname
 	return &newP
 }
 
+// WithUser returns a copy of the Platform with the User field overridden.
 func (p *Platform) WithUser(username string) *Platform {
 	newP := *p
 	newP.User = username
 	return &newP
 }
 
+// WithDistro returns a copy of the Platform with the Distro field overridden.
 func (p *Platform) WithDistro(distro string) *Platform {
 	newP := *p
 	newP.Distro = distro
@@ -164,7 +179,9 @@ func IsCommandAvailable(cmd string) bool {
 	return err == nil
 }
 
-// KnownPackageManagers returns the list of supported package managers
+// KnownPackageManagers is the list of supported package managers across all platforms.
+// Includes Arch Linux (yay, paru, pacman), Debian/Fedora/macOS (apt, dnf, brew),
+// and Windows (winget, scoop, choco) package managers.
 var KnownPackageManagers = []string{
 	"yay", "paru", "pacman", // Arch Linux
 	"apt", "dnf", "brew", // Debian/Fedora/macOS
@@ -172,6 +189,7 @@ var KnownPackageManagers = []string{
 }
 
 // DetectAvailableManagers returns a list of package managers available on the system
+// by checking which managers from KnownPackageManagers are present in the PATH.
 func DetectAvailableManagers() []string {
 	var available []string
 	for _, mgr := range KnownPackageManagers {

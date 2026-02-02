@@ -57,6 +57,10 @@ func (m *Manager) logVerbose(format string, args ...interface{}) {
 	}
 }
 
+func (m *Manager) logWarn(format string, args ...interface{}) {
+	fmt.Printf("[WARN] "+format+"\n", args...)
+}
+
 func (m *Manager) resolvePath(path string) string {
 	if filepath.IsAbs(path) {
 		return path
