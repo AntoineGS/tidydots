@@ -786,24 +786,23 @@ func (m Model) viewListTable() string {
 				pkgIndicator = " "
 			}
 
-			// Pad to column widths before applying styles
+			// Pad to column widths
 			paddedName := padRight(app.Application.Name, maxAppNameWidth)
 			paddedCount := padRight(entryCount, 12) // Fixed width for entry count
 
-			// Apply styles after padding
-			nameStyled := paddedName
-			if isSelected {
-				nameStyled = SelectedListItemStyle.Render(paddedName)
-			} else {
-				nameStyled = ListItemStyle.Render(paddedName)
-			}
-
+			// Build the complete line
 			line := fmt.Sprintf("%s%s  %s  %s  %s",
 				cursor,
-				nameStyled,
+				paddedName,
 				stateBadge,
-				MutedTextStyle.Render(paddedCount),
+				paddedCount,
 				pkgIndicator)
+
+			// Apply selection style to entire row if selected
+			if isSelected {
+				line = SelectedListItemStyle.Render(line)
+			}
+
 			b.WriteString(line)
 			b.WriteString("\n")
 
@@ -855,26 +854,34 @@ func (m Model) viewListTable() string {
 					// Target path
 					targetPath := truncateStr(subItem.Target, 30)
 
-					// Pad to column widths before applying styles
+					// Pad to column widths
 					paddedName := padRight(subItem.SubEntry.Name, maxSubNameWidth)
 					paddedType := padRight(typeInfo, maxTypeWidth)
 					paddedSource := padRight(sourcePath, maxSourceWidth)
 
-					// Apply styles after padding
-					nameStyled := paddedName
+					// Build the complete line with or without selection styling
+					var line string
 					if isSelected {
-						nameStyled = SelectedListItemStyle.Render(paddedName)
+						// Apply selection style to entire row
+						line = fmt.Sprintf("%s  %s %s  %s  %s  %s",
+							cursor,
+							treePrefix,
+							paddedName,
+							paddedType,
+							paddedSource,
+							targetPath)
+						line = SelectedListItemStyle.Render(line)
 					} else {
-						nameStyled = ListItemStyle.Render(paddedName)
+						// Apply individual column styles for visual distinction
+						line = fmt.Sprintf("%s  %s %s  %s  %s  %s",
+							cursor,
+							treePrefix,
+							paddedName,
+							MutedTextStyle.Render(paddedType),
+							PathBackupStyle.Render(paddedSource),
+							PathTargetStyle.Render(targetPath))
 					}
 
-					line := fmt.Sprintf("%s  %s %s  %s  %s  %s",
-						cursor,
-						treePrefix,
-						nameStyled,
-						MutedTextStyle.Render(paddedType),
-						PathBackupStyle.Render(paddedSource),
-						PathTargetStyle.Render(targetPath))
 					b.WriteString(line)
 					b.WriteString("\n")
 
