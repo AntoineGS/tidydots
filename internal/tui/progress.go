@@ -3,8 +3,10 @@ package tui
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/AntoineGS/dot-manager/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -19,6 +21,246 @@ const (
 	// minVisibleWithDetail is the minimum rows when detail panel is showing
 	minVisibleWithDetail = 1
 )
+
+// initApplicationItems creates ApplicationItem list from v3 config
+func (m *Model) initApplicationItems() {
+	apps := m.Config.GetFilteredApplications(m.FilterCtx)
+
+	m.Applications = make([]ApplicationItem, 0, len(apps))
+
+	for _, app := range apps {
+		subItems := make([]SubEntryItem, 0, len(app.Entries))
+
+		for _, subEntry := range app.Entries {
+			target := subEntry.GetTarget(m.Platform.OS)
+			if target == "" {
+				continue
+			}
+
+			subItem := SubEntryItem{
+				SubEntry: subEntry,
+				Target:   target,
+				Selected: true,
+				AppName:  app.Name,
+			}
+
+			subItems = append(subItems, subItem)
+		}
+
+		// Skip apps with no applicable entries
+		if len(subItems) == 0 {
+			continue
+		}
+
+		appItem := ApplicationItem{
+			Application: app,
+			Selected:    true,
+			Expanded:    false,
+			SubItems:    subItems,
+		}
+
+		// Add package info
+		if app.HasPackage() {
+			spec := config.PackageSpec{
+				Name:     app.Name,
+				Managers: app.Package.Managers,
+				Custom:   app.Package.Custom,
+				URL:      app.Package.URL,
+			}
+			method := getPackageInstallMethod(spec, m.Platform.OS)
+			appItem.PkgMethod = method
+			if method != "none" {
+				installed := isPackageInstalled(spec, method)
+				appItem.PkgInstalled = &installed
+			}
+		}
+
+		m.Applications = append(m.Applications, appItem)
+	}
+
+	// Detect states for all sub-items
+	m.refreshApplicationStates()
+}
+
+// refreshApplicationStates updates the state of all sub-entry items
+func (m *Model) refreshApplicationStates() {
+	for i := range m.Applications {
+		for j := range m.Applications[i].SubItems {
+			m.Applications[i].SubItems[j].State = m.detectSubEntryState(&m.Applications[i].SubItems[j])
+		}
+	}
+}
+
+// detectSubEntryState determines the state of a sub-entry item
+func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
+	// Similar to detectPathState but for SubEntry
+	targetPath := item.Target
+
+	if item.SubEntry.IsGit() {
+		// Git entry logic (same as before)
+		if pathExists(targetPath) {
+			gitDir := filepath.Join(targetPath, ".git")
+			if pathExists(gitDir) {
+				return StateLinked
+			}
+			return StateAdopt
+		}
+		return StateReady
+	}
+
+	// Config entry logic
+	backupPath := m.resolvePath(item.SubEntry.Backup)
+
+	if item.SubEntry.IsFolder() {
+		if info, err := os.Lstat(targetPath); err == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				return StateLinked
+			}
+		}
+
+		backupExists := pathExists(backupPath)
+		targetExists := pathExists(targetPath)
+
+		if backupExists {
+			return StateReady
+		}
+		if targetExists {
+			return StateAdopt
+		}
+		return StateMissing
+	}
+
+	// File-based config
+	allLinked := true
+	anyBackup := false
+	anyTarget := false
+
+	for _, file := range item.SubEntry.Files {
+		srcFile := filepath.Join(backupPath, file)
+		dstFile := filepath.Join(targetPath, file)
+
+		if info, err := os.Lstat(dstFile); err == nil {
+			if info.Mode()&os.ModeSymlink == 0 {
+				allLinked = false
+			}
+		} else {
+			allLinked = false
+		}
+
+		if pathExists(srcFile) {
+			anyBackup = true
+		}
+		if pathExists(dstFile) {
+			anyTarget = true
+		}
+	}
+
+	if allLinked && len(item.SubEntry.Files) > 0 {
+		return StateLinked
+	}
+	if anyBackup {
+		return StateReady
+	}
+	if anyTarget {
+		return StateAdopt
+	}
+	return StateMissing
+}
+
+// getApplicationAtCursor returns the application and sub-entry indices for the current cursor position
+func (m *Model) getApplicationAtCursor() (int, int) {
+	visualRow := 0
+	filtered := m.getFilteredApplications()
+
+	for _, fapp := range filtered {
+		if visualRow == m.appCursor {
+			// Find the real index in m.Applications
+			for appIdx, app := range m.Applications {
+				if app.Application.Name == fapp.Application.Name {
+					return appIdx, -1
+				}
+			}
+		}
+		visualRow++
+
+		if fapp.Expanded {
+			for fsubIdx, fsub := range fapp.SubItems {
+				if visualRow == m.appCursor {
+					// Find the real indices in m.Applications
+					for appIdx, app := range m.Applications {
+						if app.Application.Name == fapp.Application.Name {
+							// Find the sub-entry index
+							for subIdx, sub := range app.SubItems {
+								if sub.SubEntry.Name == fsub.SubEntry.Name {
+									return appIdx, subIdx
+								}
+							}
+							// If not found, return with the filtered sub index
+							return appIdx, fsubIdx
+						}
+					}
+				}
+				visualRow++
+			}
+		}
+	}
+
+	return -1, -1
+}
+
+// getVisibleRowCount returns total number of visible rows in the 2-level table (filtered)
+func (m *Model) getVisibleRowCount() int {
+	count := 0
+	filtered := m.getFilteredApplications()
+	for _, app := range filtered {
+		count++ // Application row
+		if app.Expanded {
+			count += len(app.SubItems) // Sub-entry rows (no separate separator)
+		}
+	}
+	return count
+}
+
+// getAggregateState returns the worst state among all sub-entries in an application
+func (m Model) getAggregateState(app ApplicationItem) PathState {
+	if len(app.SubItems) == 0 {
+		return StateMissing
+	}
+
+	hasLinked := false
+	hasReady := false
+	hasAdopt := false
+	hasMissing := false
+
+	for _, sub := range app.SubItems {
+		switch sub.State {
+		case StateLinked:
+			hasLinked = true
+		case StateReady:
+			hasReady = true
+		case StateAdopt:
+			hasAdopt = true
+		case StateMissing:
+			hasMissing = true
+		}
+	}
+
+	// Return worst state
+	if hasMissing {
+		return StateMissing
+	}
+	if hasAdopt {
+		return StateAdopt
+	}
+	if hasReady {
+		return StateReady
+	}
+	if hasLinked {
+		return StateLinked
+	}
+
+	return StateMissing
+}
 
 func (m Model) viewProgress() string {
 	var b strings.Builder
@@ -46,7 +288,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterInput.SetValue("")
 			m.filterInput.Blur()
 			// Reset cursor and scroll to beginning
-			m.listCursor = 0
+			m.appCursor = 0
 			m.scrollOffset = 0
 			return m, nil
 		case "enter":
@@ -60,41 +302,42 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterInput, cmd = m.filterInput.Update(msg)
 			m.filterText = m.filterInput.Value()
 			// Reset cursor when filter changes
-			m.listCursor = 0
+			m.appCursor = 0
 			m.scrollOffset = 0
 			return m, cmd
 		}
 	}
 
 	// Handle delete confirmation
-	if m.Operation == OpList && m.confirmingDelete {
+	if m.Operation == OpList && (m.confirmingDeleteApp || m.confirmingDeleteSubEntry) {
 		switch msg.String() {
 		case "y", "Y", "enter":
-			// Confirm delete - get real index from filtered list
-			m.confirmingDelete = false
-			filteredIndices := m.getFilteredPaths()
-			if m.listCursor < len(filteredIndices) {
-				realIdx := filteredIndices[m.listCursor]
-				if err := m.deleteEntry(realIdx); err == nil {
-					// Recalculate filtered indices after deletion
-					newFiltered := m.getFilteredPaths()
+			// Confirm delete
+			appIdx, subIdx := m.getApplicationAtCursor()
+			if m.confirmingDeleteApp && appIdx >= 0 {
+				m.confirmingDeleteApp = false
+				if err := m.deleteApplication(appIdx); err == nil {
 					// Adjust cursor if needed
-					if m.listCursor >= len(newFiltered) && m.listCursor > 0 {
-						m.listCursor--
+					visibleCount := m.getVisibleRowCount()
+					if m.appCursor >= visibleCount && m.appCursor > 0 {
+						m.appCursor--
 					}
-					// Adjust scroll offset if needed
-					if m.scrollOffset > 0 && m.scrollOffset >= len(newFiltered) {
-						m.scrollOffset = len(newFiltered) - 1
-						if m.scrollOffset < 0 {
-							m.scrollOffset = 0
-						}
+				}
+			} else if m.confirmingDeleteSubEntry && appIdx >= 0 && subIdx >= 0 {
+				m.confirmingDeleteSubEntry = false
+				if err := m.deleteSubEntry(appIdx, subIdx); err == nil {
+					// Adjust cursor if needed
+					visibleCount := m.getVisibleRowCount()
+					if m.appCursor >= visibleCount && m.appCursor > 0 {
+						m.appCursor--
 					}
 				}
 			}
 			return m, nil
 		case "n", "N", "esc":
 			// Cancel delete
-			m.confirmingDelete = false
+			m.confirmingDeleteApp = false
+			m.confirmingDeleteSubEntry = false
 			return m, nil
 		}
 		return m, nil
@@ -116,15 +359,10 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Delegate to 2-level app view if using v3 config with Applications
-	if m.Operation == OpList && m.Config.Version == 3 && len(m.Applications) > 0 {
-		return m.updateApplicationSelect(msg)
-	}
-
 	switch msg.String() {
 	case "/":
 		// Enter filter mode
-		if m.Operation == OpList && !m.confirmingDelete && !m.showingDetail {
+		if m.Operation == OpList && !m.confirmingDeleteApp && !m.confirmingDeleteSubEntry && !m.showingDetail {
 			m.filtering = true
 			m.filterInput.Focus()
 			return m, nil
@@ -135,64 +373,124 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, tea.Quit
-	case "h", "left":
-		// h/left navigate back (same as q for list view)
+	case "up", "k":
 		if m.Operation == OpList {
-			m.Screen = ScreenMenu
+			if m.appCursor > 0 {
+				m.appCursor--
+				if m.appCursor < m.scrollOffset {
+					m.scrollOffset = m.appCursor
+				}
+			}
+		}
+		return m, nil
+	case "down", "j":
+		if m.Operation == OpList {
+			visibleCount := m.getVisibleRowCount()
+			if m.appCursor < visibleCount-1 {
+				m.appCursor++
+				if m.appCursor >= m.scrollOffset+m.viewHeight {
+					m.scrollOffset = m.appCursor - m.viewHeight + 1
+				}
+			}
+		}
+		return m, nil
+	case "h", "left":
+		if m.Operation == OpList {
+			// Collapse node if expanded
+			appIdx, subIdx := m.getApplicationAtCursor()
+			if appIdx >= 0 && m.Applications[appIdx].Expanded {
+				m.Applications[appIdx].Expanded = false
+				// If we were on a sub-entry, move cursor to parent app
+				if subIdx >= 0 {
+					// Calculate the app row position
+					visualRow := 0
+					for i := 0; i < appIdx; i++ {
+						visualRow++
+						if m.Applications[i].Expanded {
+							visualRow += len(m.Applications[i].SubItems)
+						}
+					}
+					m.appCursor = visualRow
+				}
+			} else {
+				// Not on expanded app, navigate back to menu
+				m.Screen = ScreenMenu
+			}
 			return m, nil
 		}
 		return m, tea.Quit
 	case "enter", "l", "right":
 		if m.Operation == OpList {
-			// Open detail popup for selected item
-			if len(m.Paths) > 0 {
-				m.showingDetail = true
+			// If showing detail, close it; otherwise toggle expand or show detail
+			if m.showingDetail {
+				m.showingDetail = false
+			} else {
+				appIdx, _ := m.getApplicationAtCursor()
+				if appIdx >= 0 {
+					// Toggle expansion
+					m.Applications[appIdx].Expanded = !m.Applications[appIdx].Expanded
+				}
 			}
 			return m, nil
 		}
 		return m, tea.Quit
 	case "e":
-		// Edit selected path (only in List view)
+		// Edit selected Application or SubEntry (only in List view)
 		if m.Operation == OpList {
-			filteredIndices := m.getFilteredPaths()
-			if len(filteredIndices) > 0 && m.listCursor < len(filteredIndices) {
-				realIdx := filteredIndices[m.listCursor]
-				m.initAddFormWithIndex(realIdx)
+			appIdx, subIdx := m.getApplicationAtCursor()
+			if appIdx >= 0 {
+				if subIdx >= 0 {
+					// Edit SubEntry
+					m.initEditFormForSubEntry(appIdx, subIdx)
+				} else {
+					// Edit Application
+					m.initEditFormForApplication(appIdx)
+				}
 				m.Screen = ScreenAddForm
 				return m, nil
 			}
 		}
-	case "a":
-		// Add new path (only in List view)
+	case "A":
+		// Add new Application (only in List view)
 		if m.Operation == OpList {
-			m.initAddForm()
+			m.initAddFormForNewApplication()
 			m.Screen = ScreenAddForm
 			return m, nil
+		}
+	case "a":
+		// Add new SubEntry to current Application (only in List view)
+		if m.Operation == OpList {
+			appIdx, _ := m.getApplicationAtCursor()
+			if appIdx >= 0 {
+				m.initAddFormForNewSubEntry(appIdx)
+				m.Screen = ScreenAddForm
+				return m, nil
+			}
 		}
 	case "d", "delete", "backspace":
 		// Ask for delete confirmation (only in List view)
 		if m.Operation == OpList {
-			filteredIndices := m.getFilteredPaths()
-			if len(filteredIndices) > 0 {
-				m.confirmingDelete = true
+			appIdx, subIdx := m.getApplicationAtCursor()
+			if appIdx >= 0 {
+				if subIdx >= 0 {
+					m.confirmingDeleteSubEntry = true
+				} else {
+					m.confirmingDeleteApp = true
+				}
 				return m, nil
 			}
 		}
 	case "i":
-		// Install package for selected entry (only in List view)
+		// Install package at Application level (only in List view)
 		if m.Operation == OpList {
-			filteredIndices := m.getFilteredPaths()
-			if len(filteredIndices) > 0 && m.listCursor < len(filteredIndices) {
-				realIdx := filteredIndices[m.listCursor]
-				item := m.Paths[realIdx]
-				if item.PkgInstalled != nil && !*item.PkgInstalled {
+			appIdx, _ := m.getApplicationAtCursor()
+			if appIdx >= 0 {
+				app := m.Applications[appIdx]
+				if app.PkgInstalled != nil && !*app.PkgInstalled {
 					// Setup for package installation
 					m.Operation = OpInstallPackages
-					m.pendingPackages = []PackageItem{{
-						Entry:    item.Entry,
-						Method:   item.PkgMethod,
-						Selected: true,
-					}}
+					// TODO: Convert Application to PackageItem format
+					// For now, we need the Application's package spec
 					m.currentPackageIndex = 0
 					m.results = nil
 					m.Screen = ScreenProgress
@@ -201,78 +499,24 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case "m":
-		// Install all missing packages (only in List view)
-		if m.Operation == OpList {
-			var missing []PackageItem
-			for _, item := range m.Paths {
-				if item.PkgInstalled != nil && !*item.PkgInstalled {
-					missing = append(missing, PackageItem{
-						Entry:    item.Entry,
-						Method:   item.PkgMethod,
-						Selected: true,
-					})
-				}
-			}
-			if len(missing) > 0 {
-				m.Operation = OpInstallPackages
-				m.pendingPackages = missing
-				m.currentPackageIndex = 0
-				m.results = nil
-				m.Screen = ScreenProgress
-				return m, m.installNextPackage()
-			}
-		}
-		return m, nil
 	case "r":
-		// Restore selected entry (only in List view for config/git entries)
+		// Restore selected SubEntry (only in List view for SubEntry rows)
 		if m.Operation == OpList {
-			filteredIndices := m.getFilteredPaths()
-			if len(filteredIndices) > 0 && m.listCursor < len(filteredIndices) {
-				realIdx := filteredIndices[m.listCursor]
-				item := m.Paths[realIdx]
-				// Only restore config or git entries (not package-only)
-				if item.EntryType != EntryTypePackage {
-					success, message := m.performRestore(item)
-					// Update the state after restore
-					if success {
-						m.Paths[realIdx].State = m.detectPathState(&m.Paths[realIdx])
-					}
-					// Show result briefly in results
-					m.results = []ResultItem{{
-						Name:    item.Entry.Name,
-						Success: success,
-						Message: message,
-					}}
+			appIdx, subIdx := m.getApplicationAtCursor()
+			if appIdx >= 0 && subIdx >= 0 {
+				subItem := &m.Applications[appIdx].SubItems[subIdx]
+				// Perform restore using SubEntry data
+				success, message := m.performRestoreSubEntry(subItem.SubEntry, subItem.Target)
+				// Update the state after restore
+				if success {
+					m.Applications[appIdx].SubItems[subIdx].State = m.detectSubEntryState(subItem)
 				}
-			}
-		}
-		return m, nil
-	case "up", "k":
-		if m.Operation == OpList {
-			if m.listCursor > 0 {
-				m.listCursor--
-				// Scroll up if cursor goes above visible area
-				if m.listCursor < m.scrollOffset {
-					m.scrollOffset = m.listCursor
-				}
-			}
-		}
-		return m, nil
-	case "down", "j":
-		if m.Operation == OpList {
-			filteredIndices := m.getFilteredPaths()
-			if m.listCursor < len(filteredIndices)-1 {
-				m.listCursor++
-				// Scroll down if cursor goes below visible area
-				// Use same calculation as viewListTable for visible rows
-				visibleRows := m.viewHeight - listTableOverhead
-				if visibleRows < minVisibleRows {
-					visibleRows = minVisibleRows
-				}
-				if m.listCursor >= m.scrollOffset+visibleRows {
-					m.scrollOffset = m.listCursor - visibleRows + 1
-				}
+				// Show result briefly in results
+				m.results = []ResultItem{{
+					Name:    subItem.SubEntry.Name,
+					Success: success,
+					Message: message,
+				}}
 			}
 		}
 		return m, nil
@@ -283,10 +527,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) viewResults() string {
 	// Use table view for List operation
 	if m.Operation == OpList {
-		// Use 2-level hierarchical view for v3 configs, flat table for v2
-		if m.Config.Version == 3 && len(m.Applications) > 0 {
-			return m.viewApplicationSelect()
-		}
+		// Always use hierarchical viewListTable (supports both v2 and v3)
 		return m.viewListTable()
 	}
 
@@ -400,54 +641,20 @@ func (m Model) viewListTable() string {
 	}
 	b.WriteString("\n")
 
-	// Calculate column widths based on terminal width
-	// Reserve space for: padding (4) + cursor (2) + separators (10) + minimum content
-	availWidth := m.width - 14
-	if availWidth < 60 {
-		availWidth = 60
-	}
-
-	// Column widths: Name (20%), Type (8), Pkg (1), Source (35%), Target (35%)
-	nameWidth := availWidth * 20 / 100
-	if nameWidth < 12 {
-		nameWidth = 12
-	}
-	typeWidth := 8
-	pkgWidth := 1 // Single character: ✓, ✗, or space
-	pathWidth := (availWidth - nameWidth - typeWidth - pkgWidth) / 2
-
-	// Total table width: cursor(2) + name + sep(2) + type + sep(2) + pkg + sep(2) + source + sep(2) + target
-	tableWidth := 2 + nameWidth + 2 + typeWidth + 2 + pkgWidth + 2 + pathWidth + 2 + pathWidth
-
-	// Table header (with space for cursor)
-	headerStyle := PathNameStyle.Bold(true)
-	header := fmt.Sprintf("  %-*s  %-*s  %s  %-*s  %-*s",
-		nameWidth, "Name",
-		typeWidth, "Type",
-		"P", // Single char header for Package status
-		pathWidth, "Source",
-		pathWidth, "Target")
-	b.WriteString(headerStyle.Render(header))
-	b.WriteString("\n")
-
-	// Header separator
-	separator := "  " + strings.Repeat("─", nameWidth) + "──" +
-		strings.Repeat("─", typeWidth) + "──" +
-		strings.Repeat("─", pkgWidth) + "──" +
-		strings.Repeat("─", pathWidth) + "──" +
-		strings.Repeat("─", pathWidth)
-	b.WriteString(MutedTextStyle.Render(separator))
-	b.WriteString("\n")
-
-	// Get filtered paths
-	filteredIndices := m.getFilteredPaths()
-	totalFiltered := len(filteredIndices)
+	// Calculate visible rows and detail height
+	totalVisibleRows := m.getVisibleRowCount()
 
 	// Calculate detail height if showing
 	detailHeight := 0
-	if m.showingDetail && m.listCursor < totalFiltered {
-		realIdx := filteredIndices[m.listCursor]
-		detailHeight = m.calcDetailHeight(m.Paths[realIdx])
+	appIdx, subIdx := m.getApplicationAtCursor()
+	if m.showingDetail && appIdx >= 0 {
+		if subIdx >= 0 {
+			// Detail for SubEntry
+			detailHeight = m.calcSubEntryDetailHeight(&m.Applications[appIdx].SubItems[subIdx])
+		} else {
+			// Detail for Application
+			detailHeight = m.calcApplicationDetailHeight(&m.Applications[appIdx])
+		}
 	}
 
 	// Calculate how many table rows can fit
@@ -468,166 +675,172 @@ func (m Model) viewListTable() string {
 			maxVisible = minVisibleWithDetail
 		}
 	}
-	if maxVisible > totalFiltered {
-		maxVisible = totalFiltered
+	if maxVisible > totalVisibleRows {
+		maxVisible = totalVisibleRows
 	}
 
 	// Keep the same scroll offset - don't change start when toggling detail
 	start := m.scrollOffset
-	if start >= totalFiltered {
+	if start >= totalVisibleRows {
 		start = 0
 	}
 
 	// Ensure cursor is visible within the reduced window when detail is showing
 	if m.showingDetail {
-		cursorPosInWindow := m.listCursor - start
+		cursorPosInWindow := m.appCursor - start
 		if cursorPosInWindow >= maxVisible {
 			// Cursor would be hidden, adjust start to show cursor at bottom of reduced window
-			start = m.listCursor - maxVisible + 1
+			start = m.appCursor - maxVisible + 1
 		}
 		if cursorPosInWindow < 0 {
-			start = m.listCursor
+			start = m.appCursor
 		}
 	}
 
 	end := start + maxVisible
-	if end > totalFiltered {
-		end = totalFiltered
+	if end > totalVisibleRows {
+		end = totalVisibleRows
 	}
 
-	for i := start; i < end; i++ {
-		realIdx := filteredIndices[i]
-		item := m.Paths[realIdx]
-		isSelected := i == m.listCursor
-		cursor := RenderCursor(isSelected)
+	// Render hierarchical tree structure
+	visualRow := 0
+	for _, app := range m.Applications {
+		// Render Application row
+		if visualRow >= start && visualRow < end {
+			isSelected := visualRow == m.appCursor
+			cursor := RenderCursor(isSelected)
 
-		// Determine type based on entry type
-		var typeStr string
-		var sourceStr string
-		switch item.EntryType {
-		case EntryTypeGit:
-			typeStr = "git"
-			sourceStr = truncateStr(item.Entry.Repo, pathWidth)
-		case EntryTypePackage:
-			typeStr = "package"
-			sourceStr = truncateStr(item.PkgMethod, pathWidth)
-		default: // EntryTypeConfig
-			if item.Entry.IsFolder() {
-				typeStr = "folder"
-			} else {
-				typeStr = fmt.Sprintf("%d files", len(item.Entry.Files))
+			nameStyle := ListItemStyle
+			if isSelected {
+				nameStyle = SelectedListItemStyle
 			}
-			sourceStr = truncateStr(item.Entry.Backup, pathWidth)
-		}
 
-		// Determine installed status indicator
-		var pkgIndicator string
-		if item.PkgInstalled != nil {
-			if *item.PkgInstalled {
-				pkgIndicator = "✓"
+			// Aggregate state for app (show worst state among sub-entries)
+			aggregateState := m.getAggregateState(app)
+			stateBadge := renderStateBadge(aggregateState)
+
+			// Entry count
+			entryCount := fmt.Sprintf("%d entries", len(app.SubItems))
+
+			// Package indicator
+			var pkgIndicator string
+			if app.PkgInstalled != nil {
+				if *app.PkgInstalled {
+					pkgIndicator = " ✓"
+				} else {
+					pkgIndicator = " ✗"
+				}
 			} else {
-				pkgIndicator = "✗"
+				pkgIndicator = ""
 			}
-		} else {
-			pkgIndicator = " "
+
+			line := fmt.Sprintf("%s%s %s  %s%s",
+				cursor,
+				nameStyle.Render(app.Application.Name),
+				stateBadge,
+				MutedTextStyle.Render(entryCount),
+				pkgIndicator)
+			b.WriteString(line)
+			b.WriteString("\n")
+
+			// Show inline detail panel below selected application row
+			if isSelected && m.showingDetail && subIdx < 0 {
+				b.WriteString(m.renderApplicationInlineDetail(&app, m.width))
+			}
 		}
+		visualRow++
 
-		// Truncate paths if needed (show config-style values with ~)
-		name := item.Entry.Name
+		// Render sub-entry rows if expanded
+		if app.Expanded {
+			for subItemIdx, subItem := range app.SubItems {
+				if visualRow >= start && visualRow < end {
+					isSelected := visualRow == m.appCursor
 
-		// Add sudo indicator at the end
-		// Show [S] for entries that require sudo or packages that require sudo
-		needsSudo := item.Entry.Sudo || requiresSudo(item.PkgMethod)
-		suffix := ""
-		if needsSudo {
-			suffix = " [S]"
-		}
+					// Tree connector: ├─ for non-last items, └─ for last item
+					treePrefix := "├─"
+					if subItemIdx == len(app.SubItems)-1 {
+						treePrefix = "└─"
+					}
 
-		// Truncate name if needed, leaving room for suffix
-		maxNameLen := nameWidth - len(suffix)
-		if maxNameLen < 5 {
-			maxNameLen = 5
-		}
-		name = truncateStr(name, maxNameLen) + suffix
-		target := truncateStr(unexpandHome(item.Entry.Targets[m.Platform.OS]), pathWidth)
+					// Cursor or spacing
+					cursor := RenderCursor(isSelected)
 
-		// Build row with fixed-width columns and optional highlighting
-		var rowBuilder strings.Builder
+					nameStyle := ListItemStyle
+					if isSelected {
+						nameStyle = SelectedListItemStyle
+					}
 
-		// Choose styles based on selection
-		// Name uses a non-muted style, rest uses muted
-		nameStyle := PathNameStyle
-		restStyle := MutedTextStyle
-		if isSelected {
-			nameStyle = SelectedListItemStyle
-			restStyle = SelectedListItemStyle
-		}
+					// Type info
+					typeInfo := ""
+					if subItem.SubEntry.IsGit() {
+						typeInfo = "git"
+					} else if subItem.SubEntry.IsFolder() {
+						typeInfo = "folder"
+					} else {
+						fileCount := len(subItem.SubEntry.Files)
+						if fileCount == 1 {
+							typeInfo = "1 file"
+						} else {
+							typeInfo = fmt.Sprintf("%d files", fileCount)
+						}
+					}
 
-		// Render each column with highlighting if filter is active
-		if m.filterText != "" {
-			// Pad strings to fixed width for alignment
-			namePadded := fmt.Sprintf("%-*s", nameWidth, name)
-			typePadded := fmt.Sprintf("%-*s", typeWidth, typeStr)
-			sourcePadded := fmt.Sprintf("%-*s", pathWidth, sourceStr)
-			targetPadded := fmt.Sprintf("%-*s", pathWidth, target)
+					// Source path
+					sourcePath := ""
+					if subItem.SubEntry.IsGit() {
+						sourcePath = truncateStr(subItem.SubEntry.Repo, 30)
+					} else {
+						sourcePath = truncateStr(m.resolvePath(subItem.SubEntry.Backup), 30)
+					}
 
-			rowBuilder.WriteString(highlightText(namePadded, m.filterText, nameStyle))
-			rowBuilder.WriteString(restStyle.Render("  "))
-			rowBuilder.WriteString(highlightText(typePadded, m.filterText, restStyle))
-			rowBuilder.WriteString(restStyle.Render("  "))
-			rowBuilder.WriteString(restStyle.Render(pkgIndicator))
-			rowBuilder.WriteString(restStyle.Render("  "))
-			rowBuilder.WriteString(highlightText(sourcePadded, m.filterText, restStyle))
-			rowBuilder.WriteString(restStyle.Render("  "))
-			rowBuilder.WriteString(highlightText(targetPadded, m.filterText, restStyle))
-		} else {
-			// No filter - render name with nameStyle, rest with restStyle
-			namePadded := fmt.Sprintf("%-*s", nameWidth, name)
-			restOfRow := fmt.Sprintf("  %-*s  %s  %-*s  %-*s",
-				typeWidth, typeStr,
-				pkgIndicator,
-				pathWidth, sourceStr,
-				pathWidth, target)
-			rowBuilder.WriteString(nameStyle.Render(namePadded))
-			rowBuilder.WriteString(restStyle.Render(restOfRow))
-		}
+					// Target path
+					targetPath := truncateStr(subItem.Target, 30)
 
-		b.WriteString(cursor + rowBuilder.String())
-		b.WriteString("\n")
+					line := fmt.Sprintf("%s  %s %s  %s  %s  %s",
+						cursor,
+						treePrefix,
+						nameStyle.Render(subItem.SubEntry.Name),
+						MutedTextStyle.Render(typeInfo),
+						PathBackupStyle.Render(sourcePath),
+						PathTargetStyle.Render(targetPath))
+					b.WriteString(line)
+					b.WriteString("\n")
 
-		// Show inline detail panel below selected row
-		if isSelected && m.showingDetail {
-			b.WriteString(m.renderInlineDetail(item, tableWidth))
+					// Show inline detail panel below selected sub-entry row
+					if isSelected && m.showingDetail && subIdx >= 0 {
+						b.WriteString(m.renderSubEntryInlineDetail(&subItem, m.width))
+					}
+				}
+				visualRow++
+			}
 		}
 	}
 
 	// Scroll indicators (always show line, even if empty, for consistent height)
 	scrollInfo := ""
-	if start > 0 || end < totalFiltered {
-		if m.filterText != "" {
-			scrollInfo = fmt.Sprintf("Showing %d-%d of %d (filtered)", start+1, end, totalFiltered)
-		} else {
-			scrollInfo = fmt.Sprintf("Showing %d-%d of %d", start+1, end, totalFiltered)
-		}
+	if start > 0 || end < totalVisibleRows {
+		scrollInfo = fmt.Sprintf("Showing %d-%d of %d", start+1, end, totalVisibleRows)
 		if start > 0 {
 			scrollInfo = "↑ " + scrollInfo
 		}
-		if end < totalFiltered {
+		if end < totalVisibleRows {
 			scrollInfo = scrollInfo + " ↓"
 		}
-	} else if m.filterText != "" && totalFiltered < len(m.Paths) {
-		scrollInfo = fmt.Sprintf("Showing %d of %d (filtered)", totalFiltered, len(m.Paths))
 	}
 	b.WriteString(SubtitleStyle.Render(scrollInfo))
 	b.WriteString("\n")
 
 	// Help or confirmation prompt
 	b.WriteString("\n")
-	if m.confirmingDelete {
+	if m.confirmingDeleteApp || m.confirmingDeleteSubEntry {
 		// Show delete confirmation prompt
-		if m.listCursor < totalFiltered {
-			realIdx := filteredIndices[m.listCursor]
-			name := m.Paths[realIdx].Entry.Name
+		var name string
+		if m.confirmingDeleteApp && appIdx >= 0 {
+			name = m.Applications[appIdx].Application.Name
+		} else if m.confirmingDeleteSubEntry && appIdx >= 0 && subIdx >= 0 {
+			name = m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
+		}
+		if name != "" {
 			b.WriteString(WarningStyle.Render(fmt.Sprintf("Delete '%s'? ", name)))
 			b.WriteString(RenderHelpWithWidth(m.width, "y/enter", "yes", "n/esc", "no"))
 		}
@@ -645,12 +858,12 @@ func (m Model) viewListTable() string {
 		b.WriteString(RenderHelpWithWidth(m.width,
 			"/", "filter",
 			"l/→", "details",
-			"a", "add",
+			"A", "add app",
+			"a", "add entry",
 			"e", "edit",
 			"d", "delete",
 			"r", "restore",
 			"i", "install",
-			"m", "install missing",
 			"q", "menu",
 		))
 	}
@@ -905,6 +1118,47 @@ func (m Model) getFilteredPaths() []int {
 		}
 	}
 	return indices
+}
+
+// getFilteredApplications returns filtered applications for hierarchical view
+func (m Model) getFilteredApplications() []ApplicationItem {
+	if m.filterText == "" {
+		return m.Applications
+	}
+
+	filterLower := strings.ToLower(m.filterText)
+	var filtered []ApplicationItem
+
+	for _, app := range m.Applications {
+		appMatches := strings.Contains(strings.ToLower(app.Application.Name), filterLower) ||
+			strings.Contains(strings.ToLower(app.Application.Description), filterLower)
+
+		// Filter SubItems
+		var matchingSubItems []SubEntryItem
+		for _, sub := range app.SubItems {
+			subMatches := strings.Contains(strings.ToLower(sub.SubEntry.Name), filterLower) ||
+				strings.Contains(strings.ToLower(sub.Target), filterLower)
+
+			// Check source field
+			if sub.SubEntry.IsGit() {
+				subMatches = subMatches || strings.Contains(strings.ToLower(sub.SubEntry.Repo), filterLower)
+			} else {
+				subMatches = subMatches || strings.Contains(strings.ToLower(sub.SubEntry.Backup), filterLower)
+			}
+
+			if appMatches || subMatches {
+				matchingSubItems = append(matchingSubItems, sub)
+			}
+		}
+
+		if len(matchingSubItems) > 0 {
+			appCopy := app
+			appCopy.SubItems = matchingSubItems
+			filtered = append(filtered, appCopy)
+		}
+	}
+
+	return filtered
 }
 
 // highlightText returns the text with matching portions highlighted

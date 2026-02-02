@@ -35,13 +35,10 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.Operation = menuItems[m.menuCursor].op
 		if m.Operation == OpList {
 			// List doesn't need path selection, show table view
-			// Initialize applications for 2-level view if v3 config
-			if m.Config.Version == 3 {
-				m.initApplicationItems()
-			}
+			// Initialize applications for hierarchical view
+			m.initApplicationItems()
 			m.Screen = ScreenResults
 			m.scrollOffset = 0
-			m.listCursor = 0
 			m.appCursor = 0
 			m.showingDetail = false
 			return m, nil

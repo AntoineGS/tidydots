@@ -146,6 +146,12 @@ type AddForm struct {
 	editingPackage     bool              // Whether we're editing a package name
 	packageNameInput   textinput.Model   // Input for package name
 	lastPackageName    string            // Last entered package name for auto-populate
+
+	// NEW fields for v3 hierarchical CRUD
+	applicationMode bool // true when adding new Application (A key)
+	targetAppIdx    int  // App to add SubEntry to (a key), -1 if new app
+	editAppIdx      int  // When editing, which Application, -1 if new
+	editSubIdx      int  // When editing, which SubEntry, -1 if app metadata only
 }
 
 type Model struct {
@@ -174,7 +180,9 @@ type Model struct {
 	showingDetail bool // Whether detail popup is showing
 
 	// Confirmation state for list view
-	confirmingDelete bool // Whether we're confirming a delete
+	confirmingDelete         bool // Whether we're confirming a delete (legacy v2)
+	confirmingDeleteApp      bool // Whether we're confirming deletion of an Application
+	confirmingDeleteSubEntry bool // Whether we're confirming deletion of a SubEntry
 
 	// Filter state for list view
 	filtering   bool              // Whether we're in filter mode

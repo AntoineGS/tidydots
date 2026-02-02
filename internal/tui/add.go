@@ -168,6 +168,176 @@ func (m *Model) initAddFormWithIndex(editIndex int) {
 		editingPackage:      false,
 		packageNameInput:    packageNameInput,
 		lastPackageName:     "",
+		applicationMode:     false,
+		targetAppIdx:        -1,
+		editAppIdx:          -1,
+		editSubIdx:          -1,
+	}
+}
+
+// initAddFormForNewApplication initializes the form for adding a new Application
+func (m *Model) initAddFormForNewApplication() {
+	m.initAddFormWithIndex(-1)
+	m.addForm.applicationMode = true
+	m.addForm.targetAppIdx = -1
+	m.addForm.editAppIdx = -1
+	m.addForm.editSubIdx = -1
+}
+
+// initAddFormForNewSubEntry initializes the form for adding a SubEntry to an existing Application
+func (m *Model) initAddFormForNewSubEntry(appIdx int) {
+	m.initAddFormWithIndex(-1)
+	m.addForm.applicationMode = false
+	m.addForm.targetAppIdx = appIdx
+	m.addForm.editAppIdx = -1
+	m.addForm.editSubIdx = -1
+
+	// Pre-fill with app metadata
+	if appIdx >= 0 && appIdx < len(m.Applications) {
+		app := m.Config.Applications[appIdx]
+		m.addForm.descriptionInput.SetValue(app.Description)
+
+		// Load filters
+		for filterIdx, f := range app.Filters {
+			for k, v := range f.Include {
+				m.addForm.filters = append(m.addForm.filters, FilterCondition{
+					FilterIndex: filterIdx,
+					IsExclude:   false,
+					Key:         k,
+					Value:       v,
+				})
+			}
+			for k, v := range f.Exclude {
+				m.addForm.filters = append(m.addForm.filters, FilterCondition{
+					FilterIndex: filterIdx,
+					IsExclude:   true,
+					Key:         k,
+					Value:       v,
+				})
+			}
+		}
+
+		// Load package managers
+		if app.Package != nil && len(app.Package.Managers) > 0 {
+			m.addForm.packageManagers = make(map[string]string)
+			for k, v := range app.Package.Managers {
+				m.addForm.packageManagers[k] = v
+			}
+		}
+	}
+}
+
+// initEditFormForSubEntry initializes the form for editing a SubEntry
+func (m *Model) initEditFormForSubEntry(appIdx, subIdx int) {
+	app := m.Config.Applications[appIdx]
+	sub := app.Entries[subIdx]
+
+	m.initAddFormWithIndex(-1)
+	m.addForm.editAppIdx = appIdx
+	m.addForm.editSubIdx = subIdx
+	m.addForm.applicationMode = false
+	m.addForm.targetAppIdx = -1
+
+	// Load SubEntry fields
+	m.addForm.nameInput.SetValue(sub.Name)
+	m.addForm.isSudo = sub.Sudo
+
+	if target, ok := sub.Targets["linux"]; ok {
+		m.addForm.linuxTargetInput.SetValue(target)
+	}
+	if target, ok := sub.Targets["windows"]; ok {
+		m.addForm.windowsTargetInput.SetValue(target)
+	}
+
+	// Determine entry type and load type-specific fields
+	if sub.Repo != "" {
+		m.addForm.entryType = EntryTypeGit
+		m.addForm.repoInput.SetValue(sub.Repo)
+		m.addForm.branchInput.SetValue(sub.Branch)
+	} else {
+		m.addForm.entryType = EntryTypeConfig
+		m.addForm.backupInput.SetValue(sub.Backup)
+		m.addForm.isFolder = sub.IsFolder()
+		if !m.addForm.isFolder {
+			m.addForm.files = make([]string, len(sub.Files))
+			copy(m.addForm.files, sub.Files)
+		}
+	}
+
+	// Load Application metadata
+	m.addForm.descriptionInput.SetValue(app.Description)
+
+	// Load filters from app
+	m.addForm.filters = nil
+	for filterIdx, f := range app.Filters {
+		for k, v := range f.Include {
+			m.addForm.filters = append(m.addForm.filters, FilterCondition{
+				FilterIndex: filterIdx,
+				IsExclude:   false,
+				Key:         k,
+				Value:       v,
+			})
+		}
+		for k, v := range f.Exclude {
+			m.addForm.filters = append(m.addForm.filters, FilterCondition{
+				FilterIndex: filterIdx,
+				IsExclude:   true,
+				Key:         k,
+				Value:       v,
+			})
+		}
+	}
+
+	// Load package managers from app
+	m.addForm.packageManagers = make(map[string]string)
+	if app.Package != nil && len(app.Package.Managers) > 0 {
+		for k, v := range app.Package.Managers {
+			m.addForm.packageManagers[k] = v
+		}
+	}
+}
+
+// initEditFormForApplication initializes the form for editing Application metadata only
+func (m *Model) initEditFormForApplication(appIdx int) {
+	app := m.Config.Applications[appIdx]
+
+	m.initAddFormWithIndex(-1)
+	m.addForm.editAppIdx = appIdx
+	m.addForm.editSubIdx = -1
+	m.addForm.applicationMode = false
+	m.addForm.targetAppIdx = -1
+
+	// Load app metadata only
+	m.addForm.nameInput.SetValue(app.Name)
+	m.addForm.descriptionInput.SetValue(app.Description)
+
+	// Load filters
+	m.addForm.filters = nil
+	for filterIdx, f := range app.Filters {
+		for k, v := range f.Include {
+			m.addForm.filters = append(m.addForm.filters, FilterCondition{
+				FilterIndex: filterIdx,
+				IsExclude:   false,
+				Key:         k,
+				Value:       v,
+			})
+		}
+		for k, v := range f.Exclude {
+			m.addForm.filters = append(m.addForm.filters, FilterCondition{
+				FilterIndex: filterIdx,
+				IsExclude:   true,
+				Key:         k,
+				Value:       v,
+			})
+		}
+	}
+
+	// Load package managers
+	m.addForm.packageManagers = make(map[string]string)
+	if app.Package != nil && len(app.Package.Managers) > 0 {
+		for k, v := range app.Package.Managers {
+			m.addForm.packageManagers[k] = v
+		}
 	}
 }
 
@@ -1110,8 +1280,6 @@ const (
 	noEditIndex = -1
 	// notFoundIndex indicates an entry was not found
 	notFoundIndex = -1
-	// listStartIndex is the first valid index in a list
-	listStartIndex = 0
 )
 
 // Filter add wizard step constants
@@ -1826,183 +1994,180 @@ func (m Model) renderSuggestions() string {
 	return b.String()
 }
 
-// saveNewPath validates the form and saves the new entry to the config
+// saveNewPath validates the form and saves for v3 only
 func (m *Model) saveNewPath() error {
+	// Extract form data
 	name := strings.TrimSpace(m.addForm.nameInput.Value())
 	description := strings.TrimSpace(m.addForm.descriptionInput.Value())
-	linuxTarget := strings.TrimSpace(m.addForm.linuxTargetInput.Value())
-	windowsTarget := strings.TrimSpace(m.addForm.windowsTargetInput.Value())
-	isGit := m.addForm.entryType == EntryTypeGit
+	targets := buildTargets(m.addForm)
+	filters := buildFiltersFromForm(m.addForm.filters)
+	pkg := buildPackageFromForm(m.addForm.packageManagers)
 
-	// Validate required fields
+	// Validation
 	if name == "" {
 		return fmt.Errorf("name is required")
 	}
-	if linuxTarget == "" && windowsTarget == "" {
-		return fmt.Errorf("at least one target path is required")
+
+	// Build SubEntry from form
+	subEntry := config.SubEntry{
+		Name:    name,
+		Targets: targets,
+		Sudo:    m.addForm.isSudo,
 	}
 
-	// Type-specific validation
-	var backup, repo, branch string
-	var files []string
-
-	if isGit {
-		repo = strings.TrimSpace(m.addForm.repoInput.Value())
-		branch = strings.TrimSpace(m.addForm.branchInput.Value())
+	// Type-specific fields
+	if m.addForm.entryType == EntryTypeGit {
+		repo := strings.TrimSpace(m.addForm.repoInput.Value())
 		if repo == "" {
 			return fmt.Errorf("repository URL is required for git entries")
 		}
+		subEntry.Repo = repo
+		subEntry.Branch = strings.TrimSpace(m.addForm.branchInput.Value())
 	} else {
-		backup = strings.TrimSpace(m.addForm.backupInput.Value())
+		backup := strings.TrimSpace(m.addForm.backupInput.Value())
 		if backup == "" {
 			return fmt.Errorf("backup path is required for config entries")
 		}
+		subEntry.Backup = backup
 		if !m.addForm.isFolder {
 			if len(m.addForm.files) == 0 {
 				return fmt.Errorf("at least one file is required when using Files mode")
 			}
-			files = make([]string, len(m.addForm.files))
-			copy(files, m.addForm.files)
+			subEntry.Files = make([]string, len(m.addForm.files))
+			copy(subEntry.Files, m.addForm.files)
 		}
 	}
 
-	// Check for duplicate names (skip the item being edited)
-	for i, e := range m.Config.Entries {
-		if e.Name == name && i != m.findConfigEntryIndex(m.addForm.editIndex) {
-			return fmt.Errorf("an entry with name '%s' already exists", name)
-		}
+	if len(targets) == 0 {
+		return fmt.Errorf("at least one target is required")
 	}
 
-	// Create targets map
-	targets := make(map[string]string)
-	if linuxTarget != "" {
-		targets["linux"] = linuxTarget
-	}
-	if windowsTarget != "" {
-		targets["windows"] = windowsTarget
-	}
-
-	// Convert filter conditions back to config.Filter format
-	filters := m.buildFiltersFromConditions()
-
-	newEntry := config.Entry{
-		Name:        name,
-		Description: description,
-		Sudo:        m.addForm.isSudo,
-		Targets:     targets,
-		Filters:     filters,
-	}
-
-	if isGit {
-		newEntry.Repo = repo
-		newEntry.Branch = branch
-	} else {
-		newEntry.Backup = backup
-		newEntry.Files = files
-	}
-
-	// Build package configuration from form data
-	if len(m.addForm.packageManagers) > 0 {
-		newEntry.Package = &config.EntryPackage{
-			Managers: make(map[string]string),
-		}
-		for k, v := range m.addForm.packageManagers {
-			newEntry.Package.Managers[k] = v
-		}
-	}
-
-	// Editing existing entry
-	if m.addForm.editIndex >= 0 {
-		configIdx := m.findConfigEntryIndex(m.addForm.editIndex)
-		if configIdx >= 0 {
-			// Preserve custom and URL package info if it exists (we only edit managers)
-			if m.Config.Entries[configIdx].Package != nil {
-				if newEntry.Package == nil {
-					newEntry.Package = &config.EntryPackage{}
-				}
-				if len(m.Config.Entries[configIdx].Package.Custom) > 0 {
-					newEntry.Package.Custom = m.Config.Entries[configIdx].Package.Custom
-				}
-				if len(m.Config.Entries[configIdx].Package.URL) > 0 {
-					newEntry.Package.URL = m.Config.Entries[configIdx].Package.URL
-				}
-			}
-
-			m.Config.Entries[configIdx] = newEntry
-		}
-
-		// Save config to file
-		if err := config.Save(m.Config, m.ConfigPath); err != nil {
-			return fmt.Errorf("failed to save config: %w", err)
-		}
-
-		// Update the Paths slice in the model
-		currentTarget := newEntry.GetTarget(m.Platform.OS)
-		if currentTarget != "" {
-			m.Paths[m.addForm.editIndex] = PathItem{
-				Entry:     newEntry,
-				Target:    currentTarget,
-				Selected:  true,
-				EntryType: m.addForm.entryType,
-			}
-		}
-
-		// Refresh path states
-		m.refreshPathStates()
-		return nil
-	}
-
-	// Adding new entry
-	if m.Config.Version == 3 {
-		// v3: Wrap in Application with SubEntry
+	// Route to correct save path based on form mode
+	if m.addForm.editAppIdx >= 0 && m.addForm.editSubIdx >= 0 {
+		// Editing existing SubEntry
+		return m.saveEditedSubEntry(m.addForm.editAppIdx, m.addForm.editSubIdx, subEntry, description, filters, pkg)
+	} else if m.addForm.editAppIdx >= 0 && m.addForm.editSubIdx < 0 {
+		// Editing Application metadata only
+		return m.saveEditedApplication(m.addForm.editAppIdx, name, description, filters, pkg)
+	} else if m.addForm.targetAppIdx >= 0 {
+		// Adding SubEntry to existing Application
+		return m.saveNewSubEntry(m.addForm.targetAppIdx, subEntry)
+	} else if m.addForm.applicationMode {
+		// Adding new Application
 		app := config.Application{
-			Name:        newEntry.Name,
-			Description: newEntry.Description,
-			Package:     newEntry.Package,
-			Filters:     newEntry.Filters,
-			Entries: []config.SubEntry{
-				{
-					Name:    newEntry.Name,
-					Backup:  newEntry.Backup,
-					Targets: newEntry.Targets,
-					Files:   newEntry.Files,
-					Repo:    newEntry.Repo,
-					Branch:  newEntry.Branch,
-					Sudo:    newEntry.Sudo,
-				},
-			},
+			Name:        name,
+			Description: description,
+			Filters:     filters,
+			Package:     pkg,
+			Entries:     []config.SubEntry{subEntry},
 		}
-		m.Config.Applications = append(m.Config.Applications, app)
+		return m.saveNewApplication(app)
 	} else {
-		// v2: Add as flat entry
-		m.Config.Entries = append(m.Config.Entries, newEntry)
+		// Adding new Application with single SubEntry (default mode)
+		app := config.Application{
+			Name:        name,
+			Description: description,
+			Filters:     filters,
+			Package:     pkg,
+			Entries:     []config.SubEntry{subEntry},
+		}
+		return m.saveNewApplication(app)
+	}
+}
+
+// saveNewApplication saves a new Application
+func (m *Model) saveNewApplication(app config.Application) error {
+	// Check for duplicate names
+	for _, existing := range m.Config.Applications {
+		if existing.Name == app.Name {
+			return fmt.Errorf("an application with name '%s' already exists", app.Name)
+		}
 	}
 
-	// Save config to file
+	m.Config.Applications = append(m.Config.Applications, app)
+
 	if err := config.Save(m.Config, m.ConfigPath); err != nil {
-		// Remove the entry we just added since save failed
-		if m.Config.Version == 3 {
-			m.Config.Applications = m.Config.Applications[:len(m.Config.Applications)-1]
-		} else {
-			m.Config.Entries = m.Config.Entries[:len(m.Config.Entries)-1]
-		}
+		// Rollback
+		m.Config.Applications = m.Config.Applications[:len(m.Config.Applications)-1]
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	// Update the Paths slice in the model (only if current platform has a target)
-	currentTarget := newEntry.GetTarget(m.Platform.OS)
-	if currentTarget != "" {
-		m.Paths = append(m.Paths, PathItem{
-			Entry:     newEntry,
-			Target:    currentTarget,
-			Selected:  true,
-			EntryType: m.addForm.entryType,
-		})
+	m.initApplicationItems()
+	return nil
+}
 
-		// Refresh path states
-		m.refreshPathStates()
+// saveNewSubEntry adds a SubEntry to an existing Application
+func (m *Model) saveNewSubEntry(appIdx int, subEntry config.SubEntry) error {
+	app := &m.Config.Applications[appIdx]
+
+	// Check for duplicate SubEntry names within this Application
+	for _, existing := range app.Entries {
+		if existing.Name == subEntry.Name {
+			return fmt.Errorf("a sub-entry with name '%s' already exists in this application", subEntry.Name)
+		}
 	}
 
+	app.Entries = append(app.Entries, subEntry)
+
+	if err := config.Save(m.Config, m.ConfigPath); err != nil {
+		// Rollback
+		app.Entries = app.Entries[:len(app.Entries)-1]
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	m.initApplicationItems()
+	return nil
+}
+
+// saveEditedSubEntry updates an existing SubEntry and its parent Application metadata
+func (m *Model) saveEditedSubEntry(appIdx, subIdx int, subEntry config.SubEntry, description string, filters []config.Filter, pkg *config.EntryPackage) error {
+	app := &m.Config.Applications[appIdx]
+
+	// Check for duplicate names (skip the one being edited)
+	for i, existing := range app.Entries {
+		if i != subIdx && existing.Name == subEntry.Name {
+			return fmt.Errorf("a sub-entry with name '%s' already exists in this application", subEntry.Name)
+		}
+	}
+
+	// Update SubEntry
+	app.Entries[subIdx] = subEntry
+
+	// Update Application metadata
+	app.Description = description
+	app.Filters = filters
+	app.Package = pkg
+
+	if err := config.Save(m.Config, m.ConfigPath); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	m.initApplicationItems()
+	return nil
+}
+
+// saveEditedApplication updates Application metadata only (no SubEntry changes)
+func (m *Model) saveEditedApplication(appIdx int, name, description string, filters []config.Filter, pkg *config.EntryPackage) error {
+	app := &m.Config.Applications[appIdx]
+
+	// Check for duplicate names (skip the one being edited)
+	for i, existing := range m.Config.Applications {
+		if i != appIdx && existing.Name == name {
+			return fmt.Errorf("an application with name '%s' already exists", name)
+		}
+	}
+
+	// Update Application metadata
+	app.Name = name
+	app.Description = description
+	app.Filters = filters
+	app.Package = pkg
+
+	if err := config.Save(m.Config, m.ConfigPath); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	m.initApplicationItems()
 	return nil
 }
 
@@ -2047,42 +2212,196 @@ func (m *Model) buildFiltersFromConditions() []config.Filter {
 	return result
 }
 
-// findConfigEntryIndex finds the config entry index corresponding to a Paths slice index
-func (m *Model) findConfigEntryIndex(pathsIndex int) int {
-	if pathsIndex < 0 || pathsIndex >= len(m.Paths) {
-		return -1
-	}
-	entryName := m.Paths[pathsIndex].Entry.Name
-	for i, e := range m.Config.Entries {
-		if e.Name == entryName {
-			return i
-		}
-	}
-	return -1
-}
-
-// deleteEntry removes an entry from the config and Paths slice
+// deleteEntry removes an entry from Paths by finding its Application and SubEntry
+// This is a compatibility wrapper for the old deleteEntry function
 func (m *Model) deleteEntry(pathsIndex int) error {
-	if pathsIndex < listStartIndex || pathsIndex >= len(m.Paths) {
+	if pathsIndex < 0 || pathsIndex >= len(m.Paths) {
 		return fmt.Errorf("invalid index")
 	}
 
-	// Find the corresponding config entry
-	configIdx := m.findConfigEntryIndex(pathsIndex)
-	if configIdx == notFoundIndex {
+	entryName := m.Paths[pathsIndex].Entry.Name
+
+	// Parse the entry name to find app and sub-entry
+	// Entry names in v3 are formatted as "app/subentry"
+	parts := strings.SplitN(entryName, "/", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid entry name format: %s", entryName)
+	}
+
+	appName := parts[0]
+	subName := parts[1]
+
+	// Find the application and sub-entry indices
+	appIdx := -1
+	subIdx := -1
+
+	for i, app := range m.Config.Applications {
+		if app.Name == appName {
+			appIdx = i
+			for j, sub := range app.Entries {
+				if sub.Name == subName {
+					subIdx = j
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if appIdx < 0 || subIdx < 0 {
 		return fmt.Errorf("entry not found in config")
 	}
 
-	// Remove from config entries
-	m.Config.Entries = append(m.Config.Entries[:configIdx], m.Config.Entries[configIdx+1:]...)
+	return m.deleteApplicationOrSubEntry(appIdx, subIdx)
+}
 
-	// Save config to file
-	if err := config.Save(m.Config, m.ConfigPath); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+// deleteApplication removes an entire Application
+func (m *Model) deleteApplication(appIdx int) error {
+	return m.deleteApplicationOrSubEntry(appIdx, -1)
+}
+
+// deleteSubEntry removes a SubEntry from an Application
+func (m *Model) deleteSubEntry(appIdx, subIdx int) error {
+	return m.deleteApplicationOrSubEntry(appIdx, subIdx)
+}
+
+// deleteApplicationOrSubEntry removes an Application or SubEntry from the config
+func (m *Model) deleteApplicationOrSubEntry(appIdx, subIdx int) error {
+	if subIdx >= 0 {
+		// Deleting SubEntry
+		app := &m.Config.Applications[appIdx]
+
+		if len(app.Entries) == 1 {
+			// Last SubEntry - delete whole Application
+			m.Config.Applications = append(
+				m.Config.Applications[:appIdx],
+				m.Config.Applications[appIdx+1:]...,
+			)
+		} else {
+			// Delete just this SubEntry
+			app.Entries = append(
+				app.Entries[:subIdx],
+				app.Entries[subIdx+1:]...,
+			)
+		}
+	} else {
+		// Deleting entire Application
+		m.Config.Applications = append(
+			m.Config.Applications[:appIdx],
+			m.Config.Applications[appIdx+1:]...,
+		)
 	}
 
-	// Remove from Paths slice
-	m.Paths = append(m.Paths[:pathsIndex], m.Paths[pathsIndex+1:]...)
+	// Save and rebuild
+	if err := config.Save(m.Config, m.ConfigPath); err != nil {
+		return err
+	}
 
+	m.initApplicationItems()
 	return nil
+}
+
+// Stub functions for other phases (to be implemented later)
+
+func (m Model) calcSubEntryDetailHeight(item *SubEntryItem) int {
+	// Placeholder - to be implemented in Phase 5
+	return 5
+}
+
+func (m Model) calcApplicationDetailHeight(item *ApplicationItem) int {
+	// Placeholder - to be implemented in Phase 5
+	return 5
+}
+
+func (m Model) renderApplicationInlineDetail(item *ApplicationItem, width int) string {
+	// Placeholder - to be implemented in Phase 5
+	return ""
+}
+
+func (m Model) renderSubEntryInlineDetail(item *SubEntryItem, width int) string {
+	// Placeholder - to be implemented in Phase 5
+	return ""
+}
+
+// Helper Functions for Phase 7
+
+// determineType returns "config" or "git" based on form data
+func determineType(form AddForm) string {
+	if form.entryType == EntryTypeGit || form.repoInput.Value() != "" {
+		return "git"
+	}
+	return "config"
+}
+
+// buildTargets creates Targets map from form inputs
+func buildTargets(form AddForm) map[string]string {
+	targets := make(map[string]string)
+	if linux := strings.TrimSpace(form.linuxTargetInput.Value()); linux != "" {
+		targets["linux"] = linux
+	}
+	if windows := strings.TrimSpace(form.windowsTargetInput.Value()); windows != "" {
+		targets["windows"] = windows
+	}
+	return targets
+}
+
+// buildFiltersFromForm converts UI FilterCondition list to config.Filter
+func buildFiltersFromForm(conditions []FilterCondition) []config.Filter {
+	if len(conditions) == 0 {
+		return nil
+	}
+
+	// Group conditions by FilterIndex
+	filterMap := make(map[int]*config.Filter)
+
+	for _, cond := range conditions {
+		if _, exists := filterMap[cond.FilterIndex]; !exists {
+			filterMap[cond.FilterIndex] = &config.Filter{
+				Include: make(map[string]string),
+				Exclude: make(map[string]string),
+			}
+		}
+
+		filter := filterMap[cond.FilterIndex]
+		if cond.IsExclude {
+			filter.Exclude[cond.Key] = cond.Value
+		} else {
+			filter.Include[cond.Key] = cond.Value
+		}
+	}
+
+	// Convert map to sorted slice
+	var filters []config.Filter
+	for i := 0; i <= len(filterMap); i++ {
+		if f, exists := filterMap[i]; exists {
+			filters = append(filters, *f)
+		}
+	}
+
+	return filters
+}
+
+// buildPackageFromForm creates EntryPackage from form
+func buildPackageFromForm(managers map[string]string) *config.EntryPackage {
+	if len(managers) == 0 {
+		return nil
+	}
+	return &config.EntryPackage{
+		Managers: managers,
+	}
+}
+
+// performRestoreSubEntry performs restore on a SubEntry
+// This is adapted from performRestore but works with SubEntry instead of PathItem
+func (m Model) performRestoreSubEntry(subEntry config.SubEntry, target string) (bool, string) {
+	if !subEntry.IsConfig() {
+		return false, "Not a config entry"
+	}
+
+	backupPath := m.resolvePath(subEntry.Backup)
+
+	if subEntry.IsFolder() {
+		return m.restoreFolder(backupPath, target)
+	}
+	return m.restoreFiles(subEntry.Files, backupPath, target)
 }
