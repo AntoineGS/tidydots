@@ -931,6 +931,16 @@ const (
 	fieldTypeFilters                           // Filters list
 )
 
+// Index constants
+const (
+	// noEditIndex indicates adding a new entry (not editing an existing one)
+	noEditIndex = -1
+	// notFoundIndex indicates an entry was not found
+	notFoundIndex = -1
+	// listStartIndex is the first valid index in a list
+	listStartIndex = 0
+)
+
 // Filter add wizard step constants
 const (
 	filterStepType  = 0 // Select include/exclude
@@ -1766,4 +1776,30 @@ func (m *Model) findConfigEntryIndex(pathsIndex int) int {
 		}
 	}
 	return -1
+}
+
+// deleteEntry removes an entry from the config and Paths slice
+func (m *Model) deleteEntry(pathsIndex int) error {
+	if pathsIndex < listStartIndex || pathsIndex >= len(m.Paths) {
+		return fmt.Errorf("invalid index")
+	}
+
+	// Find the corresponding config entry
+	configIdx := m.findConfigEntryIndex(pathsIndex)
+	if configIdx == notFoundIndex {
+		return fmt.Errorf("entry not found in config")
+	}
+
+	// Remove from config entries
+	m.Config.Entries = append(m.Config.Entries[:configIdx], m.Config.Entries[configIdx+1:]...)
+
+	// Save config to file
+	if err := config.Save(m.Config, m.ConfigPath); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	// Remove from Paths slice
+	m.Paths = append(m.Paths[:pathsIndex], m.Paths[pathsIndex+1:]...)
+
+	return nil
 }

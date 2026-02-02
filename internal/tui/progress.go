@@ -85,6 +85,24 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Screen = ScreenAddForm
 			return m, nil
 		}
+	case "d", "delete", "backspace":
+		// Delete selected entry (only in List view)
+		if m.Operation == OpList && len(m.Paths) > listStartIndex {
+			if err := m.deleteEntry(m.listCursor); err == nil {
+				// Adjust cursor if needed
+				if m.listCursor >= len(m.Paths) && m.listCursor > listStartIndex {
+					m.listCursor--
+				}
+				// Adjust scroll offset if needed
+				if m.scrollOffset > listStartIndex && m.scrollOffset >= len(m.Paths) {
+					m.scrollOffset = len(m.Paths) - 1
+					if m.scrollOffset < listStartIndex {
+						m.scrollOffset = listStartIndex
+					}
+				}
+			}
+			return m, nil
+		}
 	case "r":
 		// Return to menu for another operation
 		m.Screen = ScreenMenu
@@ -386,7 +404,7 @@ func (m Model) viewListTable() string {
 			"l/→", "details",
 			"a", "add",
 			"e", "edit",
-			"h/←", "back",
+			"d", "delete",
 			"q", "menu",
 		))
 	}
