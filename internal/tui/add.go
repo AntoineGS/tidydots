@@ -648,7 +648,8 @@ func (m Model) updateFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			fc := m.addForm.filters[m.addForm.filtersCursor]
 			m.addForm.editingFilter = true
 			m.addForm.editingFilterIndex = m.addForm.filtersCursor
-			m.addForm.filterAddStep = 2 // Start at value editing
+			m.addForm.filterAddStep = filterStepValue // Start at value step
+			m.addForm.editingFilterValue = false      // Don't start in edit mode
 			m.addForm.filterIsExclude = fc.IsExclude
 			// Find key index
 			for i, k := range filterKeys {
@@ -658,7 +659,7 @@ func (m Model) updateFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.addForm.filterValueInput.SetValue(fc.Value)
-			m.addForm.filterValueInput.Focus()
+			// Don't focus the input - require enter/e to edit
 		}
 		return m, nil
 
@@ -695,52 +696,17 @@ func (m Model) updateFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) updateFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	switch msg.String() {
-	case "ctrl+c":
-		return m, tea.Quit
-
-	case "esc":
-		// Cancel adding/editing filter
-		m.addForm.addingFilter = false
-		m.addForm.editingFilter = false
-		m.addForm.editingFilterIndex = -1
-		m.addForm.filterValueInput.SetValue("")
-		return m, nil
-
-	case "left", "h":
-		// Navigate in type or key step
-		if m.addForm.filterAddStep == filterStepType {
-			m.addForm.filterIsExclude = !m.addForm.filterIsExclude
-		} else if m.addForm.filterAddStep == filterStepKey {
-			if m.addForm.filterKeyCursor > 0 {
-				m.addForm.filterKeyCursor--
-			}
-		}
-		return m, nil
-
-	case "right", "l":
-		// Navigate in type or key step
-		if m.addForm.filterAddStep == filterStepType {
-			m.addForm.filterIsExclude = !m.addForm.filterIsExclude
-		} else if m.addForm.filterAddStep == filterStepKey {
-			if m.addForm.filterKeyCursor < len(filterKeys)-1 {
-				m.addForm.filterKeyCursor++
-			}
-		}
-		return m, nil
-
-	case "tab", "enter":
-		// Move to next step or save
-		if m.addForm.filterAddStep == filterStepType {
-			// Move from type selection to key selection
-			m.addForm.filterAddStep = filterStepKey
+	// Handle value editing mode separately (when actively typing in the value field)
+	if m.addForm.filterAddStep == filterStepValue && m.addForm.editingFilterValue {
+		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "esc":
+			// Cancel value editing, return to filter view
+			m.addForm.editingFilterValue = false
+			m.addForm.filterValueInput.Blur()
 			return m, nil
-		} else if m.addForm.filterAddStep == filterStepKey {
-			// Move from key selection to value input
-			m.addForm.filterAddStep = filterStepValue
-			m.addForm.filterValueInput.Focus()
-			return m, nil
-		} else if m.addForm.filterAddStep == filterStepValue {
+		case "enter":
 			// Save the filter
 			value := strings.TrimSpace(m.addForm.filterValueInput.Value())
 			if value == "" {
@@ -778,27 +744,121 @@ func (m Model) updateFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.addForm.filtersCursor = len(m.addForm.filters) // Move cursor to "Add Filter" button
 				m.addForm.addingFilter = false
 			}
+			m.addForm.editingFilterValue = false
 			m.addForm.filterValueInput.SetValue("")
 			return m, nil
 		}
+		// Pass all other keys to the text input
+		m.addForm.filterValueInput, cmd = m.addForm.filterValueInput.Update(msg)
+		return m, cmd
+	}
+
+	// Handle navigation mode (not actively editing the value field)
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+
+	case "esc":
+		// Cancel adding/editing filter
+		m.addForm.addingFilter = false
+		m.addForm.editingFilter = false
+		m.addForm.editingFilterIndex = -1
+		m.addForm.editingFilterValue = false
+		m.addForm.filterValueInput.SetValue("")
+		return m, nil
+
+	case "up", "k":
+		// Navigate to previous step
+		if m.addForm.filterAddStep == filterStepValue {
+			m.addForm.filterAddStep = filterStepKey
+		} else if m.addForm.filterAddStep == filterStepKey {
+			m.addForm.filterAddStep = filterStepType
+		}
+		return m, nil
+
+	case "down", "j":
+		// Navigate to next step
+		if m.addForm.filterAddStep == filterStepType {
+			m.addForm.filterAddStep = filterStepKey
+		} else if m.addForm.filterAddStep == filterStepKey {
+			m.addForm.filterAddStep = filterStepValue
+		}
+		return m, nil
+
+	case "left", "h":
+		// Navigate in type or key step
+		if m.addForm.filterAddStep == filterStepType {
+			m.addForm.filterIsExclude = !m.addForm.filterIsExclude
+		} else if m.addForm.filterAddStep == filterStepKey {
+			if m.addForm.filterKeyCursor > 0 {
+				m.addForm.filterKeyCursor--
+			}
+		}
+		return m, nil
+
+	case "right", "l":
+		// Navigate in type or key step
+		if m.addForm.filterAddStep == filterStepType {
+			m.addForm.filterIsExclude = !m.addForm.filterIsExclude
+		} else if m.addForm.filterAddStep == filterStepKey {
+			if m.addForm.filterKeyCursor < len(filterKeys)-1 {
+				m.addForm.filterKeyCursor++
+			}
+		}
+		return m, nil
+
+	case "tab":
+		// Move to next step
+		if m.addForm.filterAddStep == filterStepType {
+			m.addForm.filterAddStep = filterStepKey
+		} else if m.addForm.filterAddStep == filterStepKey {
+			// Advance to value step
+			m.addForm.filterAddStep = filterStepValue
+			// When adding (going through wizard), auto-start editing
+			if m.addForm.addingFilter {
+				m.addForm.editingFilterValue = true
+				m.addForm.filterValueInput.Focus()
+				m.addForm.filterValueInput.SetCursor(len(m.addForm.filterValueInput.Value()))
+			}
+		} else if m.addForm.filterAddStep == filterStepValue {
+			// Start editing when tabbing while in value step
+			m.addForm.editingFilterValue = true
+			m.addForm.filterValueInput.Focus()
+			m.addForm.filterValueInput.SetCursor(len(m.addForm.filterValueInput.Value()))
+		}
+		return m, nil
+
+	case "enter", "e":
+		// Enter edit mode for current step, or advance
+		if m.addForm.filterAddStep == filterStepType {
+			// Advance to next step
+			m.addForm.filterAddStep = filterStepKey
+		} else if m.addForm.filterAddStep == filterStepKey {
+			// Advance to value step
+			m.addForm.filterAddStep = filterStepValue
+			// When adding (going through wizard), auto-start editing
+			if m.addForm.addingFilter {
+				m.addForm.editingFilterValue = true
+				m.addForm.filterValueInput.Focus()
+				m.addForm.filterValueInput.SetCursor(len(m.addForm.filterValueInput.Value()))
+			}
+		} else if m.addForm.filterAddStep == filterStepValue {
+			// Start editing the value
+			m.addForm.editingFilterValue = true
+			m.addForm.filterValueInput.Focus()
+			m.addForm.filterValueInput.SetCursor(len(m.addForm.filterValueInput.Value()))
+		}
+		return m, nil
 
 	case "shift+tab":
 		// Move to previous step
 		if m.addForm.filterAddStep > filterStepType {
 			m.addForm.filterAddStep--
-			if m.addForm.filterAddStep < filterStepValue {
-				m.addForm.filterValueInput.Blur()
-			}
 		}
 		return m, nil
 	}
 
-	// Handle text input only in value step
-	if m.addForm.filterAddStep == filterStepValue {
-		m.addForm.filterValueInput, cmd = m.addForm.filterValueInput.Update(msg)
-	}
-
-	return m, cmd
+	return m, nil
 }
 
 // updateAddFormFocus updates which input field is focused
@@ -1329,9 +1389,18 @@ func (m Model) renderFilterAddUI() string {
 
 	// Value input
 	valueLabel := "    Value: "
-	if m.addForm.filterAddStep == filterStepValue {
+	if m.addForm.filterAddStep == filterStepValue && m.addForm.editingFilterValue {
+		// Actively editing - show the text input
 		b.WriteString(valueLabel + m.addForm.filterValueInput.View() + "\n")
+	} else if m.addForm.filterAddStep == filterStepValue {
+		// Focused but not editing - show highlighted value
+		value := m.addForm.filterValueInput.Value()
+		if value == "" {
+			value = "(enter value)"
+		}
+		b.WriteString(valueLabel + SelectedMenuItemStyle.Render(value) + "\n")
 	} else {
+		// Not focused
 		value := m.addForm.filterValueInput.Value()
 		if value == "" {
 			value = MutedTextStyle.Render("(enter value)")
@@ -1384,21 +1453,28 @@ func (m Model) renderAddFormHelp() string {
 		switch m.addForm.filterAddStep {
 		case filterStepType:
 			return RenderHelp(
-				"←/→", "select type",
-				"tab/enter", "next",
+				"←/h →/l", "select type",
+				"↓/j", "next step",
+				"enter/tab", "next",
 				"esc", "cancel",
 			)
 		case filterStepKey:
 			return RenderHelp(
-				"←/→", "select key",
-				"tab/enter", "next",
-				"shift+tab", "back",
+				"←/h →/l", "select key",
+				"↑/k ↓/j", "navigate",
+				"enter/tab", "next",
 				"esc", "cancel",
 			)
 		case filterStepValue:
+			if m.addForm.editingFilterValue {
+				return RenderHelp(
+					"enter", "save filter",
+					"esc", "cancel edit",
+				)
+			}
 			return RenderHelp(
-				"enter", "save filter",
-				"shift+tab", "back",
+				"↑/k ↓/j", "navigate",
+				"enter/e", "edit value",
 				"esc", "cancel",
 			)
 		}

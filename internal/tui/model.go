@@ -128,6 +128,7 @@ type AddForm struct {
 	editingFilterIndex  int               // Index of the filter being edited
 	filterAddStep       int               // 0=type(include/exclude), 1=key, 2=value
 	filterIsExclude     bool              // For adding: is this an exclude condition
+	editingFilterValue  bool              // Whether we're actively editing the filter value text
 	filterKeyInput      textinput.Model   // Input for filter key selection
 	filterValueInput    textinput.Model   // Input for filter value
 	filterKeyCursor     int               // Cursor for key selection (0-3: os, distro, hostname, user)
