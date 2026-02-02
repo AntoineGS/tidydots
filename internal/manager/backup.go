@@ -8,7 +8,7 @@ import (
 )
 
 func (m *Manager) Backup() error {
-	m.log("Backing up configurations for OS: %s (root: %v)", m.Platform.OS, m.Platform.IsRoot)
+	m.log("Backing up configurations for OS: %s", m.Platform.OS)
 
 	paths := m.GetPaths()
 

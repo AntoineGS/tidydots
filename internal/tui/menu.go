@@ -55,7 +55,7 @@ func (m Model) viewMenu() string {
 	b.WriteString("\n\n")
 
 	// Subtitle with info
-	b.WriteString(RenderOSInfo(m.Platform.OS, m.Platform.IsRoot, m.Platform.IsArch, m.DryRun))
+	b.WriteString(RenderOSInfo(m.Platform.OS, m.Platform.IsArch, m.DryRun))
 	b.WriteString("\n\n")
 
 	// Menu items

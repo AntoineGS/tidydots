@@ -29,13 +29,13 @@ go test ./internal/manager/...
 - **internal/config/entry.go** - Unified Entry type supporting config (symlinks) and git (repo clones)
 - **internal/config/filter.go** - Filter system with include/exclude conditions for os, distro, hostname, user
 - **internal/manager/** - Core operations (backup, restore, adopt, list) with platform-aware path selection
-- **internal/platform/** - OS/distro detection (Linux/Windows), root/sudo detection, hostname/user detection
+- **internal/platform/** - OS/distro detection (Linux/Windows), hostname/user detection
 - **internal/tui/** - Bubble Tea-based interactive terminal UI with Lipgloss styling
 - **internal/packages/** - Multi-package-manager support (pacman, yay, paru, apt, dnf, brew, winget, scoop, choco)
 
 ### Key Patterns
 
-- **Unified entries**: Single `entries` array with `root: true` flag instead of separate `paths`/`root_paths`
+- **Unified entries**: Single `entries` array with `sudo: true` flag for entries requiring elevated privileges
 - **Entry types**: Config entries (have `backup`) manage symlinks; Git entries (have `repo`) clone repositories
 - **Filter-based selection**: Entries filtered by os, distro, hostname, user with regex support
 - **Symlink-based restoration**: Configs are symlinked from the dotfiles repo rather than copied
@@ -72,9 +72,9 @@ entries:
       managers:
         pacman: "package-name"
 
-  # Root entry with filter
+  # Entry requiring sudo with filter
   - name: "system-config"
-    root: true
+    sudo: true
     backup: "./system"
     targets:
       linux: "/etc/app"

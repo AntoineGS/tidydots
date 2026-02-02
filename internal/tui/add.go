@@ -65,7 +65,7 @@ func (m *Model) initAddFormWithIndex(editIndex int) {
 
 	entryType := EntryTypeConfig
 	isFolder := true
-	isRoot := false
+	isSudo := false
 	var files []string
 	var filters []FilterCondition
 
@@ -77,7 +77,7 @@ func (m *Model) initAddFormWithIndex(editIndex int) {
 
 		nameInput.SetValue(entry.Name)
 		descriptionInput.SetValue(entry.Description)
-		isRoot = entry.Root
+		isSudo = entry.Sudo
 
 		if target, ok := entry.Targets["linux"]; ok {
 			linuxTargetInput.SetValue(target)
@@ -123,7 +123,7 @@ func (m *Model) initAddFormWithIndex(editIndex int) {
 		entryType:           entryType,
 		nameInput:           nameInput,
 		descriptionInput:    descriptionInput,
-		isRoot:              isRoot,
+		isSudo:              isSudo,
 		linuxTargetInput:    linuxTargetInput,
 		windowsTargetInput:  windowsTargetInput,
 		backupInput:         backupInput,
@@ -238,8 +238,8 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case fieldTypeIsFolder:
 			m.addForm.isFolder = !m.addForm.isFolder
 			return m, nil
-		case fieldTypeIsRoot:
-			m.addForm.isRoot = !m.addForm.isRoot
+		case fieldTypeIsSudo:
+			m.addForm.isSudo = !m.addForm.isSudo
 			return m, nil
 		}
 
@@ -262,8 +262,8 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case fieldTypeIsFolder:
 			m.addForm.isFolder = !m.addForm.isFolder
 			return m, nil
-		case fieldTypeIsRoot:
-			m.addForm.isRoot = !m.addForm.isRoot
+		case fieldTypeIsSudo:
+			m.addForm.isSudo = !m.addForm.isSudo
 			return m, nil
 		}
 
@@ -934,7 +934,7 @@ const (
 	fieldTypeRepo                              // Repository URL input (git)
 	fieldTypeBranch                            // Branch input (git)
 	fieldTypeIsFolder                          // Folder/files toggle (config)
-	fieldTypeIsRoot                            // Root toggle
+	fieldTypeIsSudo                            // Root toggle
 	fieldTypeFiles                             // Files list (config, !isFolder)
 	fieldTypeFilters                           // Filters list
 )
@@ -964,17 +964,17 @@ const (
 	fieldIdxWindows    = 3
 	fieldIdxTypeSpec   = 4 // First type-specific field (backup/repo)
 	fieldIdxTypeSpec2  = 5 // Second type-specific field (isFolder/branch)
-	fieldIdxTypeSpec3  = 6 // Third type-specific field (files/isRoot)
-	fieldIdxTypeSpec4  = 7 // Fourth type-specific field (isRoot/filters)
+	fieldIdxTypeSpec3  = 6 // Third type-specific field (files/isSudo)
+	fieldIdxTypeSpec4  = 7 // Fourth type-specific field (isSudo/filters)
 	fieldIdxTypeSpec5  = 8 // Fifth type-specific field (filters for files mode)
 )
 
 // Form field count constants for max index calculation
 const (
 	// Number of fields after common fields (name, desc, linux, windows = 4)
-	gitFieldCount          = 4 // repo, branch, isRoot, filters
-	configFolderFieldCount = 4 // backup, isFolder, isRoot, filters
-	configFilesFieldCount  = 5 // backup, isFolder, files, isRoot, filters
+	gitFieldCount          = 4 // repo, branch, isSudo, filters
+	configFolderFieldCount = 4 // backup, isFolder, isSudo, filters
+	configFilesFieldCount  = 5 // backup, isFolder, files, isSudo, filters
 )
 
 // Filter attribute keys
@@ -1008,33 +1008,33 @@ func (m *Model) getFieldType() addFormFieldType {
 
 	// Type-specific fields
 	if isGit {
-		// Git type: repo, branch, isRoot, filters
+		// Git type: repo, branch, isSudo, filters
 		switch idx {
 		case fieldIdxTypeSpec:
 			return fieldTypeRepo
 		case fieldIdxTypeSpec2:
 			return fieldTypeBranch
 		case fieldIdxTypeSpec3:
-			return fieldTypeIsRoot
+			return fieldTypeIsSudo
 		case fieldIdxTypeSpec4:
 			return fieldTypeFilters
 		}
 	} else {
-		// Config type visual order: backup, isFolder, [files if !isFolder], isRoot, filters
+		// Config type visual order: backup, isFolder, [files if !isFolder], isSudo, filters
 		if m.addForm.isFolder {
-			// Folder mode: backup, isFolder, isRoot, filters
+			// Folder mode: backup, isFolder, isSudo, filters
 			switch idx {
 			case fieldIdxTypeSpec:
 				return fieldTypeBackup
 			case fieldIdxTypeSpec2:
 				return fieldTypeIsFolder
 			case fieldIdxTypeSpec3:
-				return fieldTypeIsRoot
+				return fieldTypeIsSudo
 			case fieldIdxTypeSpec4:
 				return fieldTypeFilters
 			}
 		} else {
-			// Files mode: backup, isFolder, files, isRoot, filters
+			// Files mode: backup, isFolder, files, isSudo, filters
 			switch idx {
 			case fieldIdxTypeSpec:
 				return fieldTypeBackup
@@ -1043,7 +1043,7 @@ func (m *Model) getFieldType() addFormFieldType {
 			case fieldIdxTypeSpec3:
 				return fieldTypeFiles
 			case fieldIdxTypeSpec4:
-				return fieldTypeIsRoot
+				return fieldTypeIsSudo
 			case fieldIdxTypeSpec5:
 				return fieldTypeFilters
 			}
@@ -1067,7 +1067,7 @@ func (m *Model) isTextInputField() bool {
 // isToggleField returns true if the current field is a toggle
 func (m *Model) isToggleField() bool {
 	ft := m.getFieldType()
-	return ft == fieldTypeToggle || ft == fieldTypeIsFolder || ft == fieldTypeIsRoot
+	return ft == fieldTypeToggle || ft == fieldTypeIsFolder || ft == fieldTypeIsSudo
 }
 
 // updateSuggestions refreshes the autocomplete suggestions for the current path field
@@ -1299,11 +1299,11 @@ func (m Model) viewAddForm() string {
 
 	// Root toggle
 	rootLabel := "Root only:"
-	if ft == fieldTypeIsRoot {
+	if ft == fieldTypeIsSudo {
 		rootLabel = HelpKeyStyle.Render("Root only:")
 	}
 	rootCheck := "[ ]"
-	if m.addForm.isRoot {
+	if m.addForm.isSudo {
 		rootCheck = "[✓]"
 	}
 	b.WriteString(fmt.Sprintf("  %s  %s Yes\n\n", rootLabel, rootCheck))
@@ -1649,7 +1649,7 @@ func (m *Model) saveNewPath() error {
 	newEntry := config.Entry{
 		Name:        name,
 		Description: description,
-		Root:        m.addForm.isRoot,
+		Sudo:        m.addForm.isSudo,
 		Targets:     targets,
 		Filters:     filters,
 	}

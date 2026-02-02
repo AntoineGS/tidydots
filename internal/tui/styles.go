@@ -260,11 +260,8 @@ func CalculateVisibleRange(offset, viewHeight, total int) (start, end int) {
 }
 
 // RenderOSInfo renders the OS information subtitle
-func RenderOSInfo(osName string, isRoot, isArch, dryRun bool) string {
+func RenderOSInfo(osName string, isArch, dryRun bool) string {
 	osInfo := "OS: " + osName
-	if isRoot {
-		osInfo += " (root)"
-	}
 	if isArch {
 		osInfo += " • Arch Linux"
 	}

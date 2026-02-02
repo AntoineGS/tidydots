@@ -26,7 +26,8 @@ func TestRestoreFolder(t *testing.T) {
 	mgr := New(cfg, plat)
 	mgr.Verbose = true
 
-	err := mgr.restoreFolder("test", srcDir, targetDir)
+	entry := config.Entry{Name: "test"}
+	err := mgr.restoreFolder(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
 	}
@@ -62,7 +63,8 @@ func TestRestoreFolderSkipsExistingSymlink(t *testing.T) {
 	mgr := New(cfg, plat)
 	mgr.Verbose = true
 
-	err := mgr.restoreFolder("test", srcDir, targetDir)
+	entry := config.Entry{Name: "test"}
+	err := mgr.restoreFolder(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
 	}
@@ -90,14 +92,14 @@ func TestRestoreFiles(t *testing.T) {
 	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
 
-	files := []string{"file1.txt", "file2.txt"}
-	err := mgr.restoreFiles("test", files, srcDir, targetDir)
+	entry := config.Entry{Name: "test", Files: []string{"file1.txt", "file2.txt"}}
+	err := mgr.restoreFiles(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFiles() error = %v", err)
 	}
 
 	// Check symlinks were created
-	for _, file := range files {
+	for _, file := range entry.Files {
 		targetFile := filepath.Join(targetDir, file)
 		if !isSymlink(targetFile) {
 			t.Errorf("%s is not a symlink", file)
@@ -127,7 +129,8 @@ func TestRestoreFilesRemovesExisting(t *testing.T) {
 	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
 
-	err := mgr.restoreFiles("test", []string{"config.txt"}, srcDir, targetDir)
+	entry := config.Entry{Name: "test", Files: []string{"config.txt"}}
+	err := mgr.restoreFiles(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFiles() error = %v", err)
 	}
@@ -153,7 +156,8 @@ func TestRestoreDryRun(t *testing.T) {
 	mgr := New(cfg, plat)
 	mgr.DryRun = true
 
-	err := mgr.restoreFolder("test", srcDir, targetDir)
+	entry := config.Entry{Name: "test"}
+	err := mgr.restoreFolder(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
 	}

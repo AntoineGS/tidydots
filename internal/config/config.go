@@ -81,44 +81,44 @@ func (c *Config) ExpandPaths(envVars map[string]string) {
 	}
 }
 
-// GetConfigEntries returns entries that are config type (have backup) filtered by root flag
-func (c *Config) GetConfigEntries(isRoot bool) []Entry {
+// GetConfigEntries returns entries that are config type (have backup)
+func (c *Config) GetConfigEntries() []Entry {
 	var result []Entry
 	for _, e := range c.Entries {
-		if e.IsConfig() && e.Root == isRoot {
+		if e.IsConfig() {
 			result = append(result, e)
 		}
 	}
 	return result
 }
 
-// GetFilteredConfigEntries returns config entries filtered by root flag and filter context
-func (c *Config) GetFilteredConfigEntries(isRoot bool, ctx *FilterContext) []Entry {
+// GetFilteredConfigEntries returns config entries filtered by filter context
+func (c *Config) GetFilteredConfigEntries(ctx *FilterContext) []Entry {
 	var result []Entry
 	for _, e := range c.Entries {
-		if e.IsConfig() && e.Root == isRoot && MatchesFilters(e.Filters, ctx) {
+		if e.IsConfig() && MatchesFilters(e.Filters, ctx) {
 			result = append(result, e)
 		}
 	}
 	return result
 }
 
-// GetGitEntries returns entries that are git type (have repo) filtered by root flag
-func (c *Config) GetGitEntries(isRoot bool) []Entry {
+// GetGitEntries returns entries that are git type (have repo)
+func (c *Config) GetGitEntries() []Entry {
 	var result []Entry
 	for _, e := range c.Entries {
-		if e.IsGit() && e.Root == isRoot {
+		if e.IsGit() {
 			result = append(result, e)
 		}
 	}
 	return result
 }
 
-// GetFilteredGitEntries returns git entries filtered by root flag and filter context
-func (c *Config) GetFilteredGitEntries(isRoot bool, ctx *FilterContext) []Entry {
+// GetFilteredGitEntries returns git entries filtered by filter context
+func (c *Config) GetFilteredGitEntries(ctx *FilterContext) []Entry {
 	var result []Entry
 	for _, e := range c.Entries {
-		if e.IsGit() && e.Root == isRoot && MatchesFilters(e.Filters, ctx) {
+		if e.IsGit() && MatchesFilters(e.Filters, ctx) {
 			result = append(result, e)
 		}
 	}
@@ -148,8 +148,8 @@ func (c *Config) GetFilteredPackageEntries(ctx *FilterContext) []Entry {
 }
 
 // GetPaths returns PathSpecs for entries with config (for backward compatibility)
-func (c *Config) GetPaths(isRoot bool) []PathSpec {
-	entries := c.GetConfigEntries(isRoot)
+func (c *Config) GetPaths() []PathSpec {
+	entries := c.GetConfigEntries()
 	result := make([]PathSpec, 0, len(entries))
 	for _, e := range entries {
 		result = append(result, e.ToPathSpec())

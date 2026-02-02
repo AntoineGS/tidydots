@@ -87,7 +87,7 @@ type AddForm struct {
 	// Common fields
 	nameInput        textinput.Model
 	descriptionInput textinput.Model
-	isRoot           bool
+	isSudo           bool
 
 	// Target fields (both types)
 	linuxTargetInput   textinput.Model
@@ -102,8 +102,8 @@ type AddForm struct {
 	branchInput textinput.Model
 
 	// Focus index: depends on entry type and mode
-	// Config type: 0=name, 1=description, 2=linuxTarget, 3=windowsTarget, 4=backup, 5=isFolder toggle, 6=isRoot toggle, 7=files list (when !isFolder), 8=filters
-	// Git type: 0=name, 1=description, 2=linuxTarget, 3=windowsTarget, 4=repo, 5=branch, 6=isRoot toggle, 7=filters
+	// Config type: 0=name, 1=description, 2=linuxTarget, 3=windowsTarget, 4=backup, 5=isFolder toggle, 6=isSudo toggle, 7=files list (when !isFolder), 8=filters
+	// Git type: 0=name, 1=description, 2=linuxTarget, 3=windowsTarget, 4=repo, 5=branch, 6=isSudo toggle, 7=filters
 	// New entries add type toggle at position 0, shifting others by 1
 	focusIndex int
 	err        string
@@ -227,33 +227,11 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	// Track entries we've already added (by name) to avoid duplicates
 	addedEntries := make(map[string]bool)
 
-	// Get all config entries (both root and non-root) filtered by filter context
-	configEntriesNonRoot := cfg.GetFilteredConfigEntries(false, filterCtx)
-	configEntriesRoot := cfg.GetFilteredConfigEntries(true, filterCtx)
+	// Get all config entries filtered by filter context
+	configEntries := cfg.GetFilteredConfigEntries(filterCtx)
 
-	items := make([]PathItem, 0, len(configEntriesNonRoot)+len(configEntriesRoot))
-	for _, e := range configEntriesNonRoot {
-		target := e.GetTarget(plat.OS)
-		item := PathItem{
-			Entry:     e,
-			Target:    target,
-			Selected:  true, // Select all by default
-			EntryType: EntryTypeConfig,
-		}
-		// Add package info if entry has a package
-		if e.HasPackage() {
-			spec := e.ToPackageSpec()
-			method := getPackageInstallMethod(spec, plat.OS)
-			item.PkgMethod = method
-			if method != "none" {
-				installed := isPackageInstalled(spec, method)
-				item.PkgInstalled = &installed
-			}
-		}
-		items = append(items, item)
-		addedEntries[e.Name] = true
-	}
-	for _, e := range configEntriesRoot {
+	items := make([]PathItem, 0, len(configEntries))
+	for _, e := range configEntries {
 		target := e.GetTarget(plat.OS)
 		item := PathItem{
 			Entry:     e,
@@ -275,31 +253,9 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 		addedEntries[e.Name] = true
 	}
 
-	// Get all git entries (both root and non-root) filtered by filter context
-	gitEntriesNonRoot := cfg.GetFilteredGitEntries(false, filterCtx)
-	gitEntriesRoot := cfg.GetFilteredGitEntries(true, filterCtx)
-	for _, e := range gitEntriesNonRoot {
-		target := e.GetTarget(plat.OS)
-		item := PathItem{
-			Entry:     e,
-			Target:    target,
-			Selected:  true, // Select all by default
-			EntryType: EntryTypeGit,
-		}
-		// Add package info if entry has a package
-		if e.HasPackage() {
-			spec := e.ToPackageSpec()
-			method := getPackageInstallMethod(spec, plat.OS)
-			item.PkgMethod = method
-			if method != "none" {
-				installed := isPackageInstalled(spec, method)
-				item.PkgInstalled = &installed
-			}
-		}
-		items = append(items, item)
-		addedEntries[e.Name] = true
-	}
-	for _, e := range gitEntriesRoot {
+	// Get all git entries filtered by filter context
+	gitEntries := cfg.GetFilteredGitEntries(filterCtx)
+	for _, e := range gitEntries {
 		target := e.GetTarget(plat.OS)
 		item := PathItem{
 			Entry:     e,

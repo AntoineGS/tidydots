@@ -41,7 +41,6 @@ func TestWithOS(t *testing.T) {
 	t.Parallel()
 	p := &Platform{
 		OS:      OSLinux,
-		IsRoot:  true,
 		IsArch:  true,
 		EnvVars: map[string]string{"key": "value"},
 	}
@@ -59,10 +58,6 @@ func TestWithOS(t *testing.T) {
 	}
 
 	// Other fields should be preserved
-	if newP.IsRoot != true {
-		t.Error("WithOS() IsRoot not preserved")
-	}
-
 	if newP.IsArch != true {
 		t.Error("WithOS() IsArch not preserved")
 	}
@@ -129,13 +124,3 @@ func TestDetectDistro(t *testing.T) {
 	}
 }
 
-func TestDetectRoot(t *testing.T) {
-	t.Parallel()
-	isRoot := detectRoot()
-
-	// Just verify it doesn't panic and returns a boolean
-	// Most tests run as non-root, so we expect false
-	if isRoot != true && isRoot != false {
-		t.Error("detectRoot() should return a boolean")
-	}
-}

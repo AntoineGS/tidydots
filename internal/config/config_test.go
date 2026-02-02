@@ -31,7 +31,7 @@ entries:
       linux: "~"
 
   - name: "pacman-hooks"
-    root: true
+    sudo: true
     files: ["pkg-backup.hook"]
     backup: "./Linux/pacman"
     targets:
@@ -89,8 +89,8 @@ entries:
 		t.Errorf("Entries[2].Name = %q, want %q", cfg.Entries[2].Name, "pacman-hooks")
 	}
 
-	if !cfg.Entries[2].Root {
-		t.Error("Entries[2].Root = false, want true")
+	if !cfg.Entries[2].Sudo {
+		t.Error("Entries[2].Sudo = false, want true")
 	}
 }
 
@@ -254,7 +254,7 @@ func TestSave(t *testing.T) {
 			},
 			{
 				Name:   "pacman",
-				Root:   true,
+				Sudo:   true,
 				Files:  []string{"hook.conf"},
 				Backup: "./pacman",
 				Targets: map[string]string{
@@ -556,7 +556,7 @@ entries:
   - name: "oh-my-zsh"
     repo: "https://github.com/ohmyzsh/ohmyzsh.git"
     branch: "master"
-    root: true
+    sudo: true
     targets:
       linux: "/usr/share/oh-my-zsh"
 `
@@ -583,8 +583,8 @@ entries:
 	if entry.Branch != "master" {
 		t.Errorf("Branch = %q, want %q", entry.Branch, "master")
 	}
-	if !entry.Root {
-		t.Error("Root = false, want true")
+	if !entry.Sudo {
+		t.Error("Sudo = false, want true")
 	}
 	if !entry.IsGit() {
 		t.Error("IsGit() = false, want true")
@@ -601,27 +601,27 @@ func TestGetGitEntries(t *testing.T) {
 		Version: 2,
 		Entries: []Entry{
 			{Name: "neovim", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
-			{Name: "oh-my-zsh", Repo: "https://github.com/ohmyzsh/ohmyzsh.git", Root: true, Targets: map[string]string{"linux": "/usr/share/oh-my-zsh"}},
+			{Name: "oh-my-zsh", Repo: "https://github.com/ohmyzsh/ohmyzsh.git", Sudo: true, Targets: map[string]string{"linux": "/usr/share/oh-my-zsh"}},
 			{Name: "fzf", Repo: "https://github.com/junegunn/fzf.git", Targets: map[string]string{"linux": "~/.fzf"}},
 		},
 	}
 
-	// Test getting non-root git entries
-	entries := cfg.GetGitEntries(false)
-	if len(entries) != 1 {
-		t.Errorf("GetGitEntries(false) returned %d entries, want 1", len(entries))
-	}
-	if entries[0].Name != "fzf" {
-		t.Errorf("GetGitEntries(false)[0].Name = %q, want %q", entries[0].Name, "fzf")
+	// Test getting all git entries (both root and non-root)
+	entries := cfg.GetGitEntries()
+	if len(entries) != 2 {
+		t.Errorf("GetGitEntries() returned %d entries, want 2", len(entries))
 	}
 
-	// Test getting root git entries
-	rootEntries := cfg.GetGitEntries(true)
-	if len(rootEntries) != 1 {
-		t.Errorf("GetGitEntries(true) returned %d entries, want 1", len(rootEntries))
+	// Check both entries are present
+	names := make(map[string]bool)
+	for _, e := range entries {
+		names[e.Name] = true
 	}
-	if rootEntries[0].Name != "oh-my-zsh" {
-		t.Errorf("GetGitEntries(true)[0].Name = %q, want %q", rootEntries[0].Name, "oh-my-zsh")
+	if !names["fzf"] {
+		t.Error("GetGitEntries() should include 'fzf'")
+	}
+	if !names["oh-my-zsh"] {
+		t.Error("GetGitEntries() should include 'oh-my-zsh'")
 	}
 }
 
@@ -632,27 +632,27 @@ func TestGetConfigEntries(t *testing.T) {
 		Version: 2,
 		Entries: []Entry{
 			{Name: "neovim", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
-			{Name: "pacman", Root: true, Backup: "./pacman", Targets: map[string]string{"linux": "/etc/pacman.d"}},
+			{Name: "pacman", Sudo: true, Backup: "./pacman", Targets: map[string]string{"linux": "/etc/pacman.d"}},
 			{Name: "ripgrep", Package: &EntryPackage{Managers: map[string]string{"pacman": "ripgrep"}}},
 		},
 	}
 
-	// Test getting non-root entries
-	entries := cfg.GetConfigEntries(false)
-	if len(entries) != 1 {
-		t.Errorf("GetConfigEntries(false) returned %d entries, want 1", len(entries))
-	}
-	if entries[0].Name != "neovim" {
-		t.Errorf("GetConfigEntries(false)[0].Name = %q, want %q", entries[0].Name, "neovim")
+	// Test getting all config entries (both root and non-root)
+	entries := cfg.GetConfigEntries()
+	if len(entries) != 2 {
+		t.Errorf("GetConfigEntries() returned %d entries, want 2", len(entries))
 	}
 
-	// Test getting root entries
-	rootEntries := cfg.GetConfigEntries(true)
-	if len(rootEntries) != 1 {
-		t.Errorf("GetConfigEntries(true) returned %d entries, want 1", len(rootEntries))
+	// Check both entries are present
+	names := make(map[string]bool)
+	for _, e := range entries {
+		names[e.Name] = true
 	}
-	if rootEntries[0].Name != "pacman" {
-		t.Errorf("GetConfigEntries(true)[0].Name = %q, want %q", rootEntries[0].Name, "pacman")
+	if !names["neovim"] {
+		t.Error("GetConfigEntries() should include 'neovim'")
+	}
+	if !names["pacman"] {
+		t.Error("GetConfigEntries() should include 'pacman'")
 	}
 }
 
@@ -819,16 +819,16 @@ func TestGetFilteredConfigEntries(t *testing.T) {
 			{Name: "linux-config", Backup: "./linux", Targets: map[string]string{"linux": "~/.config/linux"}, Filters: []Filter{{Include: map[string]string{"os": "linux"}}}},
 			{Name: "windows-config", Backup: "./windows", Targets: map[string]string{"windows": "~/AppData"}, Filters: []Filter{{Include: map[string]string{"os": "windows"}}}},
 			{Name: "all-config", Backup: "./all", Targets: map[string]string{"linux": "~/.config/all"}},
-			{Name: "root-config", Root: true, Backup: "./root", Targets: map[string]string{"linux": "/etc/root"}},
+			{Name: "root-config", Sudo: true, Backup: "./root", Targets: map[string]string{"linux": "/etc/root"}},
 		},
 	}
 
 	linuxCtx := &FilterContext{OS: "linux", Hostname: "desktop", User: "john"}
 
-	// Test non-root entries on Linux
-	entries := cfg.GetFilteredConfigEntries(false, linuxCtx)
-	if len(entries) != 2 {
-		t.Errorf("GetFilteredConfigEntries(false, linux) returned %d entries, want 2", len(entries))
+	// Test entries on Linux (includes both root and non-root)
+	entries := cfg.GetFilteredConfigEntries(linuxCtx)
+	if len(entries) != 3 {
+		t.Errorf("GetFilteredConfigEntries(linux) returned %d entries, want 3", len(entries))
 	}
 
 	names := make(map[string]bool)
@@ -841,15 +841,18 @@ func TestGetFilteredConfigEntries(t *testing.T) {
 	if !names["all-config"] {
 		t.Error("Expected all-config to be included")
 	}
+	if !names["root-config"] {
+		t.Error("Expected root-config to be included")
+	}
 	if names["windows-config"] {
 		t.Error("Expected windows-config to be excluded")
 	}
 
-	// Test with Windows context
+	// Test with Windows context (windows-config, all-config, root-config pass filters)
 	windowsCtx := &FilterContext{OS: "windows", Hostname: "desktop", User: "john"}
-	windowsEntries := cfg.GetFilteredConfigEntries(false, windowsCtx)
-	if len(windowsEntries) != 2 {
-		t.Errorf("GetFilteredConfigEntries(false, windows) returned %d entries, want 2", len(windowsEntries))
+	windowsEntries := cfg.GetFilteredConfigEntries(windowsCtx)
+	if len(windowsEntries) != 3 {
+		t.Errorf("GetFilteredConfigEntries(windows) returned %d entries, want 3", len(windowsEntries))
 	}
 }
 
@@ -865,15 +868,15 @@ func TestGetFilteredGitEntries(t *testing.T) {
 	}
 
 	linuxCtx := &FilterContext{OS: "linux", Hostname: "desktop", User: "john"}
-	entries := cfg.GetFilteredGitEntries(false, linuxCtx)
+	entries := cfg.GetFilteredGitEntries(linuxCtx)
 	if len(entries) != 2 {
-		t.Errorf("GetFilteredGitEntries(false, linux) returned %d entries, want 2", len(entries))
+		t.Errorf("GetFilteredGitEntries(linux) returned %d entries, want 2", len(entries))
 	}
 
 	windowsCtx := &FilterContext{OS: "windows", Hostname: "desktop", User: "john"}
-	windowsEntries := cfg.GetFilteredGitEntries(false, windowsCtx)
+	windowsEntries := cfg.GetFilteredGitEntries(windowsCtx)
 	if len(windowsEntries) != 1 {
-		t.Errorf("GetFilteredGitEntries(false, windows) returned %d entries, want 1", len(windowsEntries))
+		t.Errorf("GetFilteredGitEntries(windows) returned %d entries, want 1", len(windowsEntries))
 	}
 	if windowsEntries[0].Name != "all-repo" {
 		t.Errorf("Expected all-repo, got %s", windowsEntries[0].Name)

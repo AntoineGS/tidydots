@@ -43,35 +43,30 @@ func TestGetPaths(t *testing.T) {
 		Version: 2,
 		Entries: []config.Entry{
 			{Name: "user-path", Backup: "./user", Targets: map[string]string{"linux": "~/.config"}},
-			{Name: "root-path", Root: true, Backup: "./root", Targets: map[string]string{"linux": "/etc"}},
+			{Name: "root-path", Sudo: true, Backup: "./root", Targets: map[string]string{"linux": "/etc"}},
 		},
 	}
 
-	tests := []struct {
-		name     string
-		isRoot   bool
-		wantName string
-	}{
-		{"non-root user", false, "user-path"},
-		{"root user", true, "root-path"},
+	// All paths are returned regardless of Root flag
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	paths := mgr.GetPaths()
+
+	if len(paths) != 2 {
+		t.Fatalf("GetPaths() returned %d paths, want 2", len(paths))
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			plat := &platform.Platform{OS: platform.OSLinux, IsRoot: tt.isRoot}
-			mgr := New(cfg, plat)
-
-			paths := mgr.GetPaths()
-
-			if len(paths) != 1 {
-				t.Fatalf("GetPaths() returned %d paths, want 1", len(paths))
-			}
-
-			if paths[0].Name != tt.wantName {
-				t.Errorf("GetPaths()[0].Name = %q, want %q", paths[0].Name, tt.wantName)
-			}
-		})
+	// Verify both paths are present
+	names := make(map[string]bool)
+	for _, p := range paths {
+		names[p.Name] = true
+	}
+	if !names["user-path"] {
+		t.Error("GetPaths() should include 'user-path'")
+	}
+	if !names["root-path"] {
+		t.Error("GetPaths() should include 'root-path'")
 	}
 }
 

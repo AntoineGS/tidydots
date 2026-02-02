@@ -25,7 +25,8 @@ func TestAdoptFolder(t *testing.T) {
 	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
 
-	err := mgr.restoreFolder("test", backupDir, targetDir)
+	entry := config.Entry{Name: "test"}
+	err := mgr.restoreFolder(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
 	}
@@ -70,14 +71,14 @@ func TestAdoptFiles(t *testing.T) {
 	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
 
-	files := []string{"config1.txt", "config2.txt"}
-	err := mgr.restoreFiles("test", files, backupDir, targetDir)
+	entry := config.Entry{Name: "test", Files: []string{"config1.txt", "config2.txt"}}
+	err := mgr.restoreFiles(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFiles() error = %v", err)
 	}
 
 	// Check that backup files now exist
-	for _, file := range files {
+	for _, file := range entry.Files {
 		backupFile := filepath.Join(backupDir, file)
 		if !pathExists(backupFile) {
 			t.Errorf("Backup file %s should exist after adopt", file)
@@ -114,7 +115,8 @@ func TestAdoptSkipsExistingBackup(t *testing.T) {
 	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
 
-	err := mgr.restoreFolder("test", backupDir, targetDir)
+	entry := config.Entry{Name: "test"}
+	err := mgr.restoreFolder(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
 	}
@@ -147,7 +149,8 @@ func TestAdoptDryRun(t *testing.T) {
 	mgr := New(cfg, plat)
 	mgr.DryRun = true
 
-	err := mgr.restoreFolder("test", backupDir, targetDir)
+	entry := config.Entry{Name: "test"}
+	err := mgr.restoreFolder(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
 	}

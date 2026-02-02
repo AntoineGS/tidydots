@@ -9,7 +9,7 @@ type Entry struct {
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description,omitempty"`
 	Filters     []Filter `yaml:"filters,omitempty"`
-	Root        bool     `yaml:"root,omitempty"`
+	Sudo        bool     `yaml:"sudo,omitempty"`
 
 	// Config fields (identifies config type entries)
 	Files   []string          `yaml:"files,omitempty"`
@@ -95,10 +95,10 @@ func (e *Entry) ToPackageSpec() PackageSpec {
 }
 
 // EntryFromPathSpec creates an Entry from a PathSpec
-func EntryFromPathSpec(p PathSpec, root bool) Entry {
+func EntryFromPathSpec(p PathSpec, sudo bool) Entry {
 	return Entry{
 		Name:    p.Name,
-		Root:    root,
+		Sudo:    sudo,
 		Files:   p.Files,
 		Backup:  p.Backup,
 		Targets: p.Targets,

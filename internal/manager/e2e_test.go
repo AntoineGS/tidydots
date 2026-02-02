@@ -807,7 +807,7 @@ func TestE2E_RootPaths(t *testing.T) {
 			},
 			{
 				Name:   "system-app",
-				Root:   true,
+				Sudo:   true,
 				Files:  []string{"system.conf"},
 				Backup: "./system",
 				Targets: map[string]string{
@@ -817,28 +817,31 @@ func TestE2E_RootPaths(t *testing.T) {
 		},
 	}
 
-	// Test as non-root
-	plat := &platform.Platform{OS: platform.OSLinux, IsRoot: false}
+	// Now all entries are restored regardless of Root flag
+	// Root entries will attempt to use sudo for operations (tested separately)
+	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
+
+	// In tests, we can only verify non-root entries work correctly
+	// Root entries would fail without actual sudo privileges
+	// For this test, we verify the user-app entry works
 	mgr.Restore()
 
 	userTarget := filepath.Join(homeDir, ".config", "app")
 	if !isSymlink(userTarget) {
-		t.Errorf("User target should be symlinked for non-root")
+		t.Errorf("User target should be symlinked")
 	}
 
-	systemTarget := filepath.Join(etcDir, "system.conf")
-	if pathExists(systemTarget) {
-		t.Errorf("System target should NOT be created for non-root")
+	// Verify the Root flag is preserved in config entries
+	entries := cfg.GetConfigEntries()
+	rootCount := 0
+	for _, e := range entries {
+		if e.Sudo {
+			rootCount++
+		}
 	}
-
-	// Test as root (simulated)
-	plat = &platform.Platform{OS: platform.OSLinux, IsRoot: true}
-	mgr = New(cfg, plat)
-	mgr.Restore()
-
-	if !isSymlink(systemTarget) {
-		t.Errorf("System target should be symlinked for root")
+	if rootCount != 1 {
+		t.Errorf("Expected 1 root entry, got %d", rootCount)
 	}
 }
 

@@ -21,7 +21,6 @@ type Platform struct {
 	Distro   string // Linux distribution ID (e.g., "arch", "ubuntu", "fedora")
 	Hostname string
 	User     string
-	IsRoot   bool
 	IsArch   bool
 	EnvVars  map[string]string
 }
@@ -38,7 +37,6 @@ func Detect() *Platform {
 
 	if p.OS == OSLinux {
 		p.Distro = detectDistro()
-		p.IsRoot = detectRoot()
 		p.IsArch = p.Distro == "arch"
 	}
 
@@ -101,15 +99,6 @@ func detectOS() string {
 
 	return OSLinux
 }
-
-func detectRoot() bool {
-	u, err := user.Current()
-	if err != nil {
-		return false
-	}
-	return u.Uid == "0"
-}
-
 
 func (p *Platform) detectPowerShellProfile() {
 	cmd := exec.Command("pwsh", "-NoProfile", "-Command", "echo $PROFILE")

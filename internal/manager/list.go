@@ -6,7 +6,7 @@ import (
 )
 
 func (m *Manager) List() error {
-	fmt.Printf("Configuration paths for OS: %s (root: %v)\n\n", m.Platform.OS, m.Platform.IsRoot)
+	fmt.Printf("Configuration paths for OS: %s\n\n", m.Platform.OS)
 
 	// List config entries
 	paths := m.GetPaths()

@@ -32,15 +32,15 @@ func New(cfg *config.Config, plat *platform.Platform) *Manager {
 }
 
 func (m *Manager) GetPaths() []config.PathSpec {
-	return m.Config.GetPaths(m.Platform.IsRoot)
+	return m.Config.GetPaths()
 }
 
 func (m *Manager) GetEntries() []config.Entry {
-	return m.Config.GetFilteredConfigEntries(m.Platform.IsRoot, m.FilterCtx)
+	return m.Config.GetFilteredConfigEntries(m.FilterCtx)
 }
 
 func (m *Manager) GetGitEntries() []config.Entry {
-	return m.Config.GetFilteredGitEntries(m.Platform.IsRoot, m.FilterCtx)
+	return m.Config.GetFilteredGitEntries(m.FilterCtx)
 }
 
 func (m *Manager) GetPackageEntries() []config.Entry {

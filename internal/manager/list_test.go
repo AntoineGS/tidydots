@@ -103,7 +103,7 @@ func TestListRootMode(t *testing.T) {
 			},
 			{
 				Name:   "system-config",
-				Root:   true,
+				Sudo:   true,
 				Files:  []string{"config.hook"},
 				Backup: "./system",
 				Targets: map[string]string{
@@ -113,35 +113,20 @@ func TestListRootMode(t *testing.T) {
 		},
 	}
 
-	// Test as root
-	plat := &platform.Platform{OS: platform.OSLinux, IsRoot: true}
+	// All entries are shown regardless of Root flag
+	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
 
 	output := captureOutput(func() {
 		mgr.List()
 	})
 
+	// Both user and system configs should be shown
 	if !strings.Contains(output, "system-config") {
-		t.Error("Root mode should show system-config")
-	}
-
-	if strings.Contains(output, "user-config") {
-		t.Error("Root mode should not show user-config")
-	}
-
-	// Test as non-root
-	plat = &platform.Platform{OS: platform.OSLinux, IsRoot: false}
-	mgr = New(cfg, plat)
-
-	output = captureOutput(func() {
-		mgr.List()
-	})
-
-	if strings.Contains(output, "system-config") {
-		t.Error("Non-root mode should not show system-config")
+		t.Error("List should show system-config")
 	}
 
 	if !strings.Contains(output, "user-config") {
-		t.Error("Non-root mode should show user-config")
+		t.Error("List should show user-config")
 	}
 }

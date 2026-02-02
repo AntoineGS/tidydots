@@ -437,11 +437,11 @@ func (m Model) viewListTable() string {
 
 		// Truncate paths if needed (show config-style values with ~)
 		name := item.Entry.Name
-		// Add root indicator (use text instead of emoji to preserve ANSI styling)
-		// Show [R] for root entries or packages that require sudo
-		needsSudo := item.Entry.Root || requiresSudo(item.PkgMethod)
+		// Add sudo indicator (use text instead of emoji to preserve ANSI styling)
+		// Show [S] for entries that require sudo or packages that require sudo
+		needsSudo := item.Entry.Sudo || requiresSudo(item.PkgMethod)
 		if needsSudo {
-			name = "[R] " + name
+			name = "[S] " + name
 		}
 		name = truncateStr(name, nameWidth)
 		target := truncateStr(unexpandHome(item.Entry.Targets[m.Platform.OS]), pathWidth)
@@ -531,7 +531,7 @@ func (m Model) calcDetailHeight(item PathItem) int {
 	}
 
 	// Root line (if true)
-	if item.Entry.Root {
+	if item.Entry.Sudo {
 		lines++
 	}
 
@@ -619,9 +619,9 @@ func (m Model) renderInlineDetail(item PathItem, tableWidth int) string {
 	}
 
 	// Root flag (if true)
-	if item.Entry.Root {
+	if item.Entry.Sudo {
 		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Root: "))
+		detail.WriteString(MutedTextStyle.Render("Sudo: "))
 		detail.WriteString(WarningStyle.Render("yes"))
 		detail.WriteString("\n")
 	}

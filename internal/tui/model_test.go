@@ -35,6 +35,7 @@ func TestNewModel(t *testing.T) {
 				Targets: map[string]string{
 					"windows": "~/AppData",
 				},
+				Filters: []config.Filter{{Include: map[string]string{"os": "windows"}}},
 			},
 		},
 	}
@@ -67,24 +68,28 @@ func TestNewModelRootPaths(t *testing.T) {
 		BackupRoot: "/home/user/backup",
 		Entries: []config.Entry{
 			{Name: "user-config", Backup: "./user", Targets: map[string]string{"linux": "~/.config"}},
-			{Name: "root-config", Backup: "./root", Targets: map[string]string{"linux": "/etc"}, Root: true},
+			{Name: "root-config", Backup: "./root", Targets: map[string]string{"linux": "/etc"}, Sudo: true},
 		},
 	}
 
-	// Non-root user
-	plat := &platform.Platform{OS: platform.OSLinux, IsRoot: false}
+	// All entries are shown regardless of Root flag
+	plat := &platform.Platform{OS: platform.OSLinux}
 	model := NewModel(cfg, plat, false)
 
-	if len(model.Paths) != 1 || model.Paths[0].Entry.Name != "user-config" {
-		t.Error("Non-root user should see user paths")
+	if len(model.Paths) != 2 {
+		t.Errorf("Expected 2 paths, got %d", len(model.Paths))
 	}
 
-	// Root user
-	plat = &platform.Platform{OS: platform.OSLinux, IsRoot: true}
-	model = NewModel(cfg, plat, false)
-
-	if len(model.Paths) != 1 || model.Paths[0].Entry.Name != "root-config" {
-		t.Error("Root user should see root paths")
+	// Verify both paths are present
+	names := make(map[string]bool)
+	for _, p := range model.Paths {
+		names[p.Entry.Name] = true
+	}
+	if !names["user-config"] {
+		t.Error("Should include user-config")
+	}
+	if !names["root-config"] {
+		t.Error("Should include root-config")
 	}
 }
 

@@ -11,25 +11,25 @@ import (
 )
 
 func (m *Manager) Restore() error {
-	m.log("Restoring configurations for OS: %s (root: %v)", m.Platform.OS, m.Platform.IsRoot)
+	m.log("Restoring configurations for OS: %s", m.Platform.OS)
 
 	// Restore config entries (symlinks)
-	paths := m.GetPaths()
+	entries := m.GetEntries()
 
-	for _, path := range paths {
-		target := path.GetTarget(m.Platform.OS)
+	for _, entry := range entries {
+		target := entry.GetTarget(m.Platform.OS)
 		if target == "" {
-			m.logVerbose("Skipping %s: no target for OS %s", path.Name, m.Platform.OS)
+			m.logVerbose("Skipping %s: no target for OS %s", entry.Name, m.Platform.OS)
 			continue
 		}
 
-		if err := m.restorePath(path, target); err != nil {
-			m.log("Error restoring %s: %v", path.Name, err)
+		if err := m.restoreEntry(entry, target); err != nil {
+			m.log("Error restoring %s: %v", entry.Name, err)
 		}
 	}
 
 	// Restore git entries (clones)
-	gitEntries := m.Config.GetGitEntries(m.Platform.IsRoot)
+	gitEntries := m.GetGitEntries()
 	for _, entry := range gitEntries {
 		target := entry.GetTarget(m.Platform.OS)
 		if target == "" {
@@ -45,16 +45,16 @@ func (m *Manager) Restore() error {
 	return nil
 }
 
-func (m *Manager) restorePath(spec config.PathSpec, target string) error {
-	backupPath := m.resolvePath(spec.Backup)
+func (m *Manager) restoreEntry(entry config.Entry, target string) error {
+	backupPath := m.resolvePath(entry.Backup)
 
-	if spec.IsFolder() {
-		return m.restoreFolder(spec.Name, backupPath, target)
+	if entry.IsFolder() {
+		return m.restoreFolder(entry, backupPath, target)
 	}
-	return m.restoreFiles(spec.Name, spec.Files, backupPath, target)
+	return m.restoreFiles(entry, backupPath, target)
 }
 
-func (m *Manager) restoreFolder(name, source, target string) error {
+func (m *Manager) restoreFolder(entry config.Entry, source, target string) error {
 	// Skip if already a symlink
 	if isSymlink(target) {
 		m.logVerbose("Already a symlink: %s", target)
@@ -73,8 +73,15 @@ func (m *Manager) restoreFolder(name, source, target string) error {
 				}
 			}
 			// Move target to backup location
-			if err := os.Rename(target, source); err != nil {
-				return fmt.Errorf("adopting folder (moving to backup): %w", err)
+			if entry.Sudo {
+				cmd := exec.Command("sudo", "mv", target, source)
+				if err := cmd.Run(); err != nil {
+					return fmt.Errorf("adopting folder (moving to backup): %w", err)
+				}
+			} else {
+				if err := os.Rename(target, source); err != nil {
+					return fmt.Errorf("adopting folder (moving to backup): %w", err)
+				}
 			}
 		}
 	}
@@ -90,8 +97,15 @@ func (m *Manager) restoreFolder(name, source, target string) error {
 	if !pathExists(parentDir) {
 		m.log("Creating directory %s", parentDir)
 		if !m.DryRun {
-			if err := os.MkdirAll(parentDir, 0755); err != nil {
-				return fmt.Errorf("creating parent directory: %w", err)
+			if entry.Sudo {
+				cmd := exec.Command("sudo", "mkdir", "-p", parentDir)
+				if err := cmd.Run(); err != nil {
+					return fmt.Errorf("creating parent directory: %w", err)
+				}
+			} else {
+				if err := os.MkdirAll(parentDir, 0755); err != nil {
+					return fmt.Errorf("creating parent directory: %w", err)
+				}
 			}
 		}
 	}
@@ -100,20 +114,27 @@ func (m *Manager) restoreFolder(name, source, target string) error {
 	if pathExists(target) && !isSymlink(target) {
 		m.log("Removing folder %s", target)
 		if !m.DryRun {
-			if err := removeAll(target); err != nil {
-				return fmt.Errorf("removing existing folder: %w", err)
+			if entry.Sudo {
+				cmd := exec.Command("sudo", "rm", "-rf", target)
+				if err := cmd.Run(); err != nil {
+					return fmt.Errorf("removing existing folder: %w", err)
+				}
+			} else {
+				if err := removeAll(target); err != nil {
+					return fmt.Errorf("removing existing folder: %w", err)
+				}
 			}
 		}
 	}
 
 	m.log("Creating symlink %s -> %s", target, source)
 	if !m.DryRun {
-		return createSymlink(source, target)
+		return createSymlink(source, target, entry.Sudo)
 	}
 	return nil
 }
 
-func (m *Manager) restoreFiles(name string, files []string, source, target string) error {
+func (m *Manager) restoreFiles(entry config.Entry, source, target string) error {
 	// Create backup directory if it doesn't exist (needed for adopting)
 	if !pathExists(source) {
 		if !m.DryRun {
@@ -127,13 +148,20 @@ func (m *Manager) restoreFiles(name string, files []string, source, target strin
 	if !pathExists(target) {
 		m.log("Creating directory %s", target)
 		if !m.DryRun {
-			if err := os.MkdirAll(target, 0755); err != nil {
-				return fmt.Errorf("creating target directory: %w", err)
+			if entry.Sudo {
+				cmd := exec.Command("sudo", "mkdir", "-p", target)
+				if err := cmd.Run(); err != nil {
+					return fmt.Errorf("creating target directory: %w", err)
+				}
+			} else {
+				if err := os.MkdirAll(target, 0755); err != nil {
+					return fmt.Errorf("creating target directory: %w", err)
+				}
 			}
 		}
 	}
 
-	for _, file := range files {
+	for _, file := range entry.Files {
 		srcFile := filepath.Join(source, file)
 		dstFile := filepath.Join(target, file)
 
@@ -148,13 +176,20 @@ func (m *Manager) restoreFiles(name string, files []string, source, target strin
 			m.log("Adopting file %s -> %s", dstFile, srcFile)
 			if !m.DryRun {
 				// Move target file to backup location
-				if err := os.Rename(dstFile, srcFile); err != nil {
-					// If rename fails (cross-device), try copy and delete
-					if err := copyFile(dstFile, srcFile); err != nil {
-						return fmt.Errorf("adopting file (copying to backup): %w", err)
+				if entry.Sudo {
+					cmd := exec.Command("sudo", "mv", dstFile, srcFile)
+					if err := cmd.Run(); err != nil {
+						return fmt.Errorf("adopting file (moving to backup): %w", err)
 					}
-					if err := os.Remove(dstFile); err != nil {
-						return fmt.Errorf("adopting file (removing original): %w", err)
+				} else {
+					if err := os.Rename(dstFile, srcFile); err != nil {
+						// If rename fails (cross-device), try copy and delete
+						if err := copyFile(dstFile, srcFile); err != nil {
+							return fmt.Errorf("adopting file (copying to backup): %w", err)
+						}
+						if err := os.Remove(dstFile); err != nil {
+							return fmt.Errorf("adopting file (removing original): %w", err)
+						}
 					}
 				}
 			}
@@ -169,15 +204,22 @@ func (m *Manager) restoreFiles(name string, files []string, source, target strin
 		if pathExists(dstFile) && !isSymlink(dstFile) {
 			m.log("Removing file %s", dstFile)
 			if !m.DryRun {
-				if err := os.Remove(dstFile); err != nil {
-					return fmt.Errorf("removing existing file: %w", err)
+				if entry.Sudo {
+					cmd := exec.Command("sudo", "rm", "-f", dstFile)
+					if err := cmd.Run(); err != nil {
+						return fmt.Errorf("removing existing file: %w", err)
+					}
+				} else {
+					if err := os.Remove(dstFile); err != nil {
+						return fmt.Errorf("removing existing file: %w", err)
+					}
 				}
 			}
 		}
 
 		m.log("Creating symlink %s -> %s", dstFile, srcFile)
 		if !m.DryRun {
-			if err := createSymlink(srcFile, dstFile); err != nil {
+			if err := createSymlink(srcFile, dstFile, entry.Sudo); err != nil {
 				return fmt.Errorf("creating symlink: %w", err)
 			}
 		}
@@ -186,7 +228,7 @@ func (m *Manager) restoreFiles(name string, files []string, source, target strin
 	return nil
 }
 
-func createSymlink(source, target string) error {
+func createSymlink(source, target string, useSudo bool) error {
 	// Validate source exists
 	if _, err := os.Stat(source); err != nil {
 		if os.IsNotExist(err) {
@@ -212,6 +254,10 @@ func createSymlink(source, target string) error {
 		return cmd.Run()
 	}
 
+	if useSudo {
+		cmd := exec.Command("sudo", "ln", "-s", source, target)
+		return cmd.Run()
+	}
 	return os.Symlink(source, target)
 }
 
@@ -224,7 +270,7 @@ func (m *Manager) restoreGitEntry(entry config.Entry, target string) error {
 			m.log("Updating git repo %s at %s...", entry.Name, target)
 			if !m.DryRun {
 				var cmd *exec.Cmd
-				if entry.Root {
+				if entry.Sudo {
 					cmd = exec.Command("sudo", "git", "-C", target, "pull")
 				} else {
 					cmd = exec.Command("git", "-C", target, "pull")
@@ -248,7 +294,7 @@ func (m *Manager) restoreGitEntry(entry config.Entry, target string) error {
 	if !m.DryRun {
 		parentDir := filepath.Dir(target)
 		if !pathExists(parentDir) {
-			if entry.Root {
+			if entry.Sudo {
 				mkdirCmd := exec.Command("sudo", "mkdir", "-p", parentDir)
 				if err := mkdirCmd.Run(); err != nil {
 					return fmt.Errorf("failed to create directory %s: %w", parentDir, err)
@@ -267,7 +313,7 @@ func (m *Manager) restoreGitEntry(entry config.Entry, target string) error {
 		args = append(args, entry.Repo, target)
 
 		var cmd *exec.Cmd
-		if entry.Root {
+		if entry.Sudo {
 			cmd = exec.Command("sudo", append([]string{"git"}, args...)...)
 		} else {
 			cmd = exec.Command("git", args...)
