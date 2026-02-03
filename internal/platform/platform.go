@@ -183,11 +183,12 @@ func IsCommandAvailable(cmd string) bool {
 
 // KnownPackageManagers is the list of supported package managers across all platforms.
 // Includes Arch Linux (yay, paru, pacman), Debian/Fedora/macOS (apt, dnf, brew),
-// and Windows (winget, scoop, choco) package managers.
+// Windows (winget, scoop, choco) package managers, and git for repository cloning.
 var KnownPackageManagers = []string{
 	"yay", "paru", "pacman", // Arch Linux
 	"apt", "dnf", "brew", // Debian/Fedora/macOS
 	"winget", "scoop", "choco", // Windows
+	"git", // Git for repository cloning
 }
 
 // DetectAvailableManagers returns a list of package managers available on the system

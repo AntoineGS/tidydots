@@ -123,3 +123,23 @@ func TestDetectDistro(t *testing.T) {
 		}
 	}
 }
+
+func TestDetectAvailableManagers_Git(t *testing.T) {
+	if !IsCommandAvailable("git") {
+		t.Skip("git not available for testing")
+	}
+
+	managers := DetectAvailableManagers()
+
+	found := false
+	for _, mgr := range managers {
+		if mgr == "git" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("Expected git to be in available managers, but it was not found")
+	}
+}

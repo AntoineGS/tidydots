@@ -37,6 +37,8 @@ const (
 	Scoop PackageManager = "scoop"
 	// Choco is the Chocolatey Windows package manager
 	Choco PackageManager = "choco"
+	// Git is the git package manager for repository clones
+	Git PackageManager = "git"
 )
 
 // Package represents a package to install with multiple installation methods.
