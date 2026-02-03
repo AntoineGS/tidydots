@@ -1,5 +1,6 @@
 # Binary
-./dot-manager
+dot-manager
+!dot-manager/
 dot-manager.exe
 
 # IDE
