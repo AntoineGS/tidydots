@@ -925,3 +925,46 @@ func TestBackupV3_ErrorInSubEntry(t *testing.T) {
 		t.Logf("Backup() returned: %v", err)
 	}
 }
+
+func TestBackup_SkipsGitEntries(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	backupRoot := filepath.Join(tmpDir, "backup")
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test-app",
+				Entries: []config.SubEntry{
+					{
+						Name: "git-entry",
+						Type: "git",
+						Repo: "https://github.com/test/repo.git",
+						Targets: map[string]string{
+							"linux": filepath.Join(tmpDir, "source"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	err := mgr.Backup()
+	if err != nil {
+		t.Fatalf("Backup() error = %v", err)
+	}
+
+	// Backup directory should not be created (git entry was skipped)
+	if pathExists(backupRoot) {
+		entries, _ := os.ReadDir(backupRoot)
+		if len(entries) != 0 {
+			t.Error("Expected no backup files for git entry")
+		}
+	}
+}

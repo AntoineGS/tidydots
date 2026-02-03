@@ -73,7 +73,7 @@ func (m *Manager) backupV3() error {
 			}
 
 			if !subEntry.IsConfig() {
-				m.logVerbosef("Skipping %s/%s: git entries don't need backup", app.Name, subEntry.Name)
+				m.logVerbosef("Skipping %s/%s: only config entries can be backed up", app.Name, subEntry.Name)
 				continue
 			}
 
