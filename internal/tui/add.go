@@ -342,7 +342,20 @@ func (m *Model) initEditFormForApplication(appIdx int) {
 }
 
 // updateAddForm handles key events for the add form
+// This function routes to the appropriate form based on activeForm
 func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.activeForm {
+	case FormApplication:
+		return m.updateApplicationForm(msg)
+	case FormSubEntry:
+		return m.updateSubEntryForm(msg)
+	}
+	// Fallback to old behavior if no active form is set
+	return m.updateOldAddForm(msg)
+}
+
+// updateOldAddForm handles key events for the old add form (legacy, will be removed)
+func (m Model) updateOldAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle editing a text field
 	if m.addForm.editingField {
 		return m.updateFieldInput(msg)
@@ -1466,7 +1479,20 @@ func (m *Model) acceptSuggestion() {
 }
 
 // viewAddForm renders the add form
+// This function routes to the appropriate form view based on activeForm
 func (m Model) viewAddForm() string {
+	switch m.activeForm {
+	case FormApplication:
+		return m.viewApplicationForm()
+	case FormSubEntry:
+		return m.viewSubEntryForm()
+	}
+	// Fallback to old behavior if no active form is set
+	return m.viewOldAddForm()
+}
+
+// viewOldAddForm renders the old add form (legacy, will be removed)
+func (m Model) viewOldAddForm() string {
 	var b strings.Builder
 	ft := m.getFieldType()
 	isNew := m.addForm.editIndex < 0

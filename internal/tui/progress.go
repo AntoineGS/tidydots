@@ -471,8 +471,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if appIdx >= 0 {
 				if subIdx >= 0 {
 					// Edit SubEntry
-					m.initEditFormForSubEntry(appIdx, subIdx)
-					m.Screen = ScreenAddForm
+					m.initSubEntryFormEdit(appIdx, subIdx)
 				} else {
 					// Edit Application
 					m.initApplicationFormEdit(appIdx)
@@ -491,8 +490,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.Operation == OpList {
 			appIdx, _ := m.getApplicationAtCursor()
 			if appIdx >= 0 {
-				m.initAddFormForNewSubEntry(appIdx)
-				m.Screen = ScreenAddForm
+				m.initSubEntryFormNew(appIdx)
 				return m, nil
 			}
 		}

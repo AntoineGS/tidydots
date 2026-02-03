@@ -644,8 +644,7 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case FormApplication:
 			return m.updateApplicationForm(msg)
 		case FormSubEntry:
-			// TODO: will be implemented in next task
-			return m.updateAddForm(msg)
+			return m.updateSubEntryForm(msg)
 		default:
 			return m.updateAddForm(msg)
 		}
@@ -713,8 +712,7 @@ func (m Model) View() string {
 		case FormApplication:
 			return m.viewApplicationForm()
 		case FormSubEntry:
-			// TODO: will be implemented in next task
-			return m.viewAddForm()
+			return m.viewSubEntryForm()
 		default:
 			return m.viewAddForm()
 		}
