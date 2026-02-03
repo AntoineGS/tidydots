@@ -244,17 +244,24 @@ func (m *Manager) Install(pkg Package) InstallResult {
 	result := InstallResult{Package: pkg.Name}
 
 	// Check if this is a git package
-	if gitCfg, ok := pkg.Managers[Git]; ok {
-		result.Method = "git"
-		success, msg := m.installGitPackage(pkg, gitCfg)
-		result.Success = success
-		result.Message = msg
-		return result
+	if gitValue, ok := pkg.Managers[Git]; ok {
+		if gitCfg, ok := gitValue.(GitConfig); ok {
+			result.Method = "git"
+			success, msg := m.installGitPackage(gitCfg)
+			result.Success = success
+			result.Message = msg
+			return result
+		}
 	}
 
 	// Try package managers
 	if len(pkg.Managers) > 0 {
 		for _, mgr := range m.Available {
+			// Skip git manager (already handled above)
+			if mgr == Git {
+				continue
+			}
+
 			if pkgName, ok := pkg.Managers[mgr]; ok {
 				result.Method = string(mgr)
 				// Type assert to string for traditional package managers
@@ -442,14 +449,9 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 }
 
 // installGitPackage clones or updates a git repository.
-func (m *Manager) installGitPackage(_ Package, gitCfg interface{}) (bool, string) {
-	// Type assert to GitConfig
-	cfg, ok := gitCfg.(GitConfig)
-	if !ok {
-		return false, "Git manager value is not GitConfig"
-	}
-
-	targetPath, ok := cfg.Targets[m.OS]
+func (m *Manager) installGitPackage(gitCfg GitConfig) (bool, string) {
+	// Get target path for current OS
+	targetPath, ok := gitCfg.Targets[m.OS]
 	if !ok {
 		return false, fmt.Sprintf("No git target path defined for OS: %s", m.OS)
 	}
@@ -466,21 +468,26 @@ func (m *Manager) installGitPackage(_ Package, gitCfg interface{}) (bool, string
 	// Check if already cloned
 	gitDir := filepath.Join(targetPath, ".git")
 	if _, err := os.Stat(gitDir); err == nil {
-		// Already cloned, do git pull
-		return m.gitPull(targetPath)
+		return m.gitPull(targetPath, gitCfg.Sudo)
 	}
 
-	// Not cloned yet, do git clone
-	return m.gitClone(cfg.URL, targetPath, cfg.Branch)
+	return m.gitClone(gitCfg.URL, targetPath, gitCfg.Branch, gitCfg.Sudo)
 }
 
-func (m *Manager) gitClone(repoURL, targetPath, branch string) (bool, string) {
-	var cmd *exec.Cmd
-
+func (m *Manager) gitClone(repoURL, targetPath, branch string, sudo bool) (bool, string) {
+	args := []string{"clone"}
 	if branch != "" {
-		cmd = exec.CommandContext(context.Background(), "git", "clone", "-b", branch, repoURL, targetPath)
+		args = append(args, "-b", branch)
+	}
+	args = append(args, repoURL, targetPath)
+
+	var cmd *exec.Cmd
+	if sudo {
+		// Prepend sudo to the command
+		args = append([]string{"git"}, args...)
+		cmd = exec.CommandContext(context.Background(), "sudo", args...)
 	} else {
-		cmd = exec.CommandContext(context.Background(), "git", "clone", repoURL, targetPath)
+		cmd = exec.CommandContext(context.Background(), "git", args...)
 	}
 
 	if m.DryRun {
@@ -497,11 +504,16 @@ func (m *Manager) gitClone(repoURL, targetPath, branch string) (bool, string) {
 	return true, "Repository cloned successfully"
 }
 
-func (m *Manager) gitPull(repoPath string) (bool, string) {
-	cmd := exec.CommandContext(context.Background(), "git", "-C", repoPath, "pull")
+func (m *Manager) gitPull(repoPath string, sudo bool) (bool, string) {
+	var cmd *exec.Cmd
+	if sudo {
+		cmd = exec.CommandContext(context.Background(), "sudo", "git", "-C", repoPath, "pull")
+	} else {
+		cmd = exec.CommandContext(context.Background(), "git", "-C", repoPath, "pull")
+	}
 
 	if m.DryRun {
-		return true, fmt.Sprintf("Would run: git -C %s pull", repoPath)
+		return true, fmt.Sprintf("Would run: %s", strings.Join(cmd.Args, " "))
 	}
 
 	cmd.Stdout = os.Stdout
