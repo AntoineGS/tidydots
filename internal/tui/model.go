@@ -13,24 +13,39 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// Screen represents the current screen being displayed in the TUI.
 type Screen int
 
+// TUI screen types.
 const (
+	// ScreenMenu is the main menu screen
 	ScreenMenu Screen = iota
+	// ScreenPathSelect is the path selection screen
 	ScreenPathSelect
+	// ScreenPackageSelect is the package selection screen
 	ScreenPackageSelect
+	// ScreenConfirm is the confirmation screen
 	ScreenConfirm
+	// ScreenProgress is the progress display screen
 	ScreenProgress
+	// ScreenResults is the results display screen
 	ScreenResults
+	// ScreenAddForm is the add/edit form screen
 	ScreenAddForm
 )
 
+// Operation represents the type of operation being performed in the TUI.
 type Operation int
 
+// TUI operation types.
 const (
+	// OpRestore is the restore operation
 	OpRestore Operation = iota
+	// OpAdd is the add entry operation
 	OpAdd
+	// OpList is the list entries operation
 	OpList
+	// OpInstallPackages is the install packages operation
 	OpInstallPackages
 )
 
@@ -45,17 +60,23 @@ func (o Operation) String() string {
 	case OpInstallPackages:
 		return "Install Packages"
 	}
+
 	return "Unknown"
 }
 
 // PathState represents the state of a path item for restore operations
 type PathState int
 
+// Path states for restore operations.
 const (
-	StateReady   PathState = iota // Backup exists, ready to restore
-	StateAdopt                    // No backup but target exists (will adopt)
-	StateMissing                  // Neither backup nor target exists
-	StateLinked                   // Already symlinked
+	// StateReady indicates backup exists and is ready to restore
+	StateReady PathState = iota // Backup exists, ready to restore
+	// StateAdopt indicates no backup but target exists (will adopt)
+	StateAdopt // No backup but target exists (will adopt)
+	// StateMissing indicates neither backup nor target exists
+	StateMissing // Neither backup nor target exists
+	// StateLinked indicates already symlinked
+	StateLinked // Already symlinked
 )
 
 func (s PathState) String() string {
@@ -69,208 +90,189 @@ func (s PathState) String() string {
 	case StateLinked:
 		return "Linked"
 	}
+
 	return "Unknown"
 }
 
 // FilterCondition represents a single filter condition for the UI
 type FilterCondition struct {
-	FilterIndex int    // Which filter group this belongs to (0-based)
-	IsExclude   bool   // true for exclude, false for include
-	Key         string // os, distro, hostname, user
-	Value       string // the pattern/value
+	Key         string
+	Value       string
+	FilterIndex int
+	IsExclude   bool
 }
 
 // FormType distinguishes between different form types
 type FormType int
 
+// Form types for the add/edit screen.
 const (
+	// FormNone indicates no active form
 	FormNone FormType = iota
+	// FormApplication is the application metadata form
 	FormApplication
+	// FormSubEntry is the sub-entry form
 	FormSubEntry
 )
 
 // ApplicationForm holds state for editing Application metadata
 type ApplicationForm struct {
-	// Fields
-	nameInput        textinput.Model
-	descriptionInput textinput.Model
-
-	// Package managers
-	packageManagers  map[string]string
-	packagesCursor   int
-	editingPackage   bool
-	packageNameInput textinput.Model
-	lastPackageName  string
-
-	// Filters
+	packageManagers    map[string]string
+	lastPackageName    string
+	err                string
+	originalValue      string
 	filters            []FilterCondition
+	filterValueInput   textinput.Model
+	descriptionInput   textinput.Model
+	packageNameInput   textinput.Model
+	nameInput          textinput.Model
+	filterKeyCursor    int
 	filtersCursor      int
-	addingFilter       bool
-	editingFilter      bool
+	editAppIdx         int
+	packagesCursor     int
 	editingFilterIndex int
 	filterAddStep      int
-	filterIsExclude    bool
+	focusIndex         int
 	editingFilterValue bool
-	filterValueInput   textinput.Model
-	filterKeyCursor    int
-
-	// Navigation
-	focusIndex    int
-	editingField  bool
-	originalValue string
-
-	// Context
-	editAppIdx int // -1 for new, >= 0 for editing
-	err        string
+	filterIsExclude    bool
+	editingField       bool
+	editingFilter      bool
+	addingFilter       bool
+	editingPackage     bool
 }
 
 // SubEntryForm holds state for editing SubEntry data
 type SubEntryForm struct {
-	// Entry type
-	entryType EntryType
-
-	// Fields
+	err                string
+	originalValue      string
+	suggestions        []string
+	files              []string
+	repoInput          textinput.Model
 	nameInput          textinput.Model
 	linuxTargetInput   textinput.Model
 	windowsTargetInput textinput.Model
+	backupInput        textinput.Model
+	newFileInput       textinput.Model
+	branchInput        textinput.Model
+	editingFileIndex   int
+	targetAppIdx       int
+	editSubIdx         int
+	editAppIdx         int
+	focusIndex         int
+	entryType          EntryType
+	filesCursor        int
+	suggestionCursor   int
+	isFolder           bool
+	showSuggestions    bool
+	editingField       bool
+	addingFile         bool
+	editingFile        bool
 	isSudo             bool
-
-	// Config-specific
-	backupInput      textinput.Model
-	isFolder         bool
-	files            []string
-	filesCursor      int
-	newFileInput     textinput.Model
-	addingFile       bool
-	editingFile      bool
-	editingFileIndex int
-
-	// Git-specific
-	repoInput   textinput.Model
-	branchInput textinput.Model
-
-	// Navigation
-	focusIndex    int
-	editingField  bool
-	originalValue string
-
-	// Autocomplete
-	suggestions      []string
-	suggestionCursor int
-	showSuggestions  bool
-
-	// Context
-	targetAppIdx int // App to add to (-1 if new app)
-	editAppIdx   int // -1 for new, >= 0 for editing
-	editSubIdx   int // -1 for new, >= 0 for editing
-	err          string
 }
 
+// Model holds the state for the TUI application including configuration,
+// platform information, current screen, operation mode, and UI state.
 type Model struct {
-	Screen    Screen
-	Operation Operation
-
-	// Data
-	Config     *config.Config
-	ConfigPath string // Path to config file for saving
-	Platform   *platform.Platform
-	FilterCtx  *config.FilterContext // Filter context for entry filtering
-	Manager      *manager.Manager
-	Paths        []PathItem
-	Packages     []PackageItem
-	Applications []ApplicationItem // 2-level hierarchical view for v3 configs
-	DryRun       bool
-
-	// UI state
-	menuCursor    int
-	pathCursor    int
-	packageCursor int
-	appCursor     int  // Cursor for 2-level application view (counts both app and sub-entry rows)
-	scrollOffset  int
-	viewHeight    int
-	listCursor    int  // Cursor for list table view
-	showingDetail bool // Whether detail popup is showing
-
-	// Confirmation state for list view
-	confirmingDelete         bool // Whether we're confirming a delete (legacy v2)
-	confirmingDeleteApp      bool // Whether we're confirming deletion of an Application
-	confirmingDeleteSubEntry bool // Whether we're confirming deletion of a SubEntry
-
-	// Filter state for list view
-	filtering   bool              // Whether we're in filter mode
-	filterInput textinput.Model   // Text input for filter
-	filterText  string            // Current filter text (for highlighting)
-
-	// Forms (only one active at a time)
-	applicationForm *ApplicationForm
-	subEntryForm    *SubEntryForm
-	activeForm      FormType
-
-	// Results
-	results    []ResultItem
-	processing bool
-	err        error
-
-	// Package installation state (for sequential tea.Exec calls)
-	pendingPackages     []PackageItem
-	currentPackageIndex int
-
-	// Window size
-	width  int
-	height int
+	err                      error
+	Config                   *config.Config
+	Platform                 *platform.Platform
+	FilterCtx                *config.FilterContext
+	Manager                  *manager.Manager
+	subEntryForm             *SubEntryForm
+	applicationForm          *ApplicationForm
+	filterText               string
+	ConfigPath               string
+	Packages                 []PackageItem
+	pendingPackages          []PackageItem
+	results                  []ResultItem
+	Paths                    []PathItem
+	Applications             []ApplicationItem
+	filterInput              textinput.Model
+	viewHeight               int
+	pathCursor               int
+	height                   int
+	width                    int
+	currentPackageIndex      int
+	menuCursor               int
+	Operation                Operation
+	scrollOffset             int
+	appCursor                int
+	Screen                   Screen
+	packageCursor            int
+	activeForm               FormType
+	DryRun                   bool
+	processing               bool
+	filtering                bool
+	confirmingDeleteSubEntry bool
+	confirmingDeleteApp      bool
+	showingDetail            bool
 }
 
 // EntryType distinguishes between config, git, and package-only type entries
 type EntryType int
 
+// Entry types for configuration entries.
 const (
+	// EntryTypeConfig indicates a config type entry (symlink management)
 	EntryTypeConfig EntryType = iota
+	// EntryTypeGit indicates a git type entry (repository clone)
 	EntryTypeGit
+	// EntryTypePackage indicates a package-only entry (no config or git)
 	EntryTypePackage // Package-only entry (no config or git)
 )
 
+// PathItem represents a configuration entry in the path selection list,
+// including its state, target path, and package information.
+//
+//nolint:govet // field order optimized for readability over memory layout
 type PathItem struct {
-	Entry     config.Entry
-	Target    string
-	Selected  bool
-	State     PathState
-	EntryType EntryType
-	// Package fields
-	PkgMethod    string // How package would be installed (pacman, apt, custom, url, none)
-	PkgInstalled *bool  // nil = no package, true = installed, false = not installed
+	Entry        config.Entry
+	PkgInstalled *bool
+	Target       string
+	PkgMethod    string
+	State        PathState
+	EntryType    EntryType
+	Selected     bool
 }
 
+// PackageItem represents a package to be installed, including its entry
+// configuration, installation method, and selection state.
 type PackageItem struct {
-	Entry    config.Entry
 	Method   string // How it would be installed (pacman, apt, custom, url, none)
+	Entry    config.Entry
 	Selected bool
 }
 
 // ApplicationItem represents a top-level application with sub-entries
 type ApplicationItem struct {
 	Application  config.Application
+	PkgInstalled *bool
+	PkgMethod    string
+	SubItems     []SubEntryItem
 	Selected     bool
 	Expanded     bool
-	SubItems     []SubEntryItem
-	PkgMethod    string // How package would be installed (pacman, apt, custom, url, none)
-	PkgInstalled *bool  // nil = no package, true = installed, false = not installed
 }
 
 // SubEntryItem represents a sub-entry within an application (config or git)
 type SubEntryItem struct {
-	SubEntry config.SubEntry
+	AppName  string
 	Target   string
-	Selected bool
+	SubEntry config.SubEntry
 	State    PathState
-	AppName  string // Parent application name for context
+	Selected bool
 }
 
+// ResultItem represents the result of an operation, including whether it
+// succeeded and any associated message.
 type ResultItem struct {
 	Name    string
-	Success bool
 	Message string
+	Success bool
 }
 
+// NewModel creates and initializes a new TUI model with the given configuration,
+// platform information, and dry-run mode. It sets up the initial state including
+// loading entries, detecting path states, and initializing the UI.
 func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	// Create filter context from platform
 	filterCtx := &config.FilterContext{
@@ -300,7 +302,7 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 				}
 
 				var entryType EntryType
-				if subEntry.Type == "git" {
+				if subEntry.Type == TypeGit {
 					entryType = EntryTypeGit
 					entry.Repo = subEntry.Repo
 					entry.Branch = subEntry.Branch
@@ -330,7 +332,8 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 					spec := entry.ToPackageSpec()
 					method := getPackageInstallMethod(spec, plat.OS)
 					item.PkgMethod = method
-					if method != "none" {
+
+					if method != TypeNone {
 						installed := isPackageInstalled(spec, method)
 						item.PkgInstalled = &installed
 					}
@@ -358,11 +361,13 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 				spec := e.ToPackageSpec()
 				method := getPackageInstallMethod(spec, plat.OS)
 				item.PkgMethod = method
-				if method != "none" {
+
+				if method != TypeNone {
 					installed := isPackageInstalled(spec, method)
 					item.PkgInstalled = &installed
 				}
 			}
+
 			items = append(items, item)
 			addedEntries[e.Name] = true
 		}
@@ -382,11 +387,13 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 				spec := e.ToPackageSpec()
 				method := getPackageInstallMethod(spec, plat.OS)
 				item.PkgMethod = method
-				if method != "none" {
+
+				if method != TypeNone {
 					installed := isPackageInstalled(spec, method)
 					item.PkgInstalled = &installed
 				}
 			}
+
 			items = append(items, item)
 			addedEntries[e.Name] = true
 		}
@@ -400,7 +407,8 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 			}
 			spec := e.ToPackageSpec()
 			method := getPackageInstallMethod(spec, plat.OS)
-			if method != "none" {
+
+			if method != TypeNone {
 				installed := isPackageInstalled(spec, method)
 				items = append(items, PathItem{
 					Entry:        e,
@@ -422,6 +430,7 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	// Keep Packages slice for backward compatibility with install operations
 	// Build from PathItems that have packages
 	pkgItems := make([]PackageItem, 0)
+
 	for _, item := range items {
 		if item.PkgInstalled != nil {
 			pkgItems = append(pkgItems, PackageItem{
@@ -488,17 +497,22 @@ func getPackageInstallMethod(pkg config.PackageSpec, osType string) string {
 	if _, ok := pkg.URL[osType]; ok {
 		return "url"
 	}
-	return "none"
+
+	return TypeNone
 }
 
 func detectAvailableManagers() []string {
 	return platform.DetectAvailableManagers()
 }
 
+// Init initializes the TUI model and returns any initial commands to run.
+// This is part of the Bubble Tea model interface.
 func (m Model) Init() tea.Cmd {
 	return nil
 }
 
+// Update processes messages and updates the model state accordingly.
+// This is part of the Bubble Tea model interface.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -508,9 +522,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.viewHeight = msg.Height - 10
+
 		if m.viewHeight < 5 {
 			m.viewHeight = 5
 		}
+
 		return m, nil
 
 	case PackageInstallMsg:
@@ -527,6 +543,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.Paths[i].Entry.Name == msg.Package.Entry.Name && m.Paths[i].PkgInstalled != nil {
 					installed := true
 					m.Paths[i].PkgInstalled = &installed
+
 					break
 				}
 			}
@@ -545,6 +562,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentPackageIndex = 0
 		m.Operation = OpList
 		m.Screen = ScreenResults
+
 		return m, nil
 
 	case OperationCompleteMsg:
@@ -552,8 +570,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.results = msg.Results
 		m.err = msg.Err
 		m.Screen = ScreenResults
-		return m, nil
 
+		return m, nil
 	}
 
 	return m, nil
@@ -574,7 +592,7 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
 	case "q":
@@ -582,14 +600,16 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.Screen == ScreenResults && m.Operation == OpList {
 			return m.updateResults(msg)
 		}
+
 		if m.Screen == ScreenResults || m.Screen == ScreenMenu {
 			return m, tea.Quit
 		}
 		// Go back to menu
 		m.Screen = ScreenMenu
+
 		return m, nil
 
-	case "esc":
+	case KeyEsc:
 		// ESC is only for canceling operations, not navigation
 		// Let screens that need it handle it (filter mode, delete confirmation, detail popup)
 		if m.Screen == ScreenResults && m.Operation == OpList {
@@ -615,6 +635,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// View renders the current screen and returns the string to display.
+// This is part of the Bubble Tea model interface.
 func (m Model) View() string {
 	switch m.Screen {
 	case ScreenMenu:
@@ -640,21 +662,23 @@ func (m Model) View() string {
 			return m.viewAddForm()
 		}
 	}
+
 	return ""
 }
 
-// Messages
+// OperationCompleteMsg is sent when an operation completes, containing any error
+// and results from the operation.
 type OperationCompleteMsg struct {
-	Results []ResultItem
 	Err     error
+	Results []ResultItem
 }
 
 // PackageInstallMsg is sent after each individual package installation completes
 type PackageInstallMsg struct {
+	Err     error
+	Message string
 	Package PackageItem
 	Success bool
-	Message string
-	Err     error
 }
 
 // detectPathState determines the state of a path item
@@ -668,8 +692,10 @@ func (m *Model) detectPathState(item *PathItem) PathState {
 			if pathExists(gitDir) {
 				return StateLinked // Already cloned
 			}
+
 			return StateAdopt // Target exists but not a git repo
 		}
+
 		return StateReady // Ready to clone
 	}
 
@@ -691,9 +717,11 @@ func (m *Model) detectPathState(item *PathItem) PathState {
 		if backupExists {
 			return StateReady
 		}
+
 		if targetExists {
 			return StateAdopt
 		}
+
 		return StateMissing
 	}
 
@@ -718,6 +746,7 @@ func (m *Model) detectPathState(item *PathItem) PathState {
 		if pathExists(srcFile) {
 			anyBackup = true
 		}
+
 		if pathExists(dstFile) {
 			anyTarget = true
 		}
@@ -726,12 +755,15 @@ func (m *Model) detectPathState(item *PathItem) PathState {
 	if allLinked && len(item.Entry.Files) > 0 {
 		return StateLinked
 	}
+
 	if anyBackup {
 		return StateReady
 	}
+
 	if anyTarget {
 		return StateAdopt
 	}
+
 	return StateMissing
 }
 

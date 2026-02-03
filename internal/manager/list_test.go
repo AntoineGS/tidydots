@@ -56,9 +56,11 @@ func TestList_FiltersByOS(t *testing.T) {
 	if !names["linux-only"] {
 		t.Error("missing linux-only entry")
 	}
+
 	if !names["no-filter"] {
 		t.Error("missing no-filter entry")
 	}
+
 	if names["windows-only"] {
 		t.Error("should not include windows-only")
 	}

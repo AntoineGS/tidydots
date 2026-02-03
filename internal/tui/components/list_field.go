@@ -8,10 +8,10 @@ import (
 type ListField struct {
 	Label       string
 	Items       []string
-	cursor      int
-	focused     bool
-	editingIdx  int
 	editingText TextField
+	cursor      int
+	editingIdx  int
+	focused     bool
 }
 
 // NewListField creates a new ListField
@@ -62,6 +62,7 @@ func (l *ListField) CursorUp() bool {
 		l.cursor--
 		return true
 	}
+
 	return false
 }
 
@@ -72,6 +73,7 @@ func (l *ListField) CursorDown() bool {
 		l.cursor++
 		return true
 	}
+
 	return false
 }
 
@@ -141,6 +143,7 @@ func (l *ListField) Update(msg tea.Msg) tea.Cmd {
 	if l.IsEditing() {
 		return l.editingText.Update(msg)
 	}
+
 	return nil
 }
 
@@ -149,6 +152,7 @@ func (l *ListField) GetEditingText() *TextField {
 	if l.IsEditing() {
 		return &l.editingText
 	}
+
 	return nil
 }
 

@@ -1,27 +1,27 @@
 package config
 
+const (
+	// SubEntryTypeConfig represents a config type sub-entry
+	SubEntryTypeConfig = "config"
+	// SubEntryTypeGit represents a git type sub-entry
+	SubEntryTypeGit = "git"
+)
+
 // Entry is a unified configuration entry that can be:
 // - Config type (has backup field): symlink management
 // - Git type (has repo field): repository clones
 // Both types can optionally have a package field.
 type Entry struct {
-	// Common fields
-	Name        string   `yaml:"name"`
-	Description string   `yaml:"description,omitempty"`
-	Filters     []Filter `yaml:"filters,omitempty"`
-	Sudo        bool     `yaml:"sudo,omitempty"`
-
-	// Config fields (identifies config type entries)
-	Files   []string          `yaml:"files,omitempty"`
-	Backup  string            `yaml:"backup,omitempty"`
-	Targets map[string]string `yaml:"targets,omitempty"`
-
-	// Git fields (identifies git type entries)
-	Repo   string `yaml:"repo,omitempty"`
-	Branch string `yaml:"branch,omitempty"`
-
-	// Package fields (nested - optional for both types)
-	Package *EntryPackage `yaml:"package,omitempty"`
+	Targets     map[string]string `yaml:"targets,omitempty"`
+	Package     *EntryPackage     `yaml:"package,omitempty"`
+	Name        string            `yaml:"name"`
+	Description string            `yaml:"description,omitempty"`
+	Backup      string            `yaml:"backup,omitempty"`
+	Repo        string            `yaml:"repo,omitempty"`
+	Branch      string            `yaml:"branch,omitempty"`
+	Filters     []Filter          `yaml:"filters,omitempty"`
+	Files       []string          `yaml:"files,omitempty"`
+	Sudo        bool              `yaml:"sudo,omitempty"`
 }
 
 // EntryPackage contains package installation configuration
@@ -62,6 +62,7 @@ func (e *Entry) GetTarget(osType string) string {
 	if target, ok := e.Targets[osType]; ok {
 		return target
 	}
+
 	return ""
 }
 
@@ -84,6 +85,7 @@ func (e *Entry) ToPackageSpec() PackageSpec {
 			Filters:     e.Filters,
 		}
 	}
+
 	return PackageSpec{
 		Name:        e.Name,
 		Description: e.Description,
@@ -115,6 +117,7 @@ func EntryFromPackageSpec(p PackageSpec) Entry {
 			URL:      p.URL,
 		}
 	}
+
 	return Entry{
 		Name:        p.Name,
 		Description: p.Description,
@@ -127,37 +130,33 @@ func EntryFromPackageSpec(p PackageSpec) Entry {
 // An application has a name, optional description, filters, and contains multiple sub-entries.
 // It can also have an associated package for installation.
 type Application struct {
+	Package     *EntryPackage `yaml:"package,omitempty"`
 	Name        string        `yaml:"name"`
 	Description string        `yaml:"description,omitempty"`
 	Filters     []Filter      `yaml:"filters,omitempty"`
 	Entries     []SubEntry    `yaml:"entries"`
-	Package     *EntryPackage `yaml:"package,omitempty"`
 }
 
 // SubEntry represents an individual configuration or git entry within an application (v3 format)
 type SubEntry struct {
-	Type   string `yaml:"type"` // "config" or "git"
-	Name   string `yaml:"name"`
-	Sudo   bool   `yaml:"sudo,omitempty"`
-
-	// Config fields (type: config)
-	Files   []string          `yaml:"files,omitempty"`
-	Backup  string            `yaml:"backup,omitempty"`
 	Targets map[string]string `yaml:"targets,omitempty"`
-
-	// Git fields (type: git)
-	Repo   string `yaml:"repo,omitempty"`
-	Branch string `yaml:"branch,omitempty"`
+	Type    string            `yaml:"type"`
+	Name    string            `yaml:"name"`
+	Backup  string            `yaml:"backup,omitempty"`
+	Repo    string            `yaml:"repo,omitempty"`
+	Branch  string            `yaml:"branch,omitempty"`
+	Files   []string          `yaml:"files,omitempty"`
+	Sudo    bool              `yaml:"sudo,omitempty"`
 }
 
 // IsConfig returns true if this is a config type sub-entry
 func (s *SubEntry) IsConfig() bool {
-	return s.Type == "config" || s.Backup != ""
+	return s.Type == SubEntryTypeConfig || s.Backup != ""
 }
 
 // IsGit returns true if this is a git type sub-entry
 func (s *SubEntry) IsGit() bool {
-	return s.Type == "git" || s.Repo != ""
+	return s.Type == SubEntryTypeGit || s.Repo != ""
 }
 
 // IsFolder returns true if this config sub-entry manages an entire folder (no specific files)
@@ -170,6 +169,7 @@ func (s *SubEntry) GetTarget(osType string) string {
 	if target, ok := s.Targets[osType]; ok {
 		return target
 	}
+
 	return ""
 }
 

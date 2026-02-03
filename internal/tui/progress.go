@@ -9,7 +9,6 @@ import (
 
 	"github.com/AntoineGS/dot-manager/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // Layout constants for list table view
@@ -70,6 +69,7 @@ func (m *Model) initApplicationItems() {
 			}
 			method := getPackageInstallMethod(spec, m.Platform.OS)
 			appItem.PkgMethod = method
+
 			if method != "none" {
 				installed := isPackageInstalled(spec, method)
 				appItem.PkgInstalled = &installed
@@ -109,8 +109,10 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 			if pathExists(gitDir) {
 				return StateLinked
 			}
+
 			return StateAdopt
 		}
+
 		return StateReady
 	}
 
@@ -130,9 +132,11 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 		if backupExists {
 			return StateReady
 		}
+
 		if targetExists {
 			return StateAdopt
 		}
+
 		return StateMissing
 	}
 
@@ -156,6 +160,7 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 		if pathExists(srcFile) {
 			anyBackup = true
 		}
+
 		if pathExists(dstFile) {
 			anyTarget = true
 		}
@@ -164,12 +169,15 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 	if allLinked && len(item.SubEntry.Files) > 0 {
 		return StateLinked
 	}
+
 	if anyBackup {
 		return StateReady
 	}
+
 	if anyTarget {
 		return StateAdopt
 	}
+
 	return StateMissing
 }
 
@@ -187,6 +195,7 @@ func (m *Model) getApplicationAtCursor() (int, int) {
 				}
 			}
 		}
+
 		visualRow++
 
 		if fapp.Expanded {
@@ -195,17 +204,18 @@ func (m *Model) getApplicationAtCursor() (int, int) {
 					// Find the real indices in m.Applications
 					for appIdx, app := range m.Applications {
 						if app.Application.Name == fapp.Application.Name {
-							// Find the sub-entry index
+							// Find the sub-entry index by name
 							for subIdx, sub := range app.SubItems {
 								if sub.SubEntry.Name == fsub.SubEntry.Name {
 									return appIdx, subIdx
 								}
 							}
-							// If not found, return with the filtered sub index
+							// If not found (shouldn't happen), return with the filtered sub index
 							return appIdx, fsubIdx
 						}
 					}
 				}
+
 				visualRow++
 			}
 		}
@@ -218,12 +228,14 @@ func (m *Model) getApplicationAtCursor() (int, int) {
 func (m *Model) getVisibleRowCount() int {
 	count := 0
 	filtered := m.getFilteredApplications()
+
 	for _, app := range filtered {
 		count++ // Application row
 		if app.Expanded {
 			count += len(app.SubItems) // Sub-entry rows (no separate separator)
 		}
 	}
+
 	return count
 }
 
@@ -232,6 +244,7 @@ func padRight(s string, width int) string {
 	if len(s) >= width {
 		return s
 	}
+
 	return s + strings.Repeat(" ", width-len(s))
 }
 
@@ -263,12 +276,15 @@ func (m Model) getAggregateState(app ApplicationItem) PathState {
 	if hasMissing {
 		return StateMissing
 	}
+
 	if hasAdopt {
 		return StateAdopt
 	}
+
 	if hasReady {
 		return StateReady
 	}
+
 	if hasLinked {
 		return StateLinked
 	}
@@ -295,7 +311,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle filter mode input
 	if m.Operation == OpList && m.filtering {
 		switch msg.String() {
-		case "esc":
+		case KeyEsc:
 			// Clear filter and exit filter mode
 			m.filtering = false
 			m.filterText = ""
@@ -304,11 +320,13 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Reset cursor and scroll to beginning
 			m.appCursor = 0
 			m.scrollOffset = 0
+
 			return m, nil
-		case "enter":
+		case KeyEnter:
 			// Confirm filter and return to navigation mode
 			m.filtering = false
 			m.filterInput.Blur()
+
 			return m, nil
 		default:
 			// Pass key to text input
@@ -318,6 +336,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Reset cursor when filter changes
 			m.appCursor = 0
 			m.scrollOffset = 0
+
 			return m, cmd
 		}
 	}
@@ -325,7 +344,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle delete confirmation
 	if m.Operation == OpList && (m.confirmingDeleteApp || m.confirmingDeleteSubEntry) {
 		switch msg.String() {
-		case "y", "Y", "enter":
+		case "y", "Y", KeyEnter:
 			// Confirm delete
 			appIdx, subIdx := m.getApplicationAtCursor()
 			if m.confirmingDeleteApp && appIdx >= 0 {
@@ -347,20 +366,23 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
+
 			return m, nil
 		case "n", "N", "esc":
 			// Cancel delete
 			m.confirmingDeleteApp = false
 			m.confirmingDeleteSubEntry = false
+
 			return m, nil
 		}
+
 		return m, nil
 	}
 
 	// Handle detail popup separately
 	if m.Operation == OpList && m.showingDetail {
 		switch msg.String() {
-		case "esc", "enter", "h", "left":
+		case KeyEsc, KeyEnter, "h", KeyLeft:
 			// Close detail popup (ESC cancels/closes the popup)
 			m.showingDetail = false
 			return m, nil
@@ -368,8 +390,10 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// q closes popup and goes back to menu
 			m.showingDetail = false
 			m.Screen = ScreenMenu
+
 			return m, nil
 		}
+
 		return m, nil
 	}
 
@@ -379,6 +403,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.Operation == OpList && !m.confirmingDeleteApp && !m.confirmingDeleteSubEntry && !m.showingDetail {
 			m.filtering = true
 			m.filterInput.Focus()
+
 			return m, nil
 		}
 	case "q":
@@ -386,24 +411,19 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Screen = ScreenMenu
 			return m, nil
 		}
+
 		return m, tea.Quit
 	case "up", "k":
 		if m.Operation == OpList {
 			if m.appCursor > 0 {
 				m.appCursor--
-				// Calculate actual visible rows (accounting for overhead)
-				maxTableRows := m.viewHeight - listTableOverhead
-				if m.filtering || m.filterText != "" {
-					maxTableRows--
-				}
-				if maxTableRows < minVisibleRows {
-					maxTableRows = minVisibleRows
-				}
+
 				if m.appCursor < m.scrollOffset {
 					m.scrollOffset = m.appCursor
 				}
 			}
 		}
+
 		return m, nil
 	case "down", "j":
 		if m.Operation == OpList {
@@ -415,14 +435,17 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if m.filtering || m.filterText != "" {
 					maxTableRows--
 				}
+
 				if maxTableRows < minVisibleRows {
 					maxTableRows = minVisibleRows
 				}
+
 				if m.appCursor >= m.scrollOffset+maxTableRows {
 					m.scrollOffset = m.appCursor - maxTableRows + 1
 				}
 			}
 		}
+
 		return m, nil
 	case "h", "left":
 		if m.Operation == OpList {
@@ -446,10 +469,12 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				// Not on expanded app, navigate back to menu
 				m.Screen = ScreenMenu
 			}
+
 			return m, nil
 		}
+
 		return m, tea.Quit
-	case "enter", "l", "right":
+	case KeyEnter, "l", "right":
 		if m.Operation == OpList {
 			// If showing detail, close it; otherwise toggle expand or show detail
 			if m.showingDetail {
@@ -461,8 +486,10 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.Applications[appIdx].Expanded = !m.Applications[appIdx].Expanded
 				}
 			}
+
 			return m, nil
 		}
+
 		return m, tea.Quit
 	case "e":
 		// Edit selected Application or SubEntry (only in List view)
@@ -476,6 +503,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					// Edit Application
 					m.initApplicationFormEdit(appIdx)
 				}
+
 				return m, nil
 			}
 		}
@@ -504,6 +532,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				} else {
 					m.confirmingDeleteApp = true
 				}
+
 				return m, nil
 			}
 		}
@@ -521,10 +550,12 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.currentPackageIndex = 0
 					m.results = nil
 					m.Screen = ScreenProgress
+
 					return m, m.installNextPackage()
 				}
 			}
 		}
+
 		return m, nil
 	case "r":
 		// Restore selected SubEntry (only in List view for SubEntry rows)
@@ -546,8 +577,10 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}}
 			}
 		}
+
 		return m, nil
 	}
+
 	return m, nil
 }
 
@@ -573,6 +606,7 @@ func (m Model) viewResults() string {
 	// Results summary
 	successCount := 0
 	failCount := 0
+
 	for _, r := range m.results {
 		if r.Success {
 			successCount++
@@ -585,9 +619,11 @@ func (m Model) viewResults() string {
 	if failCount > 0 {
 		summary += fmt.Sprintf(", %d failed", failCount)
 	}
+
 	if m.DryRun {
 		summary = WarningStyle.Render("[DRY RUN] ") + summary
 	}
+
 	b.WriteString(SubtitleStyle.Render(summary))
 	b.WriteString("\n\n")
 
@@ -598,9 +634,11 @@ func (m Model) viewResults() string {
 	}
 
 	start := m.scrollOffset
+
 	end := start + maxVisible
 	if end > len(m.results) {
 		end = len(m.results)
+
 		start = end - maxVisible
 		if start < 0 {
 			start = 0
@@ -631,7 +669,7 @@ func (m Model) viewResults() string {
 		if result.Message != "" {
 			lines := strings.Split(result.Message, "\n")
 			for _, line := range lines {
-				b.WriteString("    " + SubtitleStyle.Render(line))
+				b.WriteString(IndentSpaces + SubtitleStyle.Render(line))
 				b.WriteString("\n")
 			}
 		}
@@ -659,13 +697,16 @@ func (m Model) viewListTable() string {
 	// Filter input (show when filtering or when filter is active)
 	if m.filtering || m.filterText != "" {
 		b.WriteString("  / ")
+
 		if m.filtering {
 			b.WriteString(m.filterInput.View())
 		} else {
 			b.WriteString(FilterInputStyle.Render(m.filterText))
 		}
+
 		b.WriteString("\n")
 	}
+
 	b.WriteString("\n")
 
 	// Calculate visible rows and detail height
@@ -673,6 +714,7 @@ func (m Model) viewListTable() string {
 
 	// Calculate detail height if showing
 	detailHeight := 0
+
 	appIdx, subIdx := m.getApplicationAtCursor()
 	if m.showingDetail && appIdx >= 0 {
 		if subIdx >= 0 {
@@ -690,6 +732,7 @@ func (m Model) viewListTable() string {
 	if m.filtering || m.filterText != "" {
 		maxTableRows--
 	}
+
 	if maxTableRows < minVisibleRows {
 		maxTableRows = minVisibleRows
 	}
@@ -702,6 +745,7 @@ func (m Model) viewListTable() string {
 			maxVisible = minVisibleWithDetail
 		}
 	}
+
 	if maxVisible > totalVisibleRows {
 		maxVisible = totalVisibleRows
 	}
@@ -719,6 +763,7 @@ func (m Model) viewListTable() string {
 			// Cursor would be hidden, adjust start to show cursor at bottom of reduced window
 			start = m.appCursor - maxVisible + 1
 		}
+
 		if cursorPosInWindow < 0 {
 			start = m.appCursor
 		}
@@ -740,6 +785,7 @@ func (m Model) viewListTable() string {
 		if len(app.Application.Name) > maxAppNameWidth {
 			maxAppNameWidth = len(app.Application.Name)
 		}
+
 		if app.Expanded {
 			for _, subItem := range app.SubItems {
 				if len(subItem.SubEntry.Name) > maxSubNameWidth {
@@ -749,9 +795,9 @@ func (m Model) viewListTable() string {
 				// Type info width
 				typeInfo := ""
 				if subItem.SubEntry.IsGit() {
-					typeInfo = "git"
+					typeInfo = TypeGit
 				} else if subItem.SubEntry.IsFolder() {
-					typeInfo = "folder"
+					typeInfo = TypeFolder
 				} else {
 					fileCount := len(subItem.SubEntry.Files)
 					if fileCount == 1 {
@@ -760,6 +806,7 @@ func (m Model) viewListTable() string {
 						typeInfo = fmt.Sprintf("%d files", fileCount)
 					}
 				}
+
 				if len(typeInfo) > maxTypeWidth {
 					maxTypeWidth = len(typeInfo)
 				}
@@ -767,10 +814,11 @@ func (m Model) viewListTable() string {
 				// Source path width
 				sourcePath := ""
 				if subItem.SubEntry.IsGit() {
-					sourcePath = truncateStr(subItem.SubEntry.Repo, 30)
+					sourcePath = truncateStr(subItem.SubEntry.Repo)
 				} else {
-					sourcePath = truncateStr(m.resolvePath(subItem.SubEntry.Backup), 30)
+					sourcePath = truncateStr(m.resolvePath(subItem.SubEntry.Backup))
 				}
+
 				if len(sourcePath) > maxSourceWidth {
 					maxSourceWidth = len(sourcePath)
 				}
@@ -794,6 +842,7 @@ func (m Model) viewListTable() string {
 
 			// Package indicator
 			var pkgIndicator string
+
 			if app.PkgInstalled != nil {
 				if *app.PkgInstalled {
 					pkgIndicator = "✓"
@@ -810,6 +859,7 @@ func (m Model) viewListTable() string {
 
 			// Build the complete line with or without selection styling
 			var line string
+
 			if isSelected {
 				// Apply selection style to entire row (use plain text for state, no badge styling)
 				// Match badge visual width: 1 (margin) + 1 (padding) + text + 1 (padding) = 10 total
@@ -840,6 +890,7 @@ func (m Model) viewListTable() string {
 				b.WriteString(m.renderApplicationInlineDetail(&app, m.width))
 			}
 		}
+
 		visualRow++
 
 		// Render sub-entry rows if expanded
@@ -860,9 +911,9 @@ func (m Model) viewListTable() string {
 					// Type info
 					typeInfo := ""
 					if subItem.SubEntry.IsGit() {
-						typeInfo = "git"
+						typeInfo = TypeGit
 					} else if subItem.SubEntry.IsFolder() {
-						typeInfo = "folder"
+						typeInfo = TypeFolder
 					} else {
 						fileCount := len(subItem.SubEntry.Files)
 						if fileCount == 1 {
@@ -875,13 +926,13 @@ func (m Model) viewListTable() string {
 					// Source path
 					sourcePath := ""
 					if subItem.SubEntry.IsGit() {
-						sourcePath = truncateStr(subItem.SubEntry.Repo, 30)
+						sourcePath = truncateStr(subItem.SubEntry.Repo)
 					} else {
-						sourcePath = truncateStr(m.resolvePath(subItem.SubEntry.Backup), 30)
+						sourcePath = truncateStr(m.resolvePath(subItem.SubEntry.Backup))
 					}
 
 					// Target path
-					targetPath := truncateStr(subItem.Target, 30)
+					targetPath := truncateStr(subItem.Target)
 
 					// Pad to column widths
 					paddedName := padRight(subItem.SubEntry.Name, maxSubNameWidth)
@@ -919,6 +970,7 @@ func (m Model) viewListTable() string {
 						b.WriteString(m.renderSubEntryInlineDetail(&subItem, m.width))
 					}
 				}
+
 				visualRow++
 			}
 		}
@@ -931,15 +983,18 @@ func (m Model) viewListTable() string {
 		if start > 0 {
 			scrollInfo = "↑ " + scrollInfo
 		}
+
 		if end < totalVisibleRows {
 			scrollInfo = scrollInfo + " ↓"
 		}
 	}
+
 	b.WriteString(SubtitleStyle.Render(scrollInfo))
 	b.WriteString("\n")
 
 	// Help or confirmation prompt
 	b.WriteString("\n")
+
 	if m.confirmingDeleteApp || m.confirmingDeleteSubEntry {
 		// Show delete confirmation prompt
 		var name string
@@ -948,6 +1003,7 @@ func (m Model) viewListTable() string {
 		} else if m.confirmingDeleteSubEntry && appIdx >= 0 && subIdx >= 0 {
 			name = m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
 		}
+
 		if name != "" {
 			b.WriteString(WarningStyle.Render(fmt.Sprintf("Delete '%s'? ", name)))
 			b.WriteString(RenderHelpWithWidth(m.width, "y/enter", "yes", "n/esc", "no"))
@@ -979,255 +1035,6 @@ func (m Model) viewListTable() string {
 	return BaseStyle.Render(b.String())
 }
 
-func (m Model) calcDetailHeight(item PathItem) int {
-	// Calculate how many lines the detail panel takes
-	lines := 0
-
-	// Type line
-	lines++
-
-	// Description line (if present)
-	if item.Entry.Description != "" {
-		lines++
-	}
-
-	// Root line (if true)
-	if item.Entry.Sudo {
-		lines++
-	}
-
-	// Package line (if present)
-	if item.PkgInstalled != nil {
-		lines++
-	}
-
-	switch item.EntryType {
-	case EntryTypeGit:
-		// Repo line
-		lines++
-		// Branch line (if specified)
-		if item.Entry.Branch != "" {
-			lines++
-		}
-	case EntryTypePackage:
-		// Package-only entries don't have additional lines here
-	default: // EntryTypeConfig
-		// Files line (only for non-folders)
-		if !item.Entry.IsFolder() {
-			lines++
-		}
-		// Backup line
-		lines++
-	}
-
-	// Targets header and lines (only for non-package entries)
-	if item.EntryType != EntryTypePackage && len(item.Entry.Targets) > 0 {
-		lines++ // Targets header
-		lines += len(item.Entry.Targets)
-	}
-
-	// Filters (if present)
-	if len(item.Entry.Filters) > 0 {
-		lines++ // Filters header
-		for _, f := range item.Entry.Filters {
-			if len(f.Include) > 0 || len(f.Exclude) > 0 {
-				lines++ // Each filter gets one line
-			}
-		}
-	}
-
-	// Bottom border
-	lines++
-
-	return lines
-}
-
-func (m Model) renderInlineDetail(item PathItem, tableWidth int) string {
-	var detail strings.Builder
-
-	// Type and source info
-	switch item.EntryType {
-	case EntryTypeGit:
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Type: "))
-		detail.WriteString(WarningStyle.Render("git"))
-		detail.WriteString("\n")
-	case EntryTypePackage:
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Type: "))
-		detail.WriteString(WarningStyle.Render("package"))
-		detail.WriteString("\n")
-	default: // EntryTypeConfig
-		if item.Entry.IsFolder() {
-			detail.WriteString("    │ ")
-			detail.WriteString(MutedTextStyle.Render("Type: "))
-			detail.WriteString(WarningStyle.Render("folder"))
-			detail.WriteString("\n")
-		} else {
-			detail.WriteString("    │ ")
-			detail.WriteString(MutedTextStyle.Render("Type: "))
-			detail.WriteString(fmt.Sprintf("%d files", len(item.Entry.Files)))
-			detail.WriteString("\n")
-		}
-	}
-
-	// Description (if present)
-	if item.Entry.Description != "" {
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Description: "))
-		detail.WriteString(item.Entry.Description)
-		detail.WriteString("\n")
-	}
-
-	// Root flag (if true)
-	if item.Entry.Sudo {
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Sudo: "))
-		detail.WriteString(WarningStyle.Render("yes"))
-		detail.WriteString("\n")
-	}
-
-	// Package info (if present)
-	if item.PkgInstalled != nil {
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Package: "))
-		detail.WriteString(item.PkgMethod)
-		if *item.PkgInstalled {
-			detail.WriteString(" " + SuccessStyle.Render("(installed)"))
-		} else {
-			detail.WriteString(" " + ErrorStyle.Render("(not installed)"))
-		}
-		detail.WriteString("\n")
-	}
-
-	// Type-specific fields
-	switch item.EntryType {
-	case EntryTypeGit:
-		// Repo URL
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Repo: "))
-		detail.WriteString(PathBackupStyle.Render(item.Entry.Repo))
-		detail.WriteString("\n")
-
-		// Branch (if specified)
-		if item.Entry.Branch != "" {
-			detail.WriteString("    │ ")
-			detail.WriteString(MutedTextStyle.Render("Branch: "))
-			detail.WriteString(item.Entry.Branch)
-			detail.WriteString("\n")
-		}
-	case EntryTypePackage:
-		// Package-only entries show manager info in package section above
-	default: // EntryTypeConfig
-		// Files list (only for non-folders)
-		if !item.Entry.IsFolder() {
-			detail.WriteString("    │ ")
-			detail.WriteString(MutedTextStyle.Render("Files: "))
-			detail.WriteString(strings.Join(item.Entry.Files, ", "))
-			detail.WriteString("\n")
-		}
-
-		// Backup path
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Backup: "))
-		detail.WriteString(PathBackupStyle.Render(item.Entry.Backup))
-		detail.WriteString("\n")
-	}
-
-	// Targets by OS (only for non-package entries)
-	if item.EntryType != EntryTypePackage && len(item.Entry.Targets) > 0 {
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Targets:"))
-		detail.WriteString("\n")
-		for os, target := range item.Entry.Targets {
-			detail.WriteString("    │   ")
-			osLabel := fmt.Sprintf("%-8s ", os+":")
-			detail.WriteString(MutedTextStyle.Render(osLabel))
-			detail.WriteString(PathTargetStyle.Render(unexpandHome(target)))
-			detail.WriteString("\n")
-		}
-	}
-
-	// Filters (if present)
-	if len(item.Entry.Filters) > 0 {
-		detail.WriteString("    │ ")
-		detail.WriteString(MutedTextStyle.Render("Filters:"))
-		detail.WriteString("\n")
-		for _, f := range item.Entry.Filters {
-			detail.WriteString("    │   ")
-			filterParts := []string{}
-			for k, v := range f.Include {
-				filterParts = append(filterParts, fmt.Sprintf("%s=%s", k, v))
-			}
-			for k, v := range f.Exclude {
-				filterParts = append(filterParts, fmt.Sprintf("!%s=%s", k, v))
-			}
-			if len(filterParts) > 0 {
-				detail.WriteString(strings.Join(filterParts, ", "))
-				detail.WriteString("\n")
-			}
-		}
-	}
-
-	// Bottom line extending to table width
-	detail.WriteString("    └")
-	bottomWidth := tableWidth - 5
-	if bottomWidth < 10 {
-		bottomWidth = 10
-	}
-	detail.WriteString(strings.Repeat("─", bottomWidth))
-	detail.WriteString("\n")
-
-	return detail.String()
-}
-
-// getFilteredPaths returns indices of paths that match the filter text
-func (m Model) getFilteredPaths() []int {
-	if m.filterText == "" {
-		// Return all indices
-		indices := make([]int, len(m.Paths))
-		for i := range m.Paths {
-			indices[i] = i
-		}
-		return indices
-	}
-
-	filterLower := strings.ToLower(m.filterText)
-	var indices []int
-	for i, item := range m.Paths {
-		// Search in name, type, source, and target
-		name := strings.ToLower(item.Entry.Name)
-		target := strings.ToLower(item.Entry.Targets[m.Platform.OS])
-		source := ""
-		typeStr := ""
-
-		switch item.EntryType {
-		case EntryTypeGit:
-			typeStr = "git"
-			source = strings.ToLower(item.Entry.Repo)
-		case EntryTypePackage:
-			typeStr = "package"
-			source = strings.ToLower(item.PkgMethod)
-		default:
-			if item.Entry.IsFolder() {
-				typeStr = "folder"
-			} else {
-				typeStr = "files"
-			}
-			source = strings.ToLower(item.Entry.Backup)
-		}
-
-		// Check if filter matches any visible field
-		if strings.Contains(name, filterLower) ||
-			strings.Contains(typeStr, filterLower) ||
-			strings.Contains(source, filterLower) ||
-			strings.Contains(target, filterLower) {
-			indices = append(indices, i)
-		}
-	}
-	return indices
-}
-
 // getFilteredApplications returns filtered applications for hierarchical view
 func (m Model) getFilteredApplications() []ApplicationItem {
 	if m.filterText == "" {
@@ -1243,6 +1050,7 @@ func (m Model) getFilteredApplications() []ApplicationItem {
 
 		// Filter SubItems
 		var matchingSubItems []SubEntryItem
+
 		for _, sub := range app.SubItems {
 			subMatches := strings.Contains(strings.ToLower(sub.SubEntry.Name), filterLower) ||
 				strings.Contains(strings.ToLower(sub.Target), filterLower)
@@ -1269,69 +1077,27 @@ func (m Model) getFilteredApplications() []ApplicationItem {
 	return filtered
 }
 
-// highlightText returns the text with matching portions highlighted
-func highlightText(text, filter string, baseStyle lipgloss.Style) string {
-	if filter == "" {
-		return baseStyle.Render(text)
-	}
-
-	filterLower := strings.ToLower(filter)
-	textLower := strings.ToLower(text)
-
-	var result strings.Builder
-	lastEnd := 0
-
-	for {
-		idx := strings.Index(textLower[lastEnd:], filterLower)
-		if idx == -1 {
-			// No more matches, append remaining text
-			result.WriteString(baseStyle.Render(text[lastEnd:]))
-			break
-		}
-
-		// Append text before match
-		matchStart := lastEnd + idx
-		if matchStart > lastEnd {
-			result.WriteString(baseStyle.Render(text[lastEnd:matchStart]))
-		}
-
-		// Append highlighted match
-		matchEnd := matchStart + len(filter)
-		result.WriteString(FilterHighlightStyle.Render(text[matchStart:matchEnd]))
-
-		lastEnd = matchEnd
-	}
-
-	return result.String()
-}
-
-func truncateStr(s string, maxLen int) string {
+func truncateStr(s string) string {
+	const maxLen = 30
 	if len(s) <= maxLen {
 		return s
 	}
+
 	if maxLen <= 3 {
 		return s[:maxLen]
 	}
+
 	return s[:maxLen-3] + "..."
 }
 
-// unexpandHome converts expanded home directory paths back to ~ for display
-func unexpandHome(path string) string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return path
+// findConfigApplicationIndex finds the index of an application in m.Config.Applications by name
+// This is needed because m.Applications is sorted but m.Config.Applications is not
+func (m *Model) findConfigApplicationIndex(appName string) int {
+	for i, app := range m.Config.Applications {
+		if app.Name == appName {
+			return i
+		}
 	}
-	if strings.HasPrefix(path, home) {
-		return "~" + path[len(home):]
-	}
-	return path
-}
 
-// requiresSudo returns true if the package manager method requires sudo
-func requiresSudo(method string) bool {
-	switch method {
-	case "pacman", "apt", "dnf":
-		return true
-	}
-	return false
+	return -1
 }

@@ -8,19 +8,19 @@ import (
 
 func TestNewManager(t *testing.T) {
 	tests := []struct {
-		name           string
-		config         *PackagesConfig
-		osType         string
-		dryRun         bool
-		verbose        bool
-		wantDryRun     bool
-		wantVerbose    bool
-		wantOS         string
-		wantConfigNil  bool
+		config        *Config
+		name          string
+		osType        string
+		wantOS        string
+		dryRun        bool
+		verbose       bool
+		wantDryRun    bool
+		wantVerbose   bool
+		wantConfigNil bool
 	}{
 		{
 			name: "basic creation with empty config",
-			config: &PackagesConfig{
+			config: &Config{
 				Packages: []Package{},
 			},
 			osType:     "linux",
@@ -31,7 +31,7 @@ func TestNewManager(t *testing.T) {
 		},
 		{
 			name: "with dry-run enabled",
-			config: &PackagesConfig{
+			config: &Config{
 				Packages: []Package{},
 			},
 			osType:     "linux",
@@ -42,7 +42,7 @@ func TestNewManager(t *testing.T) {
 		},
 		{
 			name: "with verbose enabled",
-			config: &PackagesConfig{
+			config: &Config{
 				Packages: []Package{},
 			},
 			osType:      "windows",
@@ -53,7 +53,7 @@ func TestNewManager(t *testing.T) {
 		},
 		{
 			name: "with default manager set",
-			config: &PackagesConfig{
+			config: &Config{
 				Packages:       []Package{},
 				DefaultManager: Pacman,
 			},
@@ -62,7 +62,7 @@ func TestNewManager(t *testing.T) {
 		},
 		{
 			name: "with manager priority set",
-			config: &PackagesConfig{
+			config: &Config{
 				Packages:        []Package{},
 				ManagerPriority: []PackageManager{Yay, Paru, Pacman},
 			},
@@ -78,21 +78,21 @@ func TestNewManager(t *testing.T) {
 			if m == nil {
 				t.Fatal("NewManager returned nil")
 			}
+
 			if m.Config != tt.config {
 				t.Errorf("Config not set correctly")
 			}
+
 			if m.OS != tt.wantOS {
 				t.Errorf("OS = %q, want %q", m.OS, tt.wantOS)
 			}
+
 			if m.DryRun != tt.wantDryRun {
 				t.Errorf("DryRun = %v, want %v", m.DryRun, tt.wantDryRun)
 			}
+
 			if m.Verbose != tt.wantVerbose {
 				t.Errorf("Verbose = %v, want %v", m.Verbose, tt.wantVerbose)
-			}
-			// Available should be initialized (even if empty when no managers detected)
-			if m.Available == nil {
-				// This is fine - detectAvailableManagers may return empty
 			}
 		})
 	}
@@ -101,8 +101,8 @@ func TestNewManager(t *testing.T) {
 func TestHasManager(t *testing.T) {
 	tests := []struct {
 		name      string
-		available []PackageManager
 		check     PackageManager
+		available []PackageManager
 		want      bool
 	}{
 		{
@@ -146,7 +146,7 @@ func TestHasManager(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				Config:    &PackagesConfig{},
+				Config:    &Config{},
 				Available: tt.available,
 			}
 
@@ -161,11 +161,11 @@ func TestHasManager(t *testing.T) {
 func TestSelectPreferredManager(t *testing.T) {
 	tests := []struct {
 		name            string
-		available       []PackageManager
 		defaultManager  PackageManager
-		managerPriority []PackageManager
 		osType          string
 		wantPreferred   PackageManager
+		available       []PackageManager
+		managerPriority []PackageManager
 	}{
 		{
 			name:            "priority takes precedence over default",
@@ -276,7 +276,7 @@ func TestSelectPreferredManager(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				Config: &PackagesConfig{
+				Config: &Config{
 					DefaultManager:  tt.defaultManager,
 					ManagerPriority: tt.managerPriority,
 				},
@@ -400,7 +400,7 @@ func TestCanInstall(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				Config:    &PackagesConfig{},
+				Config:    &Config{},
 				OS:        tt.osType,
 				Available: tt.available,
 			}
@@ -416,10 +416,10 @@ func TestCanInstall(t *testing.T) {
 func TestGetInstallMethod(t *testing.T) {
 	tests := []struct {
 		name      string
-		available []PackageManager
 		osType    string
-		pkg       Package
 		want      string
+		pkg       Package
+		available []PackageManager
 	}{
 		{
 			name:      "returns manager name",
@@ -514,7 +514,7 @@ func TestGetInstallMethod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				Config:    &PackagesConfig{},
+				Config:    &Config{},
 				OS:        tt.osType,
 				Available: tt.available,
 			}
@@ -530,11 +530,11 @@ func TestGetInstallMethod(t *testing.T) {
 func TestInstall_DryRun(t *testing.T) {
 	tests := []struct {
 		name        string
-		available   []PackageManager
 		osType      string
-		pkg         Package
-		wantSuccess bool
 		wantMethod  string
+		pkg         Package
+		available   []PackageManager
+		wantSuccess bool
 	}{
 		{
 			name:      "dry-run manager install",
@@ -608,7 +608,7 @@ func TestInstall_DryRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				Config:    &PackagesConfig{},
+				Config:    &Config{},
 				OS:        tt.osType,
 				DryRun:    true,
 				Available: tt.available,
@@ -619,9 +619,11 @@ func TestInstall_DryRun(t *testing.T) {
 			if result.Success != tt.wantSuccess {
 				t.Errorf("Install().Success = %v, want %v", result.Success, tt.wantSuccess)
 			}
+
 			if result.Method != tt.wantMethod {
 				t.Errorf("Install().Method = %q, want %q", result.Method, tt.wantMethod)
 			}
+
 			if result.Package != tt.pkg.Name {
 				t.Errorf("Install().Package = %q, want %q", result.Package, tt.pkg.Name)
 			}
@@ -833,11 +835,11 @@ func TestFilterPackages(t *testing.T) {
 func TestFromEntry(t *testing.T) {
 	tests := []struct {
 		name       string
-		entry      config.Entry
-		wantNil    bool
 		wantName   string
 		wantDesc   string
+		entry      config.Entry
 		wantMgrLen int
+		wantNil    bool
 	}{
 		{
 			name: "entry with package - manager only",
@@ -927,18 +929,22 @@ func TestFromEntry(t *testing.T) {
 				if got != nil {
 					t.Errorf("FromEntry() = %v, want nil", got)
 				}
+
 				return
 			}
 
 			if got == nil {
 				t.Fatal("FromEntry() = nil, want non-nil")
 			}
+
 			if got.Name != tt.wantName {
 				t.Errorf("FromEntry().Name = %q, want %q", got.Name, tt.wantName)
 			}
+
 			if got.Description != tt.wantDesc {
 				t.Errorf("FromEntry().Description = %q, want %q", got.Description, tt.wantDesc)
 			}
+
 			if tt.wantMgrLen > 0 && len(got.Managers) != tt.wantMgrLen {
 				t.Errorf("FromEntry().Managers has %d entries, want %d", len(got.Managers), tt.wantMgrLen)
 			}
@@ -1115,7 +1121,7 @@ func TestGetInstallablePackages(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				Config: &PackagesConfig{
+				Config: &Config{
 					Packages: tt.packages,
 				},
 				OS:        tt.osType,
@@ -1140,12 +1146,12 @@ func TestGetInstallablePackages(t *testing.T) {
 
 func TestInstallAll_DryRun(t *testing.T) {
 	tests := []struct {
-		name         string
-		available    []PackageManager
-		osType       string
-		packages     []Package
-		wantResults  int
-		wantSuccess  int
+		name        string
+		available   []PackageManager
+		osType      string
+		packages    []Package
+		wantResults int
+		wantSuccess int
 	}{
 		{
 			name:      "install multiple packages",
@@ -1184,7 +1190,7 @@ func TestInstallAll_DryRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				Config:    &PackagesConfig{},
+				Config:    &Config{},
 				OS:        tt.osType,
 				DryRun:    true,
 				Available: tt.available,
@@ -1197,6 +1203,7 @@ func TestInstallAll_DryRun(t *testing.T) {
 			}
 
 			successCount := 0
+
 			for _, r := range results {
 				if r.Success {
 					successCount++

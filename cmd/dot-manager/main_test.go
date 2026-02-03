@@ -27,10 +27,10 @@ func TestRunInit(t *testing.T) {
 	})
 
 	tests := []struct {
-		name        string
 		setupPath   func(t *testing.T) string
-		wantErr     bool
+		name        string
 		errContains string
+		wantErr     bool
 	}{
 		{
 			name: "valid directory",
@@ -78,10 +78,8 @@ func TestRunInit(t *testing.T) {
 				if tt.errContains != "" && !contains(err.Error(), tt.errContains) {
 					t.Errorf("runInit() error = %v, want error containing %q", err, tt.errContains)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("runInit() unexpected error = %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("runInit() unexpected error = %v", err)
 			}
 		})
 	}
@@ -113,9 +111,9 @@ func TestGetConfigDir(t *testing.T) {
 	tests := []struct {
 		name       string
 		flagValue  string
+		errMessage string
 		wantAbs    bool
 		wantErr    bool
-		errMessage string
 	}{
 		{
 			name:      "flag override with relative path",

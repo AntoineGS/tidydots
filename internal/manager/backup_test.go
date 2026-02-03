@@ -95,6 +95,7 @@ func TestBackupFiles(t *testing.T) {
 	mgr := New(cfg, plat)
 
 	files := []string{"config1.txt", "config2.txt"}
+
 	err := mgr.backupFiles("test", files, srcDir, backupDir)
 	if err != nil {
 		t.Fatalf("backupFiles() error = %v", err)
@@ -288,6 +289,7 @@ func TestBackupV3Application(t *testing.T) {
 		// List what actually exists
 		entries, _ := os.ReadDir(filepath.Join(backupRoot, "nvim"))
 		t.Logf("Contents of nvim backup dir: %v", entries)
+
 		return
 	}
 
@@ -295,6 +297,7 @@ func TestBackupV3Application(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read backed up file: %v", err)
 	}
+
 	if string(content) != "vim config" {
 		t.Errorf("Backup content = %q, want %q", string(content), "vim config")
 	}
@@ -356,6 +359,7 @@ func TestBackup_FilePermissionsPreserved(t *testing.T) {
 
 	// Check backup has same permissions
 	backupFile := filepath.Join(backupPath, "config")
+
 	info, err := os.Stat(backupFile)
 	if err != nil {
 		t.Fatalf("stat backup: %v", err)
@@ -364,6 +368,7 @@ func TestBackup_FilePermissionsPreserved(t *testing.T) {
 	// Compare permission bits (ignore file type bits)
 	expectedPerm := os.FileMode(0600)
 	actualPerm := info.Mode().Perm()
+
 	if actualPerm != expectedPerm {
 		t.Errorf("permissions = %o, want %o", actualPerm, expectedPerm)
 	}
@@ -435,6 +440,7 @@ func TestBackupWithContext(t *testing.T) {
 	mgr := New(cfg, plat)
 
 	ctx := context.Background()
+
 	err := mgr.BackupWithContext(ctx)
 	if err != nil {
 		t.Fatalf("BackupWithContext() error = %v", err)
@@ -494,6 +500,7 @@ func TestBackupV3_WithFiles(t *testing.T) {
 	if !pathExists(backedUpBashrc) {
 		t.Error(".bashrc was not backed up")
 	}
+
 	if !pathExists(backedUpProfile) {
 		t.Error(".profile was not backed up")
 	}
@@ -552,6 +559,7 @@ func TestBackupV3_FolderSubEntry(t *testing.T) {
 	if !pathExists(backedUpConfig) {
 		t.Error("config.json was not backed up")
 	}
+
 	if !pathExists(backedUpSettings) {
 		t.Error("settings.json was not backed up")
 	}
@@ -760,6 +768,7 @@ func TestBackupFilesSubEntry_SourceMissing(t *testing.T) {
 	mgr.Verbose = true
 
 	subEntry := cfg.Applications[0].Entries[0]
+
 	err := mgr.backupFilesSubEntry("test", subEntry, backupPath, homeDir)
 	if err != nil {
 		t.Fatalf("backupFilesSubEntry() error = %v", err)
@@ -806,6 +815,7 @@ func TestBackupFolderSubEntry_SourceMissing(t *testing.T) {
 	mgr.Verbose = true
 
 	subEntry := cfg.Applications[0].Entries[0]
+
 	err := mgr.backupFolderSubEntry("test", subEntry, backupPath, targetDir)
 	if err != nil {
 		t.Fatalf("backupFolderSubEntry() error = %v", err)
@@ -855,6 +865,7 @@ func TestBackupFilesSubEntry_MissingFile(t *testing.T) {
 	mgr.Verbose = true
 
 	subEntry := cfg.Applications[0].Entries[0]
+
 	err := mgr.backupFilesSubEntry("test", subEntry, backupPath, homeDir)
 	if err != nil {
 		t.Fatalf("backupFilesSubEntry() error = %v", err)
@@ -867,6 +878,7 @@ func TestBackupFilesSubEntry_MissingFile(t *testing.T) {
 	if !pathExists(backedUpExists) {
 		t.Error("exists.txt should be backed up")
 	}
+
 	if pathExists(backedUpMissing) {
 		t.Error("missing.txt should not be backed up")
 	}

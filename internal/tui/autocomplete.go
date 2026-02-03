@@ -40,6 +40,7 @@ func getPathSuggestions(input string, configDir string) []string {
 	}
 
 	var suggestions []string
+
 	for _, entry := range entries {
 		name := entry.Name()
 
@@ -60,9 +61,11 @@ func getPathSuggestions(input string, configDir string) []string {
 
 	// Sort first, then truncate to get alphabetically first entries
 	sort.Strings(suggestions)
+
 	if len(suggestions) > maxSuggestions {
 		suggestions = suggestions[:maxSuggestions]
 	}
+
 	return suggestions
 }
 
@@ -98,14 +101,18 @@ func expandPath(path string) string {
 		if err != nil {
 			return path
 		}
+
 		return filepath.Join(home, path[2:])
 	}
+
 	if path == "~" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return path
 		}
+
 		return home
 	}
+
 	return path
 }

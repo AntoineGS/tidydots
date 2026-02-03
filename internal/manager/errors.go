@@ -16,9 +16,9 @@ var (
 
 // PathError records an error and the operation and path that caused it.
 type PathError struct {
-	Op   string // Operation being performed (e.g., "restore", "backup")
-	Path string // Path that caused the error
-	Err  error  // Underlying error
+	Err  error
+	Op   string
+	Path string
 }
 
 func (e *PathError) Error() string {
@@ -40,16 +40,17 @@ func NewPathError(op, path string, err error) *PathError {
 
 // GitError records an error during git operations
 type GitError struct {
-	Repo   string // Repository URL
-	Branch string // Branch name
-	Op     string // Operation (clone, pull, checkout)
-	Err    error  // Underlying error
+	Err    error
+	Repo   string
+	Branch string
+	Op     string
 }
 
 func (e *GitError) Error() string {
 	if e.Branch != "" {
 		return fmt.Sprintf("git %s %s@%s: %v", e.Op, e.Repo, e.Branch, e.Err)
 	}
+
 	return fmt.Sprintf("git %s %s: %v", e.Op, e.Repo, e.Err)
 }
 

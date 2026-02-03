@@ -43,14 +43,16 @@ func (m Model) updatePathSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		for i := range m.Paths {
 			m.Paths[i].Selected = !m.Paths[i].Selected
 		}
-	case "enter":
+	case KeyEnter:
 		// Count selected
 		selected := 0
+
 		for _, p := range m.Paths {
 			if p.Selected {
 				selected++
 			}
 		}
+
 		if selected > 0 {
 			m.Screen = ScreenConfirm
 		}
@@ -65,6 +67,7 @@ func (m Model) updatePathSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.scrollOffset = m.pathCursor - m.viewHeight + 1
 		}
 	}
+
 	return m, nil
 }
 
@@ -78,6 +81,7 @@ func (m Model) viewPathSelect() string {
 
 	// Count selected
 	selected := 0
+
 	for _, p := range m.Paths {
 		if p.Selected {
 			selected++
@@ -151,6 +155,7 @@ func truncatePath(path string, maxLen int) string {
 	if len(path) <= maxLen {
 		return path
 	}
+
 	return "..." + path[len(path)-maxLen+3:]
 }
 
@@ -167,5 +172,6 @@ func renderStateBadge(state PathState) string {
 	case StateLinked:
 		return StateBadgeLinkedStyle.Render("Linked") + " "
 	}
+
 	return "       " // 7 spaces for empty state
 }

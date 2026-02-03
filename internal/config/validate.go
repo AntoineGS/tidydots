@@ -16,6 +16,7 @@ func (e ValidationError) Error() string {
 	if e.Field != "" {
 		return fmt.Sprintf("entry '%s': %s - %s", e.EntryName, e.Field, e.Message)
 	}
+
 	return fmt.Sprintf("entry '%s': %s", e.EntryName, e.Message)
 }
 
@@ -126,6 +127,7 @@ func validateConfigFields(e *Entry) error {
 				Message:   "target path cannot be empty",
 			}
 		}
+
 		if err := ValidatePath(target); err != nil {
 			return ValidationError{
 				EntryName: e.Name,
@@ -140,7 +142,6 @@ func validateConfigFields(e *Entry) error {
 
 func validateGitFields(e *Entry) error {
 	// Repo is already validated by IsGit() being true
-
 	if err := ValidatePath(e.Repo); err != nil {
 		return ValidationError{
 			EntryName: e.Name,
@@ -167,6 +168,7 @@ func validateGitFields(e *Entry) error {
 				Message:   "target path cannot be empty",
 			}
 		}
+
 		if err := ValidatePath(target); err != nil {
 			return ValidationError{
 				EntryName: e.Name,
@@ -210,6 +212,7 @@ func ValidateEntries(entries []Entry) []error {
 				EntryName: entries[i].Name,
 				Message:   "duplicate entry name",
 			})
+
 			continue
 		}
 		seen[entries[i].Name] = true

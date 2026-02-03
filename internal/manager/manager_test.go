@@ -62,9 +62,11 @@ func TestGetPaths(t *testing.T) {
 	for _, p := range paths {
 		names[p.Name] = true
 	}
+
 	if !names["user-path"] {
 		t.Error("GetPaths() should include 'user-path'")
 	}
+
 	if !names["root-path"] {
 		t.Error("GetPaths() should include 'root-path'")
 	}
@@ -141,6 +143,7 @@ func TestCopyFile(t *testing.T) {
 
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	content := []byte("test content")
+
 	if err := os.WriteFile(srcFile, content, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -263,6 +266,7 @@ func TestResolvePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			got := mgr.resolvePath(tt.path)
 			if got != tt.want {
 				t.Errorf("resolvePath(%q) = %q, want %q", tt.path, got, tt.want)
@@ -277,6 +281,7 @@ func TestCopyFilePreservesPermissions(t *testing.T) {
 
 	srcFile := filepath.Join(tmpDir, "source.sh")
 	content := []byte("#!/bin/bash\necho hello")
+
 	if err := os.WriteFile(srcFile, content, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -437,8 +442,8 @@ func TestLogWarn(t *testing.T) {
 	mgr := New(cfg, plat)
 
 	// Just call it to get coverage - hard to test output
-	mgr.logWarn("test warning message")
-	mgr.logWarn("test warning with %s", "arg")
+	mgr.logWarnf("test warning message")
+	mgr.logWarnf("test warning with %s", "arg")
 }
 
 func TestManager_SatisfiesInterface(t *testing.T) {

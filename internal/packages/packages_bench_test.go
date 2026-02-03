@@ -25,6 +25,7 @@ func BenchmarkFilterPackages(b *testing.B) {
 	}
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_ = FilterPackages(packages, ctx)
 	}
@@ -44,6 +45,7 @@ func BenchmarkFromEntries(b *testing.B) {
 	}
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_ = FromEntries(entries)
 	}

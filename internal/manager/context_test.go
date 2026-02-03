@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,6 +34,7 @@ func setupTestManager(t *testing.T) *Manager {
 	if err := os.MkdirAll(srcDir, 0755); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("test"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +52,7 @@ func TestRestore_ContextCancellation(t *testing.T) {
 
 	err := m.RestoreWithContext(ctx)
 
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("RestoreWithContext() error = %v, want context.Canceled", err)
 	}
 }
@@ -67,7 +69,7 @@ func TestRestore_ContextTimeout(t *testing.T) {
 
 	err := m.RestoreWithContext(ctx)
 
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("RestoreWithContext() error = %v, want context.DeadlineExceeded", err)
 	}
 }
@@ -108,7 +110,7 @@ func TestBackup_ContextCancellation(t *testing.T) {
 
 	err := mgr.BackupWithContext(ctx)
 
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("BackupWithContext() error = %v, want context.Canceled", err)
 	}
 }
@@ -150,7 +152,7 @@ func TestBackup_ContextTimeout(t *testing.T) {
 
 	err := mgr.BackupWithContext(ctx)
 
-	if err != context.DeadlineExceeded {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("BackupWithContext() error = %v, want context.DeadlineExceeded", err)
 	}
 }

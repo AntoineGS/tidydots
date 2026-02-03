@@ -61,6 +61,7 @@ func matchesPattern(pattern, value string) bool {
 	if err != nil {
 		return pattern == value // Fallback to exact match
 	}
+
 	return re.MatchString(value)
 }
 
@@ -70,10 +71,12 @@ func MatchesFilters(filters []Filter, ctx *FilterContext) bool {
 	if len(filters) == 0 {
 		return true
 	}
+
 	for _, f := range filters {
 		if f.Matches(ctx) {
 			return true
 		}
 	}
+
 	return false
 }

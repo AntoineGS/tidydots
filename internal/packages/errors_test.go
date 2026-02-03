@@ -17,9 +17,11 @@ func TestInstallError(t *testing.T) {
 	if ie.Package != "vim" {
 		t.Errorf("Package = %q, want %q", ie.Package, "vim")
 	}
+
 	if ie.Manager != Pacman {
 		t.Errorf("Manager = %q, want %q", ie.Manager, Pacman)
 	}
+
 	if !errors.Is(installErr, baseErr) {
 		t.Error("InstallError should wrap underlying error")
 	}
@@ -33,9 +35,9 @@ func TestInstallError(t *testing.T) {
 
 func TestPackagesSentinelErrors(t *testing.T) {
 	tests := []struct {
-		name string
 		err  error
 		want error
+		name string
 	}{
 		{
 			name: "no_manager_available",

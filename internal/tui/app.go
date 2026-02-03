@@ -23,13 +23,18 @@ func RunWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Ma
 	model := NewModelWithManager(cfg, plat, mgr, configPath)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
+
 	finalModel, err := p.Run()
 	if err != nil {
 		return fmt.Errorf("TUI error: %w", err)
 	}
 
 	// If we completed an operation (not list), show a summary
-	m := finalModel.(Model)
+	m, ok := finalModel.(Model)
+	if !ok {
+		return fmt.Errorf("unexpected model type")
+	}
+
 	if m.Screen == ScreenResults && m.Operation != OpList && len(m.results) > 0 {
 		printFinalSummary(m)
 	}
@@ -42,6 +47,7 @@ func NewModelWithManager(cfg *config.Config, plat *platform.Platform, mgr *manag
 	m := NewModel(cfg, plat, mgr.DryRun)
 	m.Manager = mgr
 	m.ConfigPath = configPath
+
 	return m
 }
 
@@ -58,14 +64,20 @@ func printFinalSummary(m Model) {
 	}
 
 	fmt.Printf("\n%s complete: %d successful", m.Operation.String(), successCount)
+
 	if failCount > 0 {
 		fmt.Printf(", %d failed", failCount)
 	}
+
 	fmt.Println()
 }
 
 // IsTerminal checks if stdout is a terminal
 func IsTerminal() bool {
-	fileInfo, _ := os.Stdout.Stat()
+	fileInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+
 	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }

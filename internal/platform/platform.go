@@ -9,20 +9,23 @@ import (
 	"strings"
 )
 
+// Supported operating system identifiers.
 const (
-	OSLinux   = "linux"
+	// OSLinux represents Linux operating systems
+	OSLinux = "linux"
+	// OSWindows represents Windows operating systems
 	OSWindows = "windows"
 )
 
 // Platform holds detected platform information including the operating system,
 // Linux distribution, hostname, current user, and privilege status.
 type Platform struct {
+	EnvVars  map[string]string
 	OS       string
-	Distro   string // Linux distribution ID (e.g., "arch", "ubuntu", "fedora")
+	Distro   string
 	Hostname string
 	User     string
 	IsArch   bool
-	EnvVars  map[string]string
 }
 
 // Detect detects the current platform characteristics including OS type,
@@ -61,6 +64,7 @@ func detectDistro() string {
 		if strings.HasPrefix(line, "ID=") {
 			id := strings.TrimPrefix(line, "ID=")
 			id = strings.Trim(id, "\"")
+
 			return id
 		}
 	}
@@ -74,6 +78,7 @@ func detectHostname() string {
 		slog.Debug("failed to detect hostname", "error", err)
 		return ""
 	}
+
 	return hostname
 }
 
@@ -83,6 +88,7 @@ func detectUser() string {
 		slog.Debug("failed to detect current user", "error", err)
 		return ""
 	}
+
 	return u.Username
 }
 
@@ -102,6 +108,7 @@ func detectOS() string {
 
 func (p *Platform) detectPowerShellProfile() {
 	cmd := exec.Command("pwsh", "-NoProfile", "-Command", "echo $PROFILE")
+
 	output, err := cmd.Output()
 	if err != nil {
 		return
@@ -122,6 +129,7 @@ func getBasename(path string) string {
 			return path[i+1:]
 		}
 	}
+
 	return path
 }
 
@@ -131,6 +139,7 @@ func getDirname(path string) string {
 			return path[:i]
 		}
 	}
+
 	return "."
 }
 
@@ -138,6 +147,7 @@ func getDirname(path string) string {
 func (p *Platform) WithOS(osType string) *Platform {
 	newP := *p
 	newP.OS = osType
+
 	return &newP
 }
 
@@ -145,6 +155,7 @@ func (p *Platform) WithOS(osType string) *Platform {
 func (p *Platform) WithHostname(hostname string) *Platform {
 	newP := *p
 	newP.Hostname = hostname
+
 	return &newP
 }
 
@@ -152,6 +163,7 @@ func (p *Platform) WithHostname(hostname string) *Platform {
 func (p *Platform) WithUser(username string) *Platform {
 	newP := *p
 	newP.User = username
+
 	return &newP
 }
 
@@ -159,6 +171,7 @@ func (p *Platform) WithUser(username string) *Platform {
 func (p *Platform) WithDistro(distro string) *Platform {
 	newP := *p
 	newP.Distro = distro
+
 	return &newP
 }
 
@@ -181,10 +194,12 @@ var KnownPackageManagers = []string{
 // by checking which managers from KnownPackageManagers are present in the PATH.
 func DetectAvailableManagers() []string {
 	available := make([]string, 0, len(KnownPackageManagers))
+
 	for _, mgr := range KnownPackageManagers {
 		if IsCommandAvailable(mgr) {
 			available = append(available, mgr)
 		}
 	}
+
 	return available
 }

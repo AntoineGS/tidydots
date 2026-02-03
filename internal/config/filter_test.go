@@ -6,9 +6,9 @@ func TestFilterMatches(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
 		filter Filter
 		ctx    *FilterContext
+		name   string
 		want   bool
 	}{
 		{
@@ -112,6 +112,7 @@ func TestFilterMatches(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			got := tt.filter.Matches(tt.ctx)
 			if got != tt.want {
 				t.Errorf("Matches() = %v, want %v", got, tt.want)
@@ -124,9 +125,9 @@ func TestFilterMatchesRegex(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
 		filter Filter
 		ctx    *FilterContext
+		name   string
 		want   bool
 	}{
 		{
@@ -194,6 +195,7 @@ func TestFilterMatchesRegex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			got := tt.filter.Matches(tt.ctx)
 			if got != tt.want {
 				t.Errorf("Matches() = %v, want %v", got, tt.want)
@@ -206,9 +208,9 @@ func TestMatchesFilters(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		ctx     *FilterContext
 		name    string
 		filters []Filter
-		ctx     *FilterContext
 		want    bool
 	}{
 		{
@@ -289,6 +291,7 @@ func TestMatchesFilters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			got := MatchesFilters(tt.filters, tt.ctx)
 			if got != tt.want {
 				t.Errorf("MatchesFilters() = %v, want %v", got, tt.want)
@@ -322,6 +325,7 @@ func TestFilterContextGetAttribute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.attr, func(t *testing.T) {
 			t.Parallel()
+
 			got := ctx.getAttribute(tt.attr)
 			if got != tt.want {
 				t.Errorf("getAttribute(%q) = %q, want %q", tt.attr, got, tt.want)
@@ -355,6 +359,7 @@ func TestMatchesPattern(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			got := matchesPattern(tt.pattern, tt.value)
 			if got != tt.want {
 				t.Errorf("matchesPattern(%q, %q) = %v, want %v", tt.pattern, tt.value, got, tt.want)

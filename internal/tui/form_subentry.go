@@ -19,12 +19,12 @@ const (
 	subFieldName
 	subFieldLinux
 	subFieldWindows
-	subFieldBackup    // Config-specific
-	subFieldRepo      // Git-specific
-	subFieldBranch    // Git-specific
-	subFieldIsFolder  // Config-specific toggle
-	subFieldFiles     // Config-specific list
-	subFieldIsSudo    // Sudo toggle
+	subFieldBackup   // Config-specific
+	subFieldRepo     // Git-specific
+	subFieldBranch   // Git-specific
+	subFieldIsFolder // Config-specific toggle
+	subFieldFiles    // Config-specific list
+	subFieldIsSudo   // Sudo toggle
 )
 
 // initSubEntryFormNew initializes the form for adding a new sub-entry to an existing application
@@ -99,14 +99,40 @@ func (m *Model) initSubEntryFormNew(appIdx int) {
 
 // initSubEntryFormEdit initializes the form for editing an existing sub-entry
 func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
-	if appIdx < 0 || appIdx >= len(m.Config.Applications) {
+	// appIdx is an index into m.Applications (sorted), not m.Config.Applications (unsorted)
+	// We need to find the correct index in m.Config.Applications by application name
+	if appIdx < 0 || appIdx >= len(m.Applications) {
 		return
 	}
-	app := m.Config.Applications[appIdx]
-	if subIdx < 0 || subIdx >= len(app.Entries) {
+
+	appName := m.Applications[appIdx].Application.Name
+	configAppIdx := m.findConfigApplicationIndex(appName)
+	if configAppIdx < 0 {
 		return
 	}
-	sub := app.Entries[subIdx]
+
+	app := m.Config.Applications[configAppIdx]
+
+	// subIdx is an index into m.Applications[appIdx].SubItems, which may be filtered
+	// We need to find the correct index in app.Entries by sub-entry name
+	if subIdx < 0 || subIdx >= len(m.Applications[appIdx].SubItems) {
+		return
+	}
+
+	subEntryName := m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
+	configSubIdx := -1
+	for i, entry := range app.Entries {
+		if entry.Name == subEntryName {
+			configSubIdx = i
+			break
+		}
+	}
+
+	if configSubIdx < 0 {
+		return
+	}
+
+	sub := app.Entries[configSubIdx]
 
 	nameInput := textinput.New()
 	nameInput.Placeholder = "e.g., nvim-config"
@@ -117,6 +143,7 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 
 	linuxTargetInput := textinput.New()
 	linuxTargetInput.Placeholder = "e.g., ~/.config/nvim"
+
 	if target, ok := sub.Targets["linux"]; ok {
 		linuxTargetInput.SetValue(target)
 	}
@@ -125,6 +152,7 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 
 	windowsTargetInput := textinput.New()
 	windowsTargetInput.Placeholder = "e.g., ~/AppData/Local/nvim"
+
 	if target, ok := sub.Targets["windows"]; ok {
 		windowsTargetInput.SetValue(target)
 	}
@@ -162,6 +190,7 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 
 	isFolder := sub.IsFolder()
 	var files []string
+
 	if !isFolder && len(sub.Files) > 0 {
 		files = make([]string, len(sub.Files))
 		copy(files, sub.Files)
@@ -190,8 +219,8 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 		suggestionCursor:   -1,
 		showSuggestions:    false,
 		targetAppIdx:       -1,
-		editAppIdx:         appIdx,
-		editSubIdx:         subIdx,
+		editAppIdx:         configAppIdx,
+		editSubIdx:         configSubIdx,
 		err:                "",
 	}
 
@@ -214,6 +243,7 @@ func (m *Model) getSubEntryFieldType() subEntryFieldType {
 		if idx == 0 {
 			return subFieldToggle
 		}
+
 		idx-- // Adjust for remaining fields
 	}
 
@@ -320,23 +350,27 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "q", "esc":
+	case "q", KeyEsc:
 		// Return to list view
 		m.activeForm = FormNone
 		m.subEntryForm = nil
 		m.Screen = ScreenResults
+
 		return m, nil
 
-	case "down", "j":
+	case KeyDown, "j":
 		m.subEntryForm.focusIndex++
+
 		maxIndex := m.subEntryFormMaxIndex()
 		if m.subEntryForm.focusIndex > maxIndex {
 			m.subEntryForm.focusIndex = 0
 		}
+
 		m.updateSubEntryFormFocus()
+
 		return m, nil
 
 	case "up", "k":
@@ -344,24 +378,31 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.subEntryForm.focusIndex < 0 {
 			m.subEntryForm.focusIndex = m.subEntryFormMaxIndex()
 		}
+
 		m.updateSubEntryFormFocus()
+
 		return m, nil
 
-	case "tab":
+	case KeyTab:
 		m.subEntryForm.focusIndex++
+
 		maxIndex := m.subEntryFormMaxIndex()
 		if m.subEntryForm.focusIndex > maxIndex {
 			m.subEntryForm.focusIndex = 0
 		}
+
 		m.updateSubEntryFormFocus()
+
 		return m, nil
 
-	case "shift+tab":
+	case KeyShiftTab:
 		m.subEntryForm.focusIndex--
 		if m.subEntryForm.focusIndex < 0 {
 			m.subEntryForm.focusIndex = m.subEntryFormMaxIndex()
 		}
+
 		m.updateSubEntryFormFocus()
+
 		return m, nil
 
 	case " ":
@@ -379,6 +420,7 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.subEntryForm.entryType = EntryTypeConfig
 			}
+
 			return m, nil
 		case subFieldIsFolder:
 			m.subEntryForm.isFolder = !m.subEntryForm.isFolder
@@ -388,9 +430,10 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case "enter", "e":
+	case KeyEnter, "e":
 		// Enter edit mode for text fields
 		ft := m.getSubEntryFieldType()
+
 		if m.isSubEntryTextInputField() {
 			m.enterSubEntryFieldEditMode()
 			return m, nil
@@ -402,11 +445,13 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.subEntryForm.editAppIdx >= 0 && m.subEntryForm.editSubIdx >= 0 {
 				return m, nil
 			}
+
 			if m.subEntryForm.entryType == EntryTypeConfig {
 				m.subEntryForm.entryType = EntryTypeGit
 			} else {
 				m.subEntryForm.entryType = EntryTypeConfig
 			}
+
 			return m, nil
 		case subFieldIsFolder:
 			m.subEntryForm.isFolder = !m.subEntryForm.isFolder
@@ -426,6 +471,7 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.activeForm = FormNone
 		m.subEntryForm = nil
 		m.Screen = ScreenResults
+
 		return m, nil
 	}
 
@@ -450,10 +496,10 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	hasSelectedSuggestion := hasSuggestions && m.subEntryForm.suggestionCursor >= 0
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "esc":
+	case KeyEsc:
 		// If suggestions are showing, close them first
 		if hasSuggestions {
 			m.subEntryForm.showSuggestions = false
@@ -461,9 +507,10 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		// Cancel editing and restore original value
 		m.cancelSubEntryFieldEdit()
+
 		return m, nil
 
-	case "enter":
+	case KeyEnter:
 		// Accept suggestion only if user has explicitly selected one
 		if hasSelectedSuggestion {
 			m.acceptSuggestionSubEntry()
@@ -473,9 +520,10 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.subEntryForm.editingField = false
 		m.subEntryForm.showSuggestions = false
 		m.updateSubEntryFormFocus()
+
 		return m, nil
 
-	case "tab":
+	case KeyTab:
 		// Accept suggestion if selected
 		if hasSelectedSuggestion {
 			m.acceptSuggestionSubEntry()
@@ -485,6 +533,7 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.subEntryForm.editingField = false
 		m.subEntryForm.showSuggestions = false
 		m.updateSubEntryFormFocus()
+
 		return m, nil
 
 	case "up":
@@ -495,10 +544,11 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.subEntryForm.suggestionCursor--
 			}
+
 			return m, nil
 		}
 
-	case "down":
+	case KeyDown:
 		// Navigate suggestions if showing
 		if hasSuggestions {
 			if m.subEntryForm.suggestionCursor < 0 {
@@ -509,6 +559,7 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.subEntryForm.suggestionCursor = 0
 				}
 			}
+
 			return m, nil
 		}
 	}
@@ -550,13 +601,14 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	maxCursor := len(m.subEntryForm.files)
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "q", "esc":
+	case "q", KeyEsc:
 		m.activeForm = FormNone
 		m.subEntryForm = nil
 		m.Screen = ScreenResults
+
 		return m, nil
 
 	case "up", "k":
@@ -567,14 +619,16 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.subEntryForm.focusIndex--
 			m.updateSubEntryFormFocus()
 		}
+
 		return m, nil
 
-	case "down", "j":
+	case KeyDown, "j":
 		if m.subEntryForm.filesCursor < maxCursor {
 			m.subEntryForm.filesCursor++
 		} else {
 			// Move to next field
 			m.subEntryForm.focusIndex++
+
 			maxIndex := m.subEntryFormMaxIndex()
 			if m.subEntryForm.focusIndex > maxIndex {
 				m.subEntryForm.focusIndex = 0
@@ -582,32 +636,37 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.subEntryForm.filesCursor = 0
 			m.updateSubEntryFormFocus()
 		}
+
 		return m, nil
 
-	case "tab":
+	case KeyTab:
 		// Move to next field
 		m.subEntryForm.focusIndex++
+
 		maxIndex := m.subEntryFormMaxIndex()
 		if m.subEntryForm.focusIndex > maxIndex {
 			m.subEntryForm.focusIndex = 0
 		}
 		m.subEntryForm.filesCursor = 0
 		m.updateSubEntryFormFocus()
+
 		return m, nil
 
-	case "shift+tab":
+	case KeyShiftTab:
 		// Move to previous field
 		m.subEntryForm.focusIndex--
 		m.subEntryForm.filesCursor = 0
 		m.updateSubEntryFormFocus()
+
 		return m, nil
 
-	case "enter", " ":
+	case KeyEnter, " ":
 		// If on "Add File" button, start adding
 		if m.subEntryForm.filesCursor == len(m.subEntryForm.files) {
 			m.subEntryForm.addingFile = true
 			m.subEntryForm.newFileInput.SetValue("")
 			m.subEntryForm.newFileInput.Focus()
+
 			return m, nil
 		}
 		// Edit the selected file
@@ -618,6 +677,7 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.subEntryForm.newFileInput.Focus()
 			m.subEntryForm.newFileInput.SetCursor(len(m.subEntryForm.files[m.subEntryForm.filesCursor]))
 		}
+
 		return m, nil
 
 	case "d", "backspace", "delete":
@@ -633,6 +693,7 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.subEntryForm.filesCursor--
 			}
 		}
+
 		return m, nil
 
 	case "s", "ctrl+s":
@@ -644,6 +705,7 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.activeForm = FormNone
 		m.subEntryForm = nil
 		m.Screen = ScreenResults
+
 		return m, nil
 	}
 
@@ -659,18 +721,19 @@ func (m Model) updateSubEntryFileInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "esc":
+	case KeyEsc:
 		// Cancel adding/editing file
 		m.subEntryForm.addingFile = false
 		m.subEntryForm.editingFile = false
 		m.subEntryForm.editingFileIndex = -1
 		m.subEntryForm.newFileInput.SetValue("")
+
 		return m, nil
 
-	case "enter":
+	case KeyEnter:
 		fileName := strings.TrimSpace(m.subEntryForm.newFileInput.Value())
 		if m.subEntryForm.editingFile {
 			// Update existing file if not empty
@@ -687,12 +750,15 @@ func (m Model) updateSubEntryFileInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.subEntryForm.addingFile = false
 		}
+
 		m.subEntryForm.newFileInput.SetValue("")
+
 		return m, nil
 	}
 
 	// Handle text input
 	m.subEntryForm.newFileInput, cmd = m.subEntryForm.newFileInput.Update(msg)
+
 	return m, cmd
 }
 
@@ -714,6 +780,7 @@ func (m Model) viewSubEntryForm() string {
 		} else {
 			b.WriteString(TitleStyle.Render("  Edit Config Entry"))
 		}
+
 		b.WriteString("\n\n")
 		b.WriteString(SubtitleStyle.Render("Edit the entry configuration"))
 	} else {
@@ -721,6 +788,7 @@ func (m Model) viewSubEntryForm() string {
 		b.WriteString("\n\n")
 		b.WriteString(SubtitleStyle.Render("Add a new entry to the application"))
 	}
+
 	b.WriteString("\n\n")
 
 	// Entry type toggle (only for new entries)
@@ -729,12 +797,14 @@ func (m Model) viewSubEntryForm() string {
 		if ft == subFieldToggle {
 			typeLabel = HelpKeyStyle.Render("Entry Type:")
 		}
-		configCheck := "[ ]"
-		gitCheck := "[✓]"
+		configCheck := CheckboxUnchecked
+		gitCheck := CheckboxChecked
+
 		if m.subEntryForm.entryType == EntryTypeConfig {
-			configCheck = "[✓]"
-			gitCheck = "[ ]"
+			configCheck = CheckboxChecked
+			gitCheck = CheckboxUnchecked
 		}
+
 		b.WriteString(fmt.Sprintf("  %s  %s Config  %s Git\n\n", typeLabel, configCheck, gitCheck))
 	}
 
@@ -743,6 +813,7 @@ func (m Model) viewSubEntryForm() string {
 	if ft == subFieldName {
 		nameLabel = HelpKeyStyle.Render("Name:")
 	}
+
 	b.WriteString(fmt.Sprintf("  %s\n", nameLabel))
 	b.WriteString(fmt.Sprintf("  %s\n\n", m.renderSubEntryFieldValue(subFieldName, "(empty)")))
 
@@ -751,11 +822,14 @@ func (m Model) viewSubEntryForm() string {
 	if ft == subFieldLinux {
 		linuxTargetLabel = HelpKeyStyle.Render(linuxTargetLabel)
 	}
+
 	b.WriteString(fmt.Sprintf("  %s\n", linuxTargetLabel))
 	b.WriteString(fmt.Sprintf("  %s\n", m.renderSubEntryFieldValue(subFieldLinux, "(empty)")))
+
 	if m.subEntryForm.editingField && ft == subFieldLinux && m.subEntryForm.showSuggestions {
 		b.WriteString(m.renderSubEntrySuggestions())
 	}
+
 	b.WriteString("\n")
 
 	// Windows target field
@@ -763,11 +837,14 @@ func (m Model) viewSubEntryForm() string {
 	if ft == subFieldWindows {
 		windowsTargetLabel = HelpKeyStyle.Render(windowsTargetLabel)
 	}
+
 	b.WriteString(fmt.Sprintf("  %s\n", windowsTargetLabel))
 	b.WriteString(fmt.Sprintf("  %s\n", m.renderSubEntryFieldValue(subFieldWindows, "(empty)")))
+
 	if m.subEntryForm.editingField && ft == subFieldWindows && m.subEntryForm.showSuggestions {
 		b.WriteString(m.renderSubEntrySuggestions())
 	}
+
 	b.WriteString("\n")
 
 	// Type-specific fields
@@ -777,6 +854,7 @@ func (m Model) viewSubEntryForm() string {
 		if ft == subFieldRepo {
 			repoLabel = HelpKeyStyle.Render("Repository URL:")
 		}
+
 		b.WriteString(fmt.Sprintf("  %s\n", repoLabel))
 		b.WriteString(fmt.Sprintf("  %s\n\n", m.renderSubEntryFieldValue(subFieldRepo, "(empty)")))
 
@@ -785,6 +863,7 @@ func (m Model) viewSubEntryForm() string {
 		if ft == subFieldBranch {
 			branchLabel = HelpKeyStyle.Render("Branch:")
 		}
+
 		b.WriteString(fmt.Sprintf("  %s\n", branchLabel))
 		b.WriteString(fmt.Sprintf("  %s\n\n", m.renderSubEntryFieldValue(subFieldBranch, "(optional, defaults to default branch)")))
 	} else {
@@ -793,11 +872,14 @@ func (m Model) viewSubEntryForm() string {
 		if ft == subFieldBackup {
 			backupLabel = HelpKeyStyle.Render("Backup path:")
 		}
+
 		b.WriteString(fmt.Sprintf("  %s\n", backupLabel))
 		b.WriteString(fmt.Sprintf("  %s\n", m.renderSubEntryFieldValue(subFieldBackup, "(empty)")))
+
 		if m.subEntryForm.editingField && ft == subFieldBackup && m.subEntryForm.showSuggestions {
 			b.WriteString(m.renderSubEntrySuggestions())
 		}
+
 		b.WriteString("\n")
 
 		// Is folder toggle
@@ -805,12 +887,14 @@ func (m Model) viewSubEntryForm() string {
 		if ft == subFieldIsFolder {
 			toggleLabel = HelpKeyStyle.Render("Backup type:")
 		}
-		folderCheck := "[ ]"
-		filesCheck := "[✓]"
+		folderCheck := CheckboxUnchecked
+		filesCheck := CheckboxChecked
+
 		if m.subEntryForm.isFolder {
-			folderCheck = "[✓]"
-			filesCheck = "[ ]"
+			folderCheck = CheckboxChecked
+			filesCheck = CheckboxUnchecked
 		}
+
 		b.WriteString(fmt.Sprintf("  %s  %s Folder  %s Files\n\n", toggleLabel, folderCheck, filesCheck))
 
 		// Files list (only shown when Files mode is selected)
@@ -819,6 +903,7 @@ func (m Model) viewSubEntryForm() string {
 			if ft == subFieldFiles {
 				filesLabel = HelpKeyStyle.Render("Files:")
 			}
+
 			b.WriteString(fmt.Sprintf("  %s\n", filesLabel))
 
 			// Render file list
@@ -827,7 +912,7 @@ func (m Model) viewSubEntryForm() string {
 				b.WriteString("\n")
 			} else {
 				for i, file := range m.subEntryForm.files {
-					prefix := "    "
+					prefix := IndentSpaces
 					// Show input if editing this file
 					if m.subEntryForm.editingFile && m.subEntryForm.editingFileIndex == i {
 						b.WriteString(fmt.Sprintf("%s%s\n", prefix, m.subEntryForm.newFileInput.View()))
@@ -850,6 +935,7 @@ func (m Model) viewSubEntryForm() string {
 					b.WriteString(fmt.Sprintf("    %s\n", MutedTextStyle.Render(addFileText)))
 				}
 			}
+
 			b.WriteString("\n")
 		}
 	}
@@ -859,10 +945,12 @@ func (m Model) viewSubEntryForm() string {
 	if ft == subFieldIsSudo {
 		rootLabel = HelpKeyStyle.Render("Root only:")
 	}
-	rootCheck := "[ ]"
+
+	rootCheck := CheckboxUnchecked
 	if m.subEntryForm.isSudo {
-		rootCheck = "[✓]"
+		rootCheck = CheckboxChecked
 	}
+
 	b.WriteString(fmt.Sprintf("  %s  %s Yes\n\n", rootLabel, rootCheck))
 
 	// Error message
@@ -888,6 +976,7 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 	isFocused := currentFt == fieldType
 
 	var input textinput.Model
+
 	switch fieldType {
 	case subFieldName:
 		input = m.subEntryForm.nameInput
@@ -917,6 +1006,7 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 	if isFocused {
 		return SelectedMenuItemStyle.Render(value)
 	}
+
 	return value
 }
 
@@ -934,12 +1024,14 @@ func (m Model) renderSubEntryFormHelp() string {
 			"esc", "cancel",
 		)
 	}
+
 	if m.subEntryForm.editingFile {
 		return RenderHelp(
 			"enter", "save",
 			"esc", "cancel",
 		)
 	}
+
 	if m.subEntryForm.editingField {
 		// Editing a text field
 		if m.subEntryForm.showSuggestions && len(m.subEntryForm.suggestions) > 0 && m.subEntryForm.suggestionCursor >= 0 {
@@ -949,6 +1041,7 @@ func (m Model) renderSubEntryFormHelp() string {
 				"esc", "cancel edit",
 			)
 		}
+
 		if m.subEntryForm.showSuggestions && len(m.subEntryForm.suggestions) > 0 {
 			return RenderHelp(
 				"↑/↓", "select suggestion",
@@ -956,11 +1049,13 @@ func (m Model) renderSubEntryFormHelp() string {
 				"esc", "cancel edit",
 			)
 		}
+
 		return RenderHelp(
 			"enter/tab", "save",
 			"esc", "cancel edit",
 		)
 	}
+
 	if ft == subFieldFiles {
 		// Files list focused
 		if m.subEntryForm.filesCursor < len(m.subEntryForm.files) {
@@ -971,12 +1066,14 @@ func (m Model) renderSubEntryFormHelp() string {
 				"q", "back",
 			)
 		}
+
 		return RenderHelp(
 			"enter/e", "add file",
 			"s", "save",
 			"q", "back",
 		)
 	}
+
 	if m.isSubEntryTextInputField() {
 		// Text field focused (not editing)
 		return RenderHelp(
@@ -985,6 +1082,7 @@ func (m Model) renderSubEntryFormHelp() string {
 			"q", "back",
 		)
 	}
+
 	if m.isSubEntryToggleField() {
 		// Toggle field focused
 		return RenderHelp(
@@ -993,6 +1091,7 @@ func (m Model) renderSubEntryFormHelp() string {
 			"q", "back",
 		)
 	}
+
 	return RenderHelp(
 		"enter/e", "edit",
 		"s", "save",
@@ -1007,6 +1106,7 @@ func (m Model) renderSubEntrySuggestions() string {
 	}
 
 	var b strings.Builder
+
 	for i, suggestion := range m.subEntryForm.suggestions {
 		if i == m.subEntryForm.suggestionCursor {
 			b.WriteString(fmt.Sprintf("  %s\n", SelectedMenuItemStyle.Render(suggestion)))
@@ -1014,6 +1114,7 @@ func (m Model) renderSubEntrySuggestions() string {
 			b.WriteString(fmt.Sprintf("  %s\n", MutedTextStyle.Render(suggestion)))
 		}
 	}
+
 	return b.String()
 }
 
@@ -1063,6 +1164,7 @@ func (m *Model) saveSubEntryForm() error {
 			return fmt.Errorf("backup path is required for config entries")
 		}
 		subEntry.Backup = backup
+
 		if !m.subEntryForm.isFolder {
 			if len(m.subEntryForm.files) == 0 {
 				return fmt.Errorf("at least one file is required when using Files mode")
@@ -1207,6 +1309,7 @@ func (m *Model) updateSuggestionsSubEntry() {
 	default:
 		m.subEntryForm.showSuggestions = false
 		m.subEntryForm.suggestions = nil
+
 		return
 	}
 
@@ -1257,6 +1360,7 @@ func (m *Model) isSubEntryTextInputField() bool {
 	case subFieldName, subFieldLinux, subFieldWindows, subFieldBackup, subFieldRepo, subFieldBranch:
 		return true
 	}
+
 	return false
 }
 
@@ -1267,6 +1371,7 @@ func (m *Model) isSubEntryToggleField() bool {
 	}
 
 	ft := m.getSubEntryFieldType()
+
 	return ft == subFieldToggle || ft == subFieldIsFolder || ft == subFieldIsSudo
 }
 
@@ -1276,9 +1381,11 @@ func buildTargetsFromSubEntryForm(form *SubEntryForm) map[string]string {
 	if linux := strings.TrimSpace(form.linuxTargetInput.Value()); linux != "" {
 		targets["linux"] = linux
 	}
+
 	if windows := strings.TrimSpace(form.windowsTargetInput.Value()); windows != "" {
 		targets["windows"] = windows
 	}
+
 	return targets
 }
 
@@ -1306,6 +1413,7 @@ func (m *Model) addSubEntryToApp(appIdx int, subEntry config.SubEntry) error {
 	}
 
 	m.initApplicationItems()
+
 	return nil
 }
 
@@ -1336,6 +1444,7 @@ func (m *Model) updateSubEntry(appIdx, subIdx int, subEntry config.SubEntry) err
 	}
 
 	m.initApplicationItems()
+
 	return nil
 }
 
@@ -1365,7 +1474,7 @@ func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 
 	// Determine entry type
 	entryType := EntryTypeConfig
-	if entry.Type == "git" || entry.Repo != "" {
+	if entry.Type == TypeGit || entry.Repo != "" {
 		entryType = EntryTypeGit
 	}
 
@@ -1406,9 +1515,11 @@ func (f *SubEntryForm) Validate() error {
 	if strings.TrimSpace(f.linuxTargetInput.Value()) != "" {
 		hasTarget = true
 	}
+
 	if strings.TrimSpace(f.windowsTargetInput.Value()) != "" {
 		hasTarget = true
 	}
+
 	if !hasTarget {
 		return errors.New("at least one target is required")
 	}

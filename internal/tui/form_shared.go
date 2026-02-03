@@ -37,7 +37,7 @@ func renderPackagesSection(
 	var b strings.Builder
 
 	for i, manager := range knownPackageManagers {
-		prefix := "    "
+		prefix := IndentSpaces
 		pkgName := packageManagers[manager]
 
 		// Show input if editing this manager's package
@@ -101,7 +101,8 @@ func renderFiltersSection(
 			b.WriteString("\n")
 		} else {
 			for i, fc := range filters {
-				prefix := "    "
+				prefix := IndentSpaces
+
 				typeStr := "include"
 				if fc.IsExclude {
 					typeStr = "exclude"
@@ -143,16 +144,19 @@ func renderFilterAddUI(
 	if !addingFilter {
 		actionText = "Edit filter"
 	}
+
 	b.WriteString(fmt.Sprintf("    %s:\n", MutedTextStyle.Render(actionText)))
 
 	// Type selection (include/exclude)
 	typeLabel := "    Type: "
-	includeCheck := "[ ]"
-	excludeCheck := "[✓]"
+	includeCheck := CheckboxUnchecked
+	excludeCheck := CheckboxChecked
+
 	if !filterIsExclude {
-		includeCheck = "[✓]"
-		excludeCheck = "[ ]"
+		includeCheck = CheckboxChecked
+		excludeCheck = CheckboxUnchecked
 	}
+
 	typeStr := fmt.Sprintf("%s include  %s exclude", includeCheck, excludeCheck)
 	if filterAddStep == filterStepType {
 		b.WriteString(typeLabel + SelectedMenuItemStyle.Render(typeStr) + "\n")
@@ -163,6 +167,7 @@ func renderFilterAddUI(
 	// Key selection
 	keyLabel := "    Key:  "
 	var keyOptions []string
+
 	for i, k := range filterKeys {
 		if i == filterKeyCursor {
 			keyOptions = append(keyOptions, "["+k+"]")
@@ -170,6 +175,7 @@ func renderFilterAddUI(
 			keyOptions = append(keyOptions, " "+k+" ")
 		}
 	}
+
 	keyStr := strings.Join(keyOptions, " ")
 	if filterAddStep == filterStepKey {
 		b.WriteString(keyLabel + SelectedMenuItemStyle.Render(keyStr) + "\n")
@@ -188,6 +194,7 @@ func renderFilterAddUI(
 		if value == "" {
 			value = "(enter value)"
 		}
+
 		b.WriteString(valueLabel + SelectedMenuItemStyle.Render(value) + "\n")
 	} else {
 		// Not focused
@@ -195,6 +202,7 @@ func renderFilterAddUI(
 		if value == "" {
 			value = MutedTextStyle.Render("(enter value)")
 		}
+
 		b.WriteString(valueLabel + value + "\n")
 	}
 
@@ -207,39 +215,6 @@ func renderFilterAddUI(
 // editing indicates if the field is in edit mode
 // input is the textinput.Model
 // placeholder is shown when the field is empty
-func renderFormField(
-	fieldName string,
-	focused bool,
-	editing bool,
-	input textinput.Model,
-	placeholder string,
-) string {
-	var b strings.Builder
-
-	// Render label
-	if focused {
-		b.WriteString(fmt.Sprintf("  %s\n", HelpKeyStyle.Render(fieldName)))
-	} else {
-		b.WriteString(fmt.Sprintf("  %s\n", fieldName))
-	}
-
-	// Render value
-	if editing {
-		b.WriteString(fmt.Sprintf("  %s\n", input.View()))
-	} else {
-		value := input.Value()
-		if value == "" {
-			value = MutedTextStyle.Render(placeholder)
-		}
-		if focused {
-			b.WriteString(fmt.Sprintf("  %s\n", SelectedMenuItemStyle.Render(value)))
-		} else {
-			b.WriteString(fmt.Sprintf("  %s\n", value))
-		}
-	}
-
-	return b.String()
-}
 
 // buildFiltersFromConditions converts the flat FilterCondition list back to config.Filter format
 func buildFiltersFromConditions(conditions []FilterCondition) []config.Filter {
@@ -255,12 +230,14 @@ func buildFiltersFromConditions(conditions []FilterCondition) []config.Filter {
 		if fc.FilterIndex > maxIndex {
 			maxIndex = fc.FilterIndex
 		}
+
 		if _, ok := filterMap[fc.FilterIndex]; !ok {
 			filterMap[fc.FilterIndex] = &config.Filter{
 				Include: make(map[string]string),
 				Exclude: make(map[string]string),
 			}
 		}
+
 		if fc.IsExclude {
 			filterMap[fc.FilterIndex].Exclude[fc.Key] = fc.Value
 		} else {
@@ -270,6 +247,7 @@ func buildFiltersFromConditions(conditions []FilterCondition) []config.Filter {
 
 	// Build result slice in order
 	var result []config.Filter
+
 	for i := 0; i <= maxIndex; i++ {
 		if f, ok := filterMap[i]; ok {
 			// Only include non-empty filters
@@ -287,6 +265,7 @@ func buildPackageSpec(managers map[string]string) *config.EntryPackage {
 	if len(managers) == 0 {
 		return nil
 	}
+
 	return &config.EntryPackage{
 		Managers: managers,
 	}
@@ -310,6 +289,7 @@ func (m *Model) saveNewApplication(app config.Application) error {
 	}
 
 	m.initApplicationItems()
+
 	return nil
 }
 
@@ -335,5 +315,6 @@ func (m *Model) saveEditedApplication(appIdx int, name, description string, filt
 	}
 
 	m.initApplicationItems()
+
 	return nil
 }

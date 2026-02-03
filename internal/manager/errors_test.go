@@ -28,9 +28,11 @@ func TestPathError(t *testing.T) {
 			if !errors.As(tt.err, &pathErr) {
 				t.Fatalf("error is not PathError: %v", tt.err)
 			}
+
 			if pathErr.Path != tt.wantPath {
 				t.Errorf("got path %s, want %s", pathErr.Path, tt.wantPath)
 			}
+
 			if pathErr.Op != tt.wantOp {
 				t.Errorf("got op %s, want %s", pathErr.Op, tt.wantOp)
 			}
@@ -40,9 +42,9 @@ func TestPathError(t *testing.T) {
 
 func TestSentinelErrors(t *testing.T) {
 	tests := []struct {
-		name string
 		err  error
 		want error
+		name string
 	}{
 		{
 			name: "is_not_found",
@@ -73,6 +75,7 @@ func TestPathError_Unwrap(t *testing.T) {
 	if unwrapped == nil {
 		t.Fatal("Unwrap returned nil")
 	}
+
 	if unwrapped.Error() != underlying.Error() {
 		t.Errorf("Unwrap() = %v, want %v", unwrapped, underlying)
 	}
@@ -90,9 +93,11 @@ func TestPathError_Error(t *testing.T) {
 	if !strings.Contains(errMsg, "restore") {
 		t.Errorf("Error message missing operation: %s", errMsg)
 	}
+
 	if !strings.Contains(errMsg, "/home/user/.config") {
 		t.Errorf("Error message missing path: %s", errMsg)
 	}
+
 	if !strings.Contains(errMsg, "file not found") {
 		t.Errorf("Error message missing underlying error: %s", errMsg)
 	}
@@ -123,9 +128,11 @@ func TestGitError(t *testing.T) {
 	if !strings.Contains(errMsg, "git") {
 		t.Errorf("Error message should mention git: %s", errMsg)
 	}
+
 	if !strings.Contains(errMsg, "https://github.com/test/repo.git") {
 		t.Errorf("Error message should contain repo URL: %s", errMsg)
 	}
+
 	if !strings.Contains(errMsg, "main") {
 		t.Errorf("Error message should contain branch: %s", errMsg)
 	}
@@ -139,6 +146,7 @@ func TestGitError_Unwrap(t *testing.T) {
 	if unwrapped == nil {
 		t.Fatal("Unwrap returned nil")
 	}
+
 	if unwrapped.Error() != underlying.Error() {
 		t.Errorf("Unwrap() = %v, want %v", unwrapped, underlying)
 	}

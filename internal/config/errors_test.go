@@ -8,10 +8,10 @@ import (
 
 func TestValidationErrors(t *testing.T) {
 	tests := []struct {
-		name       string
 		setup      func() *ValidationErrors
-		wantErrors bool
+		name       string
 		wantMsg    string
+		wantErrors bool
 	}{
 		{
 			name: "empty_validation_errors",
@@ -62,12 +62,15 @@ func TestFieldError(t *testing.T) {
 	if fe.Entry != "myapp" {
 		t.Errorf("Entry = %q, want %q", fe.Entry, "myapp")
 	}
+
 	if fe.Field != "repo" {
 		t.Errorf("Field = %q, want %q", fe.Field, "repo")
 	}
+
 	if fe.Value != "not-a-url" {
 		t.Errorf("Value = %q, want %q", fe.Value, "not-a-url")
 	}
+
 	if !errors.Is(fieldErr, baseErr) {
 		t.Error("FieldError should wrap underlying error")
 	}
@@ -75,9 +78,9 @@ func TestFieldError(t *testing.T) {
 
 func TestConfigSentinelErrors(t *testing.T) {
 	tests := []struct {
-		name string
 		err  error
 		want error
+		name string
 	}{
 		{
 			name: "unsupported_version",

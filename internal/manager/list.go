@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// List displays all managed configuration entries with their current status.
 func (m *Manager) List() error {
 	fmt.Printf("Configuration paths for OS: %s\n\n", m.Platform.OS)
 
@@ -47,9 +48,11 @@ func (m *Manager) List() error {
 		if target != "" {
 			fmt.Printf("%-25s [git]\n", entry.Name+":")
 			fmt.Printf("  repo: %s\n", entry.Repo)
+
 			if entry.Branch != "" {
 				fmt.Printf("  branch: %s\n", entry.Branch)
 			}
+
 			fmt.Printf("  target: %s\n\n", target)
 		} else {
 			fmt.Printf("%-25s [git] (not applicable for %s)\n", entry.Name+":", m.Platform.OS)
@@ -65,6 +68,7 @@ func (m *Manager) listV3() error {
 
 	for _, app := range apps {
 		fmt.Printf("Application: %s\n", app.Name)
+
 		if app.Description != "" {
 			fmt.Printf("  %s\n", app.Description)
 		}
@@ -84,10 +88,12 @@ func (m *Manager) listV3() error {
 				} else {
 					files = strings.Join(entry.Files, ", ")
 				}
+
 				fmt.Printf("     files: %s\n", files)
 				fmt.Printf("     backup: %s\n", m.resolvePath(entry.Backup))
 			} else if entry.IsGit() {
 				fmt.Printf("     repo: %s\n", entry.Repo)
+
 				if entry.Branch != "" {
 					fmt.Printf("     branch: %s\n", entry.Branch)
 				}

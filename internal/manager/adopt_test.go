@@ -26,6 +26,7 @@ func TestAdoptFolder(t *testing.T) {
 	mgr := New(cfg, plat)
 
 	entry := config.Entry{Name: "test"}
+
 	err := mgr.restoreFolder(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
@@ -72,6 +73,7 @@ func TestAdoptFiles(t *testing.T) {
 	mgr := New(cfg, plat)
 
 	entry := config.Entry{Name: "test", Files: []string{"config1.txt", "config2.txt"}}
+
 	err := mgr.restoreFiles(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFiles() error = %v", err)
@@ -116,6 +118,7 @@ func TestAdoptSkipsExistingBackup(t *testing.T) {
 	mgr := New(cfg, plat)
 
 	entry := config.Entry{Name: "test"}
+
 	err := mgr.restoreFolder(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
@@ -150,6 +153,7 @@ func TestAdoptDryRun(t *testing.T) {
 	mgr.DryRun = true
 
 	entry := config.Entry{Name: "test"}
+
 	err := mgr.restoreFolder(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)

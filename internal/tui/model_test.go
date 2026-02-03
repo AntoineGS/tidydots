@@ -85,9 +85,11 @@ func TestNewModelRootPaths(t *testing.T) {
 	for _, p := range model.Paths {
 		names[p.Entry.Name] = true
 	}
+
 	if !names["user-config"] {
 		t.Error("Should include user-config")
 	}
+
 	if !names["root-config"] {
 		t.Error("Should include root-config")
 	}
@@ -116,13 +118,13 @@ func TestModelUpdate(t *testing.T) {
 
 func TestOperationString(t *testing.T) {
 	tests := []struct {
-		op   Operation
 		want string
+		op   Operation
 	}{
-		{OpRestore, "Restore"},
-		{OpAdd, "Add"},
-		{OpList, "List"},
-		{OpInstallPackages, "Install Packages"},
+		{"Restore", OpRestore},
+		{"Add", OpAdd},
+		{"List", OpList},
+		{"Install Packages", OpInstallPackages},
 	}
 
 	for _, tt := range tests {
@@ -149,6 +151,7 @@ func TestPathItemIsFolder(t *testing.T) {
 
 	// Entries are sorted by name, so find them by name
 	var folderPath, filesPath *PathItem
+
 	for i := range model.Paths {
 		switch model.Paths[i].Entry.Name {
 		case "folder":
@@ -187,6 +190,7 @@ func TestModelView(t *testing.T) {
 
 	// Test path select view
 	model.Screen = ScreenPathSelect
+
 	view = model.View()
 	if view == "" {
 		t.Error("Path select view should not be empty")
@@ -194,6 +198,7 @@ func TestModelView(t *testing.T) {
 
 	// Test confirm view
 	model.Screen = ScreenConfirm
+
 	view = model.View()
 	if view == "" {
 		t.Error("Confirm view should not be empty")
@@ -202,6 +207,7 @@ func TestModelView(t *testing.T) {
 	// Test results view
 	model.Screen = ScreenResults
 	model.results = []ResultItem{{Name: "test", Success: true, Message: "OK"}}
+
 	view = model.View()
 	if view == "" {
 		t.Error("Results view should not be empty")
@@ -225,3 +231,375 @@ func TestDryRunMode(t *testing.T) {
 	}
 }
 
+func TestGetApplicationAtCursor(t *testing.T) {
+	// Create a v3 config with multiple applications
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: "/backup",
+		Applications: []config.Application{
+			{
+				Name:        "zsh",
+				Description: "Z Shell",
+				Entries: []config.SubEntry{
+					{Name: "zshrc", Type: "config", Backup: "./zsh", Targets: map[string]string{"linux": "~/.zshrc"}},
+				},
+			},
+			{
+				Name:        "nvim",
+				Description: "Neovim",
+				Entries: []config.SubEntry{
+					{Name: "init.lua", Type: "config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim/init.lua"}},
+					{Name: "plugins", Type: "config", Backup: "./nvim/plugins", Targets: map[string]string{"linux": "~/.config/nvim/lua/plugins"}},
+				},
+			},
+			{
+				Name:        "bash",
+				Description: "Bash Shell",
+				Entries: []config.SubEntry{
+					{Name: "bashrc", Type: "config", Backup: "./bash", Targets: map[string]string{"linux": "~/.bashrc"}},
+				},
+			},
+		},
+	}
+	plat := &platform.Platform{OS: platform.OSLinux}
+
+	model := NewModel(cfg, plat, false)
+
+	// Initialize applications for hierarchical view
+	model.initApplicationItems()
+
+	// Applications should be sorted: bash, nvim, zsh
+	if len(model.Applications) != 3 {
+		t.Fatalf("Expected 3 applications, got %d", len(model.Applications))
+	}
+
+	if model.Applications[0].Application.Name != "bash" {
+		t.Errorf("Expected first app to be 'bash', got '%s'", model.Applications[0].Application.Name)
+	}
+
+	if model.Applications[1].Application.Name != "nvim" {
+		t.Errorf("Expected second app to be 'nvim', got '%s'", model.Applications[1].Application.Name)
+	}
+
+	if model.Applications[2].Application.Name != "zsh" {
+		t.Errorf("Expected third app to be 'zsh', got '%s'", model.Applications[2].Application.Name)
+	}
+
+	// Test cursor positions after sorting
+	tests := []struct {
+		expanded    map[int]bool // which apps are expanded
+		name        string
+		wantAppName string
+		wantSubName string
+		cursor      int
+		wantAppIdx  int
+		wantSubIdx  int
+	}{
+		{
+			name:        "cursor on first app (bash)",
+			cursor:      0,
+			expanded:    nil,
+			wantAppIdx:  0,
+			wantSubIdx:  -1,
+			wantAppName: "bash",
+		},
+		{
+			name:        "cursor on second app (nvim)",
+			cursor:      1,
+			expanded:    nil,
+			wantAppIdx:  1,
+			wantSubIdx:  -1,
+			wantAppName: "nvim",
+		},
+		{
+			name:        "cursor on nvim's first sub-entry",
+			cursor:      2,
+			expanded:    map[int]bool{1: true}, // expand nvim
+			wantAppIdx:  1,
+			wantSubIdx:  0,
+			wantAppName: "nvim",
+			wantSubName: "init.lua",
+		},
+		{
+			name:        "cursor on nvim's second sub-entry",
+			cursor:      3,
+			expanded:    map[int]bool{1: true}, // expand nvim
+			wantAppIdx:  1,
+			wantSubIdx:  1,
+			wantAppName: "nvim",
+			wantSubName: "plugins",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset expansion state
+			for i := range model.Applications {
+				model.Applications[i].Expanded = false
+			}
+
+			// Set expansion state for this test
+			if tt.expanded != nil {
+				for idx, expanded := range tt.expanded {
+					model.Applications[idx].Expanded = expanded
+				}
+			}
+
+			model.appCursor = tt.cursor
+			appIdx, subIdx := model.getApplicationAtCursor()
+
+			if appIdx != tt.wantAppIdx {
+				t.Errorf("getApplicationAtCursor() appIdx = %d, want %d", appIdx, tt.wantAppIdx)
+			}
+
+			if subIdx != tt.wantSubIdx {
+				t.Errorf("getApplicationAtCursor() subIdx = %d, want %d", subIdx, tt.wantSubIdx)
+			}
+
+			// Verify we got the right application
+			if appIdx >= 0 && appIdx < len(model.Applications) {
+				gotAppName := model.Applications[appIdx].Application.Name
+				if gotAppName != tt.wantAppName {
+					t.Errorf("Got app name %q, want %q", gotAppName, tt.wantAppName)
+				}
+
+				// Verify we got the right sub-entry
+				if subIdx >= 0 && subIdx < len(model.Applications[appIdx].SubItems) {
+					gotSubName := model.Applications[appIdx].SubItems[subIdx].SubEntry.Name
+					if gotSubName != tt.wantSubName {
+						t.Errorf("Got sub-entry name %q, want %q", gotSubName, tt.wantSubName)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestGetApplicationAtCursorWithFiltering(t *testing.T) {
+	// Create a v3 config with multiple applications
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: "/backup",
+		Applications: []config.Application{
+			{
+				Name:        "zsh",
+				Description: "Z Shell",
+				Entries: []config.SubEntry{
+					{Name: "zshrc", Type: "config", Backup: "./zsh", Targets: map[string]string{"linux": "~/.zshrc"}},
+				},
+			},
+			{
+				Name:        "nvim",
+				Description: "Neovim",
+				Entries: []config.SubEntry{
+					{Name: "alpha", Type: "config", Backup: "./nvim/alpha", Targets: map[string]string{"linux": "~/.config/nvim/alpha.lua"}},
+					{Name: "beta", Type: "config", Backup: "./nvim/beta", Targets: map[string]string{"linux": "~/.config/nvim/beta.lua"}},
+					{Name: "gamma", Type: "config", Backup: "./nvim/gamma", Targets: map[string]string{"linux": "~/.config/nvim/gamma.lua"}},
+				},
+			},
+			{
+				Name:        "bash",
+				Description: "Bash Shell",
+				Entries: []config.SubEntry{
+					{Name: "bashrc", Type: "config", Backup: "./bash", Targets: map[string]string{"linux": "~/.bashrc"}},
+				},
+			},
+		},
+	}
+	plat := &platform.Platform{OS: platform.OSLinux}
+
+	model := NewModel(cfg, plat, false)
+	model.initApplicationItems()
+	model.Applications[1].Expanded = true // Expand nvim
+
+	// Applications are sorted: bash(0), nvim(1), zsh(2)
+	// nvim has sub-items: alpha(0), beta(1), gamma(2)
+
+	// Apply filter that matches only "alpha" and "gamma" sub-entries
+	model.filterText = "amm" // Matches "alpha" and "gamma" (both contain 'a')
+
+	// Visual layout after filtering:
+	// Row 0: bash
+	// Row 1: nvim (expanded)
+	// Row 2:   alpha (matches filter)
+	// Row 3:   gamma (matches filter)
+	// Row 4: zsh
+
+	// Now test that cursor on row 3 (gamma) correctly returns appIdx=1, subIdx=2
+	// (gamma is at index 2 in the original SubItems, not index 1 in filtered)
+	model.appCursor = 1
+
+	appIdx, subIdx := model.getApplicationAtCursor()
+
+	if appIdx != 1 {
+		t.Errorf("Expected appIdx=1 (nvim), got %d", appIdx)
+	}
+
+	if subIdx != 2 {
+		t.Errorf("Expected subIdx=2 (gamma in original array), got %d", subIdx)
+	}
+
+	// Verify we got the correct sub-entry
+	if appIdx >= 0 && subIdx >= 0 && appIdx < len(model.Applications) && subIdx < len(model.Applications[appIdx].SubItems) {
+		gotName := model.Applications[appIdx].SubItems[subIdx].SubEntry.Name
+		if gotName != "gamma" {
+			t.Errorf("Expected sub-entry 'gamma', got %q", gotName)
+		}
+	}
+}
+
+func TestEditAfterSortingBug(t *testing.T) {
+	// This test reproduces the user's reported bug:
+	// "when the list sorts by name, pressing 'e' edits the wrong record"
+
+	// Create a v3 config where applications will be re-ordered after sorting
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: "/backup",
+		Applications: []config.Application{
+			{
+				Name:        "zsh", // Will be last after sorting
+				Description: "Z Shell",
+				Entries: []config.SubEntry{
+					{Name: "zshrc", Type: "config", Backup: "./zsh", Targets: map[string]string{"linux": "~/.zshrc"}},
+				},
+			},
+			{
+				Name:        "bash", // Will be first after sorting
+				Description: "Bash Shell",
+				Entries: []config.SubEntry{
+					{Name: "bashrc", Type: "config", Backup: "./bash", Targets: map[string]string{"linux": "~/.bashrc"}},
+				},
+			},
+			{
+				Name:        "nvim", // Will be middle after sorting
+				Description: "Neovim",
+				Entries: []config.SubEntry{
+					{Name: "init", Type: "config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim/init.lua"}},
+				},
+			},
+		},
+	}
+	plat := &platform.Platform{OS: platform.OSLinux}
+
+	model := NewModel(cfg, plat, false)
+	model.initApplicationItems()
+
+	// Applications should now be sorted: bash(0), nvim(1), zsh(2)
+	if len(model.Applications) != 3 {
+		t.Fatalf("Expected 3 applications, got %d", len(model.Applications))
+	}
+
+	// Verify sorted order
+	expectedOrder := []string{"bash", "nvim", "zsh"}
+	for i, expected := range expectedOrder {
+		if model.Applications[i].Application.Name != expected {
+			t.Errorf("Expected app[%d] to be %q, got %q", i, expected, model.Applications[i].Application.Name)
+		}
+	}
+
+	// Move cursor to row 1 (nvim) and try to "edit" it
+	model.appCursor = 1
+	appIdx, subIdx := model.getApplicationAtCursor()
+
+	if appIdx != 1 {
+		t.Errorf("Cursor at row 1 should return appIdx=1 (nvim), got %d", appIdx)
+	}
+
+	if subIdx != -1 {
+		t.Errorf("Cursor at row 1 (app level) should return subIdx=-1, got %d", subIdx)
+	}
+
+	// Verify we're editing the correct application
+	if appIdx >= 0 && appIdx < len(model.Applications) {
+		gotName := model.Applications[appIdx].Application.Name
+		if gotName != "nvim" {
+			t.Errorf("Expected to edit 'nvim', but got %q", gotName)
+		}
+	}
+}
+
+func TestEditWithSortedApplications(t *testing.T) {
+	// Reproduce the user's bug: after sorting, pressing 'e' should edit the correct application
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: "/backup",
+		// Applications are defined in this order, but will be sorted alphabetically
+		Applications: []config.Application{
+			{
+				Name:        "zsh",
+				Description: "Z Shell",
+				Entries: []config.SubEntry{
+					{Name: "zshrc", Type: "config", Backup: "./zsh", Targets: map[string]string{"linux": "~/.zshrc"}},
+				},
+			},
+			{
+				Name:        "bash",
+				Description: "Bash Shell",
+				Entries: []config.SubEntry{
+					{Name: "bashrc", Type: "config", Backup: "./bash", Targets: map[string]string{"linux": "~/.bashrc"}},
+				},
+			},
+			{
+				Name:        "nvim",
+				Description: "Neovim",
+				Entries: []config.SubEntry{
+					{Name: "init", Type: "config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim/init.lua"}},
+					{Name: "plugins", Type: "config", Backup: "./nvim/plugins", Targets: map[string]string{"linux": "~/.config/nvim/plugins"}},
+				},
+			},
+		},
+	}
+	plat := &platform.Platform{OS: platform.OSLinux}
+
+	model := NewModel(cfg, plat, false)
+	model.initApplicationItems()
+	model.Applications[1].Expanded = true // Expand nvim
+
+	// After sorting: bash(0), nvim(1), zsh(2)
+	// But in Config.Applications: zsh(0), bash(1), nvim(2)
+
+	// Test editing application at visual row 1 (nvim)
+	model.appCursor = 1
+	appIdx, _ := model.getApplicationAtCursor()
+
+	// Initialize the application form for editing
+	model.initApplicationFormEdit(appIdx)
+
+	// Verify the form was initialized with the correct application data
+	if model.applicationForm == nil {
+		t.Fatal("Application form should be initialized")
+	}
+
+	if model.applicationForm.nameInput.Value() != "nvim" {
+		t.Errorf("Expected form to edit 'nvim', got %q", model.applicationForm.nameInput.Value())
+	}
+
+	// Test editing sub-entry at visual row 2 (init)
+	model.appCursor = 2
+	appIdx, subIdx := model.getApplicationAtCursor()
+
+	model.initSubEntryFormEdit(appIdx, subIdx)
+
+	if model.subEntryForm == nil {
+		t.Fatal("Sub-entry form should be initialized")
+	}
+
+	if model.subEntryForm.nameInput.Value() != "init" {
+		t.Errorf("Expected form to edit 'init', got %q", model.subEntryForm.nameInput.Value())
+	}
+
+	// Test editing sub-entry at visual row 3 (plugins)
+	model.appCursor = 3
+	appIdx, subIdx = model.getApplicationAtCursor()
+
+	model.initSubEntryFormEdit(appIdx, subIdx)
+
+	if model.subEntryForm == nil {
+		t.Fatal("Sub-entry form should be initialized")
+	}
+
+	if model.subEntryForm.nameInput.Value() != "plugins" {
+		t.Errorf("Expected form to edit 'plugins', got %q", model.subEntryForm.nameInput.Value())
+	}
+}

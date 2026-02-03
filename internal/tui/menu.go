@@ -8,13 +8,13 @@ import (
 )
 
 var menuItems = []struct {
-	op   Operation
 	name string
 	desc string
 	icon string
+	op   Operation
 }{
-	{OpRestore, "Restore", "Create symlinks from targets to backup sources", "󰁯"},
-	{OpList, "Manage", "Browse, edit and install", "󰋗"},
+	{"Restore", "Create symlinks from targets to backup sources", "󰁯", OpRestore},
+	{"Manage", "Browse, edit and install", "󰋗", OpList},
 }
 
 func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -25,13 +25,13 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.menuCursor = len(menuItems) - 1
 		}
-	case "down", "j":
+	case KeyDown, "j":
 		if m.menuCursor < len(menuItems)-1 {
 			m.menuCursor++
 		} else {
 			m.menuCursor = 0
 		}
-	case "enter", " ":
+	case KeyEnter, " ":
 		m.Operation = menuItems[m.menuCursor].op
 		if m.Operation == OpList {
 			// List doesn't need path selection, show table view
@@ -41,11 +41,14 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.scrollOffset = 0
 			m.appCursor = 0
 			m.showingDetail = false
+
 			return m, nil
 		}
 		m.Screen = ScreenPathSelect
+
 		return m, nil
 	}
+
 	return m, nil
 }
 
@@ -66,6 +69,7 @@ func (m Model) viewMenu() string {
 	for i, item := range menuItems {
 		selected := i == m.menuCursor
 		cursor := RenderCursor(selected)
+
 		style := MenuItemStyle
 		if selected {
 			style = SelectedMenuItemStyle
@@ -78,6 +82,7 @@ func (m Model) viewMenu() string {
 		} else {
 			line = fmt.Sprintf("%s %s  %s", item.icon, item.name, mutedText(item.desc))
 		}
+
 		b.WriteString(cursor + style.Render(line) + "\n")
 	}
 
@@ -95,6 +100,7 @@ func (m Model) resolvePath(path string) string {
 	if len(path) > 0 && path[0] == '.' {
 		return m.Config.BackupRoot + path[1:]
 	}
+
 	return path
 }
 

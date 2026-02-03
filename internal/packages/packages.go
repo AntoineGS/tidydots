@@ -17,16 +17,26 @@ import (
 // are defined as constants (Pacman, Yay, Paru, Apt, Dnf, Brew, Winget, Scoop, Choco).
 type PackageManager string
 
+// Supported package manager identifiers.
 const (
+	// Pacman is the Arch Linux package manager
 	Pacman PackageManager = "pacman"
-	Yay    PackageManager = "yay"
-	Paru   PackageManager = "paru"
-	Apt    PackageManager = "apt"
-	Dnf    PackageManager = "dnf"
-	Brew   PackageManager = "brew"
+	// Yay is an AUR helper for Arch Linux
+	Yay PackageManager = "yay"
+	// Paru is an AUR helper for Arch Linux
+	Paru PackageManager = "paru"
+	// Apt is the Debian/Ubuntu package manager
+	Apt PackageManager = "apt"
+	// Dnf is the Fedora package manager
+	Dnf PackageManager = "dnf"
+	// Brew is the macOS package manager
+	Brew PackageManager = "brew"
+	// Winget is the Windows package manager
 	Winget PackageManager = "winget"
-	Scoop  PackageManager = "scoop"
-	Choco  PackageManager = "choco"
+	// Scoop is a Windows package manager
+	Scoop PackageManager = "scoop"
+	// Choco is the Chocolatey Windows package manager
+	Choco PackageManager = "choco"
 )
 
 // Package represents a package to install with multiple installation methods.
@@ -53,12 +63,12 @@ type URLInstall struct {
 	Command string `yaml:"command"` // Command to run after download, use {file} as placeholder
 }
 
-// PackagesConfig holds the packages configuration including the list of packages
+// Config holds the packages configuration including the list of packages
 // to manage, default package manager settings, and priority ordering for manager
 // selection. DefaultManager specifies which manager to prefer when multiple are
 // available, and ManagerPriority allows fine-grained control over the order in
 // which package managers are tried.
-type PackagesConfig struct {
+type Config struct {
 	Packages        []Package        `yaml:"packages"`
 	DefaultManager  PackageManager   `yaml:"default_manager,omitempty"`
 	ManagerPriority []PackageManager `yaml:"manager_priority,omitempty"`
@@ -70,12 +80,12 @@ type PackagesConfig struct {
 // the appropriate installation method. It supports dry-run mode for previewing
 // operations and verbose mode for detailed output.
 type Manager struct {
-	Config    *PackagesConfig
+	Config    *Config
 	OS        string
+	Preferred PackageManager
+	Available []PackageManager
 	DryRun    bool
 	Verbose   bool
-	Available []PackageManager
-	Preferred PackageManager
 }
 
 // NewManager creates a new package Manager with the given configuration.
@@ -83,7 +93,7 @@ type Manager struct {
 // manager based on the configuration priority, default manager setting, or
 // OS-specific defaults. The osType parameter specifies the target OS (linux/windows),
 // and dryRun/verbose control the execution mode.
-func NewManager(cfg *PackagesConfig, osType string, dryRun, verbose bool) *Manager {
+func NewManager(cfg *Config, osType string, dryRun, verbose bool) *Manager {
 	m := &Manager{
 		Config:  cfg,
 		OS:      osType,
@@ -92,6 +102,7 @@ func NewManager(cfg *PackagesConfig, osType string, dryRun, verbose bool) *Manag
 	}
 	m.detectAvailableManagers()
 	m.selectPreferredManager()
+
 	return m
 }
 
@@ -119,7 +130,7 @@ func (m *Manager) selectPreferredManager() {
 	}
 
 	// Auto-select based on OS
-	if m.OS == "windows" {
+	if m.OS == platform.OSWindows {
 		for _, mgr := range []PackageManager{Winget, Scoop, Choco} {
 			if m.HasManager(mgr) {
 				m.Preferred = mgr
@@ -145,6 +156,7 @@ func (m *Manager) HasManager(mgr PackageManager) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -154,9 +166,9 @@ func (m *Manager) HasManager(mgr PackageManager) bool {
 // This is returned by Install and InstallAll methods to report installation status.
 type InstallResult struct {
 	Package string
-	Success bool
 	Message string
-	Method  string // e.g., "pacman", "custom", "url"
+	Method  string
+	Success bool
 }
 
 // Install installs a single package using the best available method.
@@ -174,6 +186,7 @@ func (m *Manager) Install(pkg Package) InstallResult {
 				success, msg := m.installWithManager(mgr, pkgName)
 				result.Success = success
 				result.Message = msg
+
 				return result
 			}
 		}
@@ -185,6 +198,7 @@ func (m *Manager) Install(pkg Package) InstallResult {
 		success, msg := m.runCustomCommand(cmd)
 		result.Success = success
 		result.Message = msg
+
 		return result
 	}
 
@@ -194,11 +208,13 @@ func (m *Manager) Install(pkg Package) InstallResult {
 		success, msg := m.installFromURL(urlInstall)
 		result.Success = success
 		result.Message = msg
+
 		return result
 	}
 
 	result.Success = false
 	result.Message = "No installation method available for this OS/system"
+
 	return result
 }
 
@@ -253,7 +269,7 @@ func (m *Manager) runCustomCommand(command string) (bool, string) {
 	}
 
 	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == platform.OSWindows {
 		cmd = exec.Command("powershell", "-Command", command)
 	} else {
 		cmd = exec.Command("sh", "-c", command)
@@ -301,7 +317,8 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 
 	// Download file
 	var downloadCmd *exec.Cmd
-	if runtime.GOOS == "windows" {
+
+	if runtime.GOOS == platform.OSWindows {
 		// Escape single quotes in URL and path for PowerShell
 		escapedURL := strings.ReplaceAll(urlInstall.URL, "'", "''")
 		escapedPath := strings.ReplaceAll(tmpPath, "'", "''")
@@ -316,8 +333,8 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 	}
 
 	// Make executable on Unix
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tmpPath, 0755); err != nil {
+	if runtime.GOOS != platform.OSWindows {
+		if err := os.Chmod(tmpPath, 0755); err != nil { //nolint:gosec // installer scripts need to be executable
 			return false, fmt.Sprintf("Failed to make executable: %v", err)
 		}
 	}
@@ -326,7 +343,7 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 	command := strings.ReplaceAll(urlInstall.Command, "{file}", tmpPath)
 
 	var installCmd *exec.Cmd
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == platform.OSWindows {
 		installCmd = exec.Command("powershell", "-Command", command)
 	} else {
 		installCmd = exec.Command("sh", "-c", command)
@@ -351,6 +368,7 @@ func (m *Manager) InstallAll(packages []Package) []InstallResult {
 	for _, pkg := range packages {
 		results = append(results, m.Install(pkg))
 	}
+
 	return results
 }
 
@@ -359,11 +377,13 @@ func (m *Manager) InstallAll(packages []Package) []InstallResult {
 // hostname, user) and returns only those that match.
 func FilterPackages(packages []Package, ctx *config.FilterContext) []Package {
 	result := make([]Package, 0, len(packages))
+
 	for _, pkg := range packages {
 		if config.MatchesFilters(pkg.Filters, ctx) {
 			result = append(result, pkg)
 		}
 	}
+
 	return result
 }
 
@@ -385,6 +405,7 @@ func (m *Manager) CanInstall(pkg Package) bool {
 	if _, ok := pkg.URL[m.OS]; ok {
 		return true
 	}
+
 	return false
 }
 
@@ -393,11 +414,13 @@ func (m *Manager) CanInstall(pkg Package) bool {
 // with at least one available installation method.
 func (m *Manager) GetInstallablePackages() []Package {
 	result := make([]Package, 0, len(m.Config.Packages))
+
 	for _, pkg := range m.Config.Packages {
 		if m.CanInstall(pkg) {
 			result = append(result, pkg)
 		}
 	}
+
 	return result
 }
 
@@ -411,12 +434,15 @@ func (m *Manager) GetInstallMethod(pkg Package) string {
 			return string(mgr)
 		}
 	}
+
 	if _, ok := pkg.Custom[m.OS]; ok {
 		return "custom"
 	}
+
 	if _, ok := pkg.URL[m.OS]; ok {
 		return "url"
 	}
+
 	return "none"
 }
 
@@ -450,6 +476,7 @@ func IsInstalled(pkgName string, manager string) bool {
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	err := cmd.Run()
+
 	return err == nil
 }
 
@@ -490,10 +517,12 @@ func FromEntry(e config.Entry) *Package {
 // converts each to a Package struct.
 func FromEntries(entries []config.Entry) []Package {
 	result := make([]Package, 0, len(entries))
+
 	for _, e := range entries {
 		if pkg := FromEntry(e); pkg != nil {
 			result = append(result, *pkg)
 		}
 	}
+
 	return result
 }

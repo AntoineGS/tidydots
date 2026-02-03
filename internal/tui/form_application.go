@@ -23,7 +23,7 @@ const (
 // initApplicationFormNew initializes the form for creating a new application
 func (m *Model) initApplicationFormNew() {
 	nameInput := textinput.New()
-	nameInput.Placeholder = "e.g., neovim"
+	nameInput.Placeholder = PlaceholderNeovim
 	nameInput.Focus()
 	nameInput.CharLimit = 64
 	nameInput.Width = 40
@@ -39,32 +39,32 @@ func (m *Model) initApplicationFormNew() {
 	filterValueInput.Width = 40
 
 	packageNameInput := textinput.New()
-	packageNameInput.Placeholder = "e.g., neovim"
+	packageNameInput.Placeholder = PlaceholderNeovim
 	packageNameInput.CharLimit = 128
 	packageNameInput.Width = 40
 
 	m.applicationForm = &ApplicationForm{
-		nameInput:           nameInput,
-		descriptionInput:    descriptionInput,
-		packageManagers:     make(map[string]string),
-		packagesCursor:      0,
-		editingPackage:      false,
-		packageNameInput:    packageNameInput,
-		lastPackageName:     "",
-		filters:             nil,
-		filtersCursor:       0,
-		addingFilter:        false,
-		editingFilter:       false,
-		editingFilterIndex:  -1,
-		filterAddStep:       0,
-		filterIsExclude:     false,
-		filterValueInput:    filterValueInput,
-		filterKeyCursor:     0,
-		focusIndex:          0,
-		editingField:        false,
-		originalValue:       "",
-		editAppIdx:          -1,
-		err:                 "",
+		nameInput:          nameInput,
+		descriptionInput:   descriptionInput,
+		packageManagers:    make(map[string]string),
+		packagesCursor:     0,
+		editingPackage:     false,
+		packageNameInput:   packageNameInput,
+		lastPackageName:    "",
+		filters:            nil,
+		filtersCursor:      0,
+		addingFilter:       false,
+		editingFilter:      false,
+		editingFilterIndex: -1,
+		filterAddStep:      0,
+		filterIsExclude:    false,
+		filterValueInput:   filterValueInput,
+		filterKeyCursor:    0,
+		focusIndex:         0,
+		editingField:       false,
+		originalValue:      "",
+		editAppIdx:         -1,
+		err:                "",
 	}
 
 	m.activeForm = FormApplication
@@ -88,7 +88,7 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 	app := m.Config.Applications[configAppIdx]
 
 	nameInput := textinput.New()
-	nameInput.Placeholder = "e.g., neovim"
+	nameInput.Placeholder = "PlaceholderNeovim"
 	nameInput.SetValue(app.Name)
 	nameInput.Focus()
 	nameInput.CharLimit = 64
@@ -106,7 +106,7 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 	filterValueInput.Width = 40
 
 	packageNameInput := textinput.New()
-	packageNameInput.Placeholder = "e.g., neovim"
+	packageNameInput.Placeholder = PlaceholderNeovim
 	packageNameInput.CharLimit = 128
 	packageNameInput.Width = 40
 
@@ -140,27 +140,27 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 	}
 
 	m.applicationForm = &ApplicationForm{
-		nameInput:           nameInput,
-		descriptionInput:    descriptionInput,
-		packageManagers:     packageManagers,
-		packagesCursor:      0,
-		editingPackage:      false,
-		packageNameInput:    packageNameInput,
-		lastPackageName:     "",
-		filters:             filters,
-		filtersCursor:       0,
-		addingFilter:        false,
-		editingFilter:       false,
-		editingFilterIndex:  -1,
-		filterAddStep:       0,
-		filterIsExclude:     false,
-		filterValueInput:    filterValueInput,
-		filterKeyCursor:     0,
-		focusIndex:          0,
-		editingField:        false,
-		originalValue:       "",
-		editAppIdx:          appIdx,
-		err:                 "",
+		nameInput:          nameInput,
+		descriptionInput:   descriptionInput,
+		packageManagers:    packageManagers,
+		packagesCursor:     0,
+		editingPackage:     false,
+		packageNameInput:   packageNameInput,
+		lastPackageName:    "",
+		filters:            filters,
+		filtersCursor:      0,
+		addingFilter:       false,
+		editingFilter:      false,
+		editingFilterIndex: -1,
+		filterAddStep:      0,
+		filterIsExclude:    false,
+		filterValueInput:   filterValueInput,
+		filterKeyCursor:    0,
+		focusIndex:         0,
+		editingField:       false,
+		originalValue:      "",
+		editAppIdx:         configAppIdx,
+		err:                "",
 	}
 
 	m.activeForm = FormApplication
@@ -219,17 +219,17 @@ func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "q", "esc":
+	case "q", KeyEsc:
 		// Return to list view
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
 		return m, nil
 
-	case "down", "j":
+	case KeyDown, "j":
 		m.applicationForm.focusIndex++
 		if m.applicationForm.focusIndex > 3 {
 			m.applicationForm.focusIndex = 0
@@ -245,7 +245,7 @@ func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.updateApplicationFormFocus()
 		return m, nil
 
-	case "tab":
+	case KeyTab:
 		m.applicationForm.focusIndex++
 		if m.applicationForm.focusIndex > 3 {
 			m.applicationForm.focusIndex = 0
@@ -253,7 +253,7 @@ func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.updateApplicationFormFocus()
 		return m, nil
 
-	case "shift+tab":
+	case KeyShiftTab:
 		m.applicationForm.focusIndex--
 		if m.applicationForm.focusIndex < 0 {
 			m.applicationForm.focusIndex = 3
@@ -261,7 +261,7 @@ func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.updateApplicationFormFocus()
 		return m, nil
 
-	case "enter", "e":
+	case KeyEnter, "e":
 		// Enter edit mode for text fields
 		ft := m.getApplicationFieldType()
 		if ft == appFieldName || ft == appFieldDescription {
@@ -269,7 +269,7 @@ func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case "s", "ctrl+s":
+	case "s", KeyCtrlS:
 		// Save the form
 		if err := m.saveApplicationForm(); err != nil {
 			m.applicationForm.err = err.Error()
@@ -298,15 +298,15 @@ func (m Model) updateApplicationFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	ft := m.getApplicationFieldType()
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "esc":
+	case KeyEsc:
 		// Cancel editing and restore original value
 		m.cancelApplicationFieldEdit()
 		return m, nil
 
-	case "enter", "tab":
+	case KeyEnter, KeyTab:
 		// Save and exit edit mode
 		m.applicationForm.editingField = false
 		m.updateApplicationFormFocus()
@@ -336,10 +336,10 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	maxCursor := len(knownPackageManagers) - 1
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "q", "esc":
+	case "q", KeyEsc:
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
@@ -355,7 +355,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		}
 		return m, nil
 
-	case "down", "j":
+	case KeyDown, "j":
 		if m.applicationForm.packagesCursor < maxCursor {
 			m.applicationForm.packagesCursor++
 		} else {
@@ -369,7 +369,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		}
 		return m, nil
 
-	case "tab":
+	case KeyTab:
 		m.applicationForm.focusIndex++
 		if m.applicationForm.focusIndex > 3 {
 			m.applicationForm.focusIndex = 0
@@ -378,12 +378,12 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		m.updateApplicationFormFocus()
 		return m, nil
 
-	case "shift+tab":
+	case KeyShiftTab:
 		m.applicationForm.focusIndex--
 		m.updateApplicationFormFocus()
 		return m, nil
 
-	case "enter", "e", " ":
+	case KeyEnter, "e", " ":
 		// Edit the selected package manager's package name
 		if m.applicationForm.packagesCursor < 0 || m.applicationForm.packagesCursor >= len(knownPackageManagers) {
 			return m, nil
@@ -402,7 +402,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		m.applicationForm.packageNameInput.SetCursor(len(currentValue))
 		return m, nil
 
-	case "d", "backspace", "delete":
+	case "d", KeyBackspace, KeyDelete:
 		// Clear the package name for the selected manager
 		if m.applicationForm.packagesCursor < 0 || m.applicationForm.packagesCursor >= len(knownPackageManagers) {
 			return m, nil
@@ -412,7 +412,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		m.applicationForm.err = ""
 		return m, nil
 
-	case "s", "ctrl+s":
+	case "s", KeyCtrlS:
 		// Save the form
 		if err := m.saveApplicationForm(); err != nil {
 			m.applicationForm.err = err.Error()
@@ -436,17 +436,17 @@ func (m Model) updateApplicationPackageInput(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	var cmd tea.Cmd
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "esc":
+	case KeyEsc:
 		// Cancel editing package name
 		m.applicationForm.editingPackage = false
 		m.applicationForm.packageNameInput.SetValue("")
 		m.applicationForm.err = ""
 		return m, nil
 
-	case "enter":
+	case KeyEnter:
 		pkgName := strings.TrimSpace(m.applicationForm.packageNameInput.Value())
 		if m.applicationForm.packagesCursor < 0 || m.applicationForm.packagesCursor >= len(knownPackageManagers) {
 			m.applicationForm.editingPackage = false
@@ -483,10 +483,10 @@ func (m Model) updateApplicationFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 	maxCursor := len(m.applicationForm.filters) // "Add Filter" button is at index len(filters)
 
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
-	case "q", "esc":
+	case "q", KeyEsc:
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
@@ -502,7 +502,7 @@ func (m Model) updateApplicationFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "down", "j":
+	case KeyDown, "j":
 		if m.applicationForm.filtersCursor < maxCursor {
 			m.applicationForm.filtersCursor++
 		} else {
@@ -513,14 +513,14 @@ func (m Model) updateApplicationFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "tab":
+	case KeyTab:
 		// Move to next field (wrap to beginning)
 		m.applicationForm.focusIndex = 0
 		m.applicationForm.filtersCursor = 0
 		m.updateApplicationFormFocus()
 		return m, nil
 
-	case "shift+tab":
+	case KeyShiftTab:
 		// Move to previous field
 		m.applicationForm.focusIndex--
 		m.updateApplicationFormFocus()
@@ -555,7 +555,7 @@ func (m Model) updateApplicationFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "d", "backspace", "delete":
+	case "d", KeyBackspace, KeyDelete:
 		// Delete the selected filter
 		if m.applicationForm.filtersCursor < len(m.applicationForm.filters) && len(m.applicationForm.filters) > 0 {
 			// Remove filter at cursor
@@ -571,7 +571,7 @@ func (m Model) updateApplicationFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		m.applicationForm.err = ""
 		return m, nil
 
-	case "s", "ctrl+s":
+	case "s", KeyCtrlS:
 		// Save the form
 		if err := m.saveApplicationForm(); err != nil {
 			m.applicationForm.err = err.Error()
@@ -597,9 +597,9 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 	// Handle value editing mode separately
 	if m.applicationForm.filterAddStep == filterStepValue && m.applicationForm.editingFilterValue {
 		switch msg.String() {
-		case "ctrl+c":
+		case KeyCtrlC:
 			return m, tea.Quit
-		case "esc":
+		case KeyEsc:
 			// Cancel value editing
 			m.applicationForm.editingFilterValue = false
 			m.applicationForm.filterValueInput.Blur()
@@ -653,7 +653,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 
 	// Handle navigation mode
 	switch msg.String() {
-	case "ctrl+c":
+	case KeyCtrlC:
 		return m, tea.Quit
 
 	case "esc":
@@ -675,7 +675,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "down", "j":
+	case KeyDown, "j":
 		// Navigate to next step
 		if m.applicationForm.filterAddStep == filterStepType {
 			m.applicationForm.filterAddStep = filterStepKey
@@ -706,7 +706,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "tab":
+	case KeyTab:
 		// Move to next step
 		if m.applicationForm.filterAddStep == filterStepType {
 			m.applicationForm.filterAddStep = filterStepKey
@@ -725,7 +725,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "enter", "e":
+	case KeyEnter, "e":
 		// Enter edit mode for current step, or advance
 		if m.applicationForm.filterAddStep == filterStepType {
 			m.applicationForm.filterAddStep = filterStepKey
@@ -744,7 +744,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "shift+tab":
+	case KeyShiftTab:
 		// Move to previous step
 		if m.applicationForm.filterAddStep > filterStepType {
 			m.applicationForm.filterAddStep--

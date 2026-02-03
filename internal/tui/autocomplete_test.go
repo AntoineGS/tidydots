@@ -113,8 +113,8 @@ func TestBuildSuggestionPath(t *testing.T) {
 		name     string
 		input    string
 		filename string
-		isDir    bool
 		want     string
+		isDir    bool
 	}{
 		{
 			name:     "directory with trailing slash",

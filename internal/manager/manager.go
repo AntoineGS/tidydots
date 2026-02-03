@@ -12,16 +12,20 @@ import (
 	"github.com/AntoineGS/dot-manager/internal/platform"
 )
 
+// Manager handles dotfile operations including backup, restore, and listing of configuration entries.
+// It maintains references to the configuration, platform information, and operational settings.
 type Manager struct {
+	ctx       context.Context
 	Config    *config.Config
 	Platform  *platform.Platform
 	FilterCtx *config.FilterContext
+	logger    *slog.Logger
 	DryRun    bool
 	Verbose   bool
-	ctx       context.Context // Internal context
-	logger    *slog.Logger    // Structured logger
 }
 
+// New creates a new Manager instance with the given configuration and platform information.
+// The Manager is initialized with structured logging using slog.
 func New(cfg *config.Config, plat *platform.Platform) *Manager {
 	// Create default logger
 	opts := &slog.HandlerOptions{
@@ -47,6 +51,7 @@ func New(cfg *config.Config, plat *platform.Platform) *Manager {
 func (m *Manager) WithContext(ctx context.Context) *Manager {
 	m2 := *m
 	m2.ctx = ctx
+
 	return &m2
 }
 
@@ -54,12 +59,14 @@ func (m *Manager) WithContext(ctx context.Context) *Manager {
 func (m *Manager) WithLogger(logger *slog.Logger) *Manager {
 	m2 := *m
 	m2.logger = logger
+
 	return &m2
 }
 
 // SetVerbose adjusts log level based on verbose flag
 func (m *Manager) SetVerbose(verbose bool) {
 	m.Verbose = verbose
+
 	level := slog.LevelInfo
 	if verbose {
 		level = slog.LevelDebug
@@ -70,7 +77,7 @@ func (m *Manager) SetVerbose(verbose bool) {
 	m.logger = slog.New(handler)
 }
 
-// checkContext checks if context is cancelled and returns error
+// checkContext checks if context is canceled and returns error
 func (m *Manager) checkContext() error {
 	select {
 	case <-m.ctx.Done():
@@ -80,39 +87,44 @@ func (m *Manager) checkContext() error {
 	}
 }
 
+// GetPaths returns all path specifications from the configuration.
 func (m *Manager) GetPaths() []config.PathSpec {
 	return m.Config.GetPaths()
 }
 
+// GetEntries returns all filtered config entries (non-git) from the configuration.
 func (m *Manager) GetEntries() []config.Entry {
 	return m.Config.GetFilteredConfigEntries(m.FilterCtx)
 }
 
+// GetGitEntries returns all filtered git repository entries from the configuration.
 func (m *Manager) GetGitEntries() []config.Entry {
 	return m.Config.GetFilteredGitEntries(m.FilterCtx)
 }
 
+// GetPackageEntries returns all filtered package entries from the configuration.
 func (m *Manager) GetPackageEntries() []config.Entry {
 	return m.Config.GetFilteredPackageEntries(m.FilterCtx)
 }
 
+// GetApplications returns all filtered applications from the V3 configuration format.
 func (m *Manager) GetApplications() []config.Application {
 	return m.Config.GetFilteredApplications(m.FilterCtx)
 }
 
-func (m *Manager) log(format string, args ...interface{}) {
+func (m *Manager) logf(format string, args ...interface{}) {
 	m.logger.Info(fmt.Sprintf(format, args...))
 }
 
-func (m *Manager) logVerbose(format string, args ...interface{}) {
+func (m *Manager) logVerbosef(format string, args ...interface{}) {
 	m.logger.Debug(fmt.Sprintf(format, args...))
 }
 
-func (m *Manager) logWarn(format string, args ...interface{}) {
+func (m *Manager) logWarnf(format string, args ...interface{}) {
 	m.logger.Warn(fmt.Sprintf(format, args...))
 }
 
-func (m *Manager) logError(format string, args ...interface{}) {
+func (m *Manager) logErrorf(format string, args ...interface{}) {
 	m.logger.Error(fmt.Sprintf(format, args...))
 }
 
@@ -136,6 +148,7 @@ func (m *Manager) resolvePath(path string) string {
 	if filepath.IsAbs(path) {
 		return path
 	}
+
 	return filepath.Join(m.Config.BackupRoot, path)
 }
 
@@ -144,6 +157,7 @@ func isSymlink(path string) bool {
 	if err != nil {
 		return false
 	}
+
 	return info.Mode()&os.ModeSymlink != 0
 }
 
@@ -157,7 +171,12 @@ func copyFile(src, dst string) (err error) {
 	if openErr != nil {
 		return fmt.Errorf("opening source: %w", openErr)
 	}
-	defer srcFile.Close() // Explicit close
+
+	defer func() {
+		if closeErr := srcFile.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("closing source file: %w", closeErr)
+		}
+	}()
 
 	srcInfo, statErr := srcFile.Stat()
 	if statErr != nil {
@@ -172,6 +191,7 @@ func copyFile(src, dst string) (err error) {
 	if createErr != nil {
 		return fmt.Errorf("creating destination: %w", createErr)
 	}
+
 	defer func() {
 		if cerr := dstFile.Close(); cerr != nil && err == nil {
 			err = fmt.Errorf("closing destination: %w", cerr)
@@ -233,6 +253,7 @@ func removeAll(path string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
+
 		return err
 	}
 

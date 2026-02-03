@@ -16,9 +16,9 @@ var (
 
 // InstallError records a package installation failure
 type InstallError struct {
-	Package string         // Package name
-	Manager PackageManager // Manager used
-	Err     error          // Underlying error
+	Err     error
+	Package string
+	Manager PackageManager
 }
 
 func (e *InstallError) Error() string {

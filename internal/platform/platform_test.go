@@ -123,4 +123,3 @@ func TestDetectDistro(t *testing.T) {
 		}
 	}
 }
-

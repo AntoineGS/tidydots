@@ -17,7 +17,7 @@ func (m Model) updatePackageSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.scrollOffset = m.packageCursor
 			}
 		}
-	case "down", "j":
+	case KeyDown, "j":
 		if m.packageCursor < len(m.Packages)-1 {
 			m.packageCursor++
 			// Scroll down if needed
@@ -38,19 +38,23 @@ func (m Model) updatePackageSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		for i := range m.Packages {
 			m.Packages[i].Selected = false
 		}
-	case "enter":
+	case KeyEnter:
 		// Count selected
 		selected := 0
+
 		for _, pkg := range m.Packages {
 			if pkg.Selected {
 				selected++
 			}
 		}
+
 		if selected > 0 {
 			m.Screen = ScreenConfirm
 		}
+
 		return m, nil
 	}
+
 	return m, nil
 }
 
@@ -63,6 +67,7 @@ func (m Model) viewPackageSelect() string {
 
 	// Count selected
 	selected := 0
+
 	for _, pkg := range m.Packages {
 		if pkg.Selected {
 			selected++
@@ -97,6 +102,7 @@ func (m Model) viewPackageSelect() string {
 		} else {
 			b.WriteString(line)
 		}
+
 		b.WriteString("\n")
 	}
 

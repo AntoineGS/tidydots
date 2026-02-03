@@ -264,7 +264,7 @@ func runRestoreWithManager(m manager.Restorer) error {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
-		fmt.Println("\nOperation cancelled by user")
+		fmt.Println("\nOperation canceled by user")
 		cancel()
 	}()
 
@@ -298,7 +298,7 @@ func runBackupWithManager(m manager.Backuper) error {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
-		fmt.Println("\nOperation cancelled by user")
+		fmt.Println("\nOperation canceled by user")
 		cancel()
 	}()
 
@@ -346,7 +346,7 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create package manager
-	pkgMgr := packages.NewManager(&packages.PackagesConfig{
+	pkgMgr := packages.NewManager(&packages.Config{
 		Packages:        packages.FromEntries(packageEntries),
 		DefaultManager:  packages.PackageManager(cfg.DefaultManager),
 		ManagerPriority: convertToPackageManagers(cfg.ManagerPriority),
@@ -423,7 +423,7 @@ func runListPackages(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create package manager to determine install methods
-	pkgMgr := packages.NewManager(&packages.PackagesConfig{
+	pkgMgr := packages.NewManager(&packages.Config{
 		Packages:        packages.FromEntries(packageEntries),
 		DefaultManager:  packages.PackageManager(cfg.DefaultManager),
 		ManagerPriority: convertToPackageManagers(cfg.ManagerPriority),

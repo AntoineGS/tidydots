@@ -13,11 +13,11 @@ var (
 	mutedColor     = lipgloss.Color("#6B7280") // Gray
 	textColor      = lipgloss.Color("#F3F4F6") // Light gray
 
-	// Base styles
+	// BaseStyle is the base style with padding for content.
 	BaseStyle = lipgloss.NewStyle().
 			Padding(1, 2)
 
-	// Title styles
+	// TitleStyle is the main title style with border and bold text.
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(primaryColor).
@@ -26,146 +26,167 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(primaryColor)
 
+	// SubtitleStyle is the subtitle style with muted color and italic text.
 	SubtitleStyle = lipgloss.NewStyle().
 			Foreground(mutedColor).
 			Italic(true).
 			MarginBottom(1)
 
-	// Inline muted text (no margins, for use within lines)
+	// MutedTextStyle is inline muted text (no margins, for use within lines).
 	MutedTextStyle = lipgloss.NewStyle().
 			Foreground(mutedColor)
 
-	// Menu styles
+	// MenuItemStyle is the default menu item style.
 	MenuItemStyle = lipgloss.NewStyle().
 			Padding(0, 2)
 
+	// SelectedMenuItemStyle is the style for selected menu items with highlighted background.
 	SelectedMenuItemStyle = lipgloss.NewStyle().
 				Foreground(textColor).
 				Background(primaryColor).
 				Bold(true).
 				Padding(0, 2)
 
-	// List styles
+	// ListItemStyle is the default list item style.
 	ListItemStyle = lipgloss.NewStyle()
 
+	// SelectedListItemStyle is the style for selected list items with highlighted background.
 	SelectedListItemStyle = lipgloss.NewStyle().
 				Foreground(textColor).
 				Background(primaryColor).
 				Bold(true)
 
+	// CheckedStyle is the style for checked checkboxes.
 	CheckedStyle = lipgloss.NewStyle().
 			Foreground(secondaryColor).
 			Bold(true)
 
+	// UncheckedStyle is the style for unchecked checkboxes.
 	UncheckedStyle = lipgloss.NewStyle().
 			Foreground(mutedColor)
 
-	// Path info styles
+	// PathNameStyle is the style for path names with bold text.
 	PathNameStyle = lipgloss.NewStyle().
 			Foreground(textColor).
 			Bold(true)
 
+	// PathTargetStyle is the style for path target locations with muted italic text.
 	PathTargetStyle = lipgloss.NewStyle().
 			Foreground(mutedColor).
 			Italic(true)
 
+	// PathBackupStyle is the style for path backup locations.
 	PathBackupStyle = lipgloss.NewStyle().
 			Foreground(accentColor)
 
+	// FolderBadgeStyle is the badge style for folder indicators.
 	FolderBadgeStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#000")).
 				Background(accentColor).
 				Padding(0, 1).
 				MarginLeft(1)
 
-	// Path state badge styles
+	// StateBadgeReadyStyle is the badge style for ready state (green background).
 	StateBadgeReadyStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#000")).
 				Background(secondaryColor). // Green
 				Padding(0, 1).
 				MarginLeft(1)
 
+	// StateBadgeAdoptStyle is the badge style for adopt state (amber background).
 	StateBadgeAdoptStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#000")).
 				Background(accentColor). // Amber
 				Padding(0, 1).
 				MarginLeft(1)
 
+	// StateBadgeMissingStyle is the badge style for missing state (red background).
 	StateBadgeMissingStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#fff")).
 				Background(errorColor). // Red
 				Padding(0, 1).
 				MarginLeft(1)
 
+	// StateBadgeLinkedStyle is the badge style for linked state (muted text).
 	StateBadgeLinkedStyle = lipgloss.NewStyle().
 				Foreground(mutedColor).
 				Padding(0, 1).
 				MarginLeft(1)
 
-	// Progress styles
+	// ProgressStyle is the style for progress indicators.
 	ProgressStyle = lipgloss.NewStyle().
 			Foreground(secondaryColor)
 
+	// SuccessStyle is the style for success messages with bold green text.
 	SuccessStyle = lipgloss.NewStyle().
 			Foreground(secondaryColor).
 			Bold(true)
 
+	// ErrorStyle is the style for error messages with bold red text.
 	ErrorStyle = lipgloss.NewStyle().
 			Foreground(errorColor).
 			Bold(true)
 
+	// WarningStyle is the style for warning messages with amber text.
 	WarningStyle = lipgloss.NewStyle().
 			Foreground(accentColor)
 
-	// Box styles
+	// BoxStyle is the default box style with rounded border.
 	BoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(primaryColor).
 			Padding(1, 2).
 			MarginTop(1)
 
+	// ResultBoxStyle is the box style for result displays with green border.
 	ResultBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(secondaryColor).
 			Padding(1, 2).
 			MarginTop(1)
 
-	// Help styles
+	// HelpStyle is the style for help text.
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(mutedColor).
 			MarginTop(1)
 
+	// HelpKeyStyle is the style for help key bindings with bold purple text.
 	HelpKeyStyle = lipgloss.NewStyle().
 			Foreground(primaryColor).
 			Bold(true)
 
-	// Status bar
+	// StatusBarStyle is the style for the status bar.
 	StatusBarStyle = lipgloss.NewStyle().
 			Foreground(textColor).
 			Background(lipgloss.Color("#1F2937")).
 			Padding(0, 1).
 			MarginTop(1)
 
-	// Spinner
+	// SpinnerStyle is the style for loading spinners.
 	SpinnerStyle = lipgloss.NewStyle().
 			Foreground(primaryColor)
 
-	// Filter styles
+	// FilterInputStyle is the style for filter input fields.
 	FilterInputStyle = lipgloss.NewStyle().
 				Foreground(textColor).
 				Background(lipgloss.Color("#1F2937")).
 				Padding(0, 1)
 
+	// FilterHighlightStyle is the style for highlighted filter matches with amber background.
 	FilterHighlightStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#000")).
 				Background(accentColor).
 				Bold(true)
 )
 
+// RenderHelp renders help text with key bindings, wrapping to 80 characters.
+// It takes alternating key and description strings and formats them with styling.
 func RenderHelp(keys ...string) string {
 	return RenderHelpWithWidth(80, keys...)
 }
 
+// RenderHelpWithWidth renders help text with key bindings, wrapping to the specified width.
+// It takes a width and alternating key and description strings, formatting them with styling.
 func RenderHelpWithWidth(width int, keys ...string) string {
 	if width < 20 {
 		width = 20
@@ -177,6 +198,7 @@ func RenderHelpWithWidth(width int, keys ...string) string {
 
 	for i := 0; i < len(keys); i += 2 {
 		key := keys[i]
+
 		desc := ""
 		if i+1 < len(keys) {
 			desc = keys[i+1]
@@ -188,6 +210,7 @@ func RenderHelpWithWidth(width int, keys ...string) string {
 
 		// Calculate current line length (approximate, ignoring ANSI)
 		currentLen := 0
+
 		if currentLine != "" {
 			// Count visible characters roughly
 			for _, r := range currentLine {
@@ -218,6 +241,7 @@ func RenderHelpWithWidth(width int, keys ...string) string {
 
 	// Join lines and apply help style
 	result := ""
+
 	for i, line := range lines {
 		if i > 0 {
 			result += "\n"
@@ -233,15 +257,17 @@ func RenderCursor(isSelected bool) string {
 	if isSelected {
 		return "> "
 	}
+
 	return "  "
 }
 
 // RenderCheckbox renders a checkbox indicator
 func RenderCheckbox(isChecked bool) string {
 	if isChecked {
-		return CheckedStyle.Render("[✓]")
+		return CheckedStyle.Render(CheckboxChecked)
 	}
-	return UncheckedStyle.Render("[ ]")
+
+	return UncheckedStyle.Render(CheckboxUnchecked)
 }
 
 // RenderScrollIndicators renders scroll indicators if needed
@@ -252,6 +278,7 @@ func RenderScrollIndicators(start, end, total int) (string, string) {
 	if start > 0 {
 		top = SubtitleStyle.Render("  ↑ more above") + "\n"
 	}
+
 	if end < total {
 		bottom = SubtitleStyle.Render("  ↓ more below") + "\n"
 	}
@@ -262,10 +289,12 @@ func RenderScrollIndicators(start, end, total int) (string, string) {
 // CalculateVisibleRange calculates the visible range for a scrollable list
 func CalculateVisibleRange(offset, viewHeight, total int) (start, end int) {
 	start = offset
+
 	end = offset + viewHeight
 	if end > total {
 		end = total
 	}
+
 	return start, end
 }
 
@@ -275,8 +304,10 @@ func RenderOSInfo(osName string, isArch, dryRun bool) string {
 	if isArch {
 		osInfo += " • Arch Linux"
 	}
+
 	if dryRun {
 		osInfo += " • " + WarningStyle.Render("DRY RUN")
 	}
+
 	return SubtitleStyle.Render(osInfo)
 }

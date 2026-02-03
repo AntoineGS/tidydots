@@ -29,6 +29,7 @@ func TestRestoreFolder(t *testing.T) {
 	mgr.Verbose = true
 
 	entry := config.Entry{Name: "test"}
+
 	err := mgr.restoreFolder(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
@@ -66,6 +67,7 @@ func TestRestoreFolderSkipsExistingSymlink(t *testing.T) {
 	mgr.Verbose = true
 
 	entry := config.Entry{Name: "test"}
+
 	err := mgr.restoreFolder(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
@@ -95,6 +97,7 @@ func TestRestoreFiles(t *testing.T) {
 	mgr := New(cfg, plat)
 
 	entry := config.Entry{Name: "test", Files: []string{"file1.txt", "file2.txt"}}
+
 	err := mgr.restoreFiles(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFiles() error = %v", err)
@@ -109,6 +112,7 @@ func TestRestoreFiles(t *testing.T) {
 
 		link, _ := os.Readlink(targetFile)
 		expectedLink := filepath.Join(srcDir, file)
+
 		if link != expectedLink {
 			t.Errorf("Symlink for %s = %q, want %q", file, link, expectedLink)
 		}
@@ -132,6 +136,7 @@ func TestRestoreFilesRemovesExisting(t *testing.T) {
 	mgr := New(cfg, plat)
 
 	entry := config.Entry{Name: "test", Files: []string{"config.txt"}}
+
 	err := mgr.restoreFiles(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFiles() error = %v", err)
@@ -159,6 +164,7 @@ func TestRestoreDryRun(t *testing.T) {
 	mgr.DryRun = true
 
 	entry := config.Entry{Name: "test"}
+
 	err := mgr.restoreFolder(entry, srcDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
@@ -410,8 +416,8 @@ func TestRestoreV3MultipleSubEntries(t *testing.T) {
 
 func TestRestoreEntry_PathError(t *testing.T) {
 	tests := []struct {
-		name        string
 		setup       func(t *testing.T, tmpDir string) (*Manager, config.Entry)
+		name        string
 		wantErr     bool
 		wantPathErr bool
 	}{
@@ -523,6 +529,7 @@ func TestRestoreV3_FilesSubEntry(t *testing.T) {
 	if !isSymlink(bashrcTarget) {
 		t.Error(".bashrc is not a symlink")
 	}
+
 	if !isSymlink(profileTarget) {
 		t.Error(".profile is not a symlink")
 	}
@@ -532,6 +539,7 @@ func TestRestoreV3_FilesSubEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read .bashrc: %v", err)
 	}
+
 	if string(content) != "bashrc content" {
 		t.Errorf("Content = %q, want %q", string(content), "bashrc content")
 	}
@@ -628,6 +636,7 @@ func TestRestore_ReplacesExistingFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
 	}
+
 	if string(content) != "new content" {
 		t.Errorf("Content = %q, want %q", string(content), "new content")
 	}
@@ -808,6 +817,7 @@ func TestRestoreV3_FilesSubEntry_MultipleFiles(t *testing.T) {
 
 		link, _ := os.Readlink(targetFile)
 		expectedLink := filepath.Join(configBackup, file)
+
 		if link != expectedLink {
 			t.Errorf("symlink for %s = %q, want %q", file, link, expectedLink)
 		}
@@ -1143,6 +1153,7 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 
 	// New file should be accessible through symlink
 	newFile := filepath.Join(targetDir, "new.lua")
+
 	content, _ := os.ReadFile(newFile)
 	if string(content) != "new config" {
 		t.Errorf("content = %q, want %q", string(content), "new config")
@@ -1281,6 +1292,7 @@ func TestRestoreGitEntry_Clone(t *testing.T) {
 	// Create a working repo to push from
 	workRepo := filepath.Join(tmpDir, "work")
 	os.MkdirAll(workRepo, 0755)
+
 	cmd = exec.Command("git", "init", workRepo)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init work repo: %v", err)
@@ -1295,10 +1307,12 @@ func TestRestoreGitEntry_Clone(t *testing.T) {
 	// Create a test file and commit
 	testFile := filepath.Join(workRepo, "test.txt")
 	os.WriteFile(testFile, []byte("test content"), 0644)
+
 	cmd = exec.Command("git", "-C", workRepo, "add", "test.txt")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to add file: %v", err)
 	}
+
 	cmd = exec.Command("git", "-C", workRepo, "commit", "-m", "initial commit")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to commit: %v", err)
@@ -1307,6 +1321,7 @@ func TestRestoreGitEntry_Clone(t *testing.T) {
 	// Push to bare repo
 	cmd = exec.Command("git", "-C", workRepo, "remote", "add", "origin", sourceRepo)
 	cmd.Run()
+
 	cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "master")
 	if err := cmd.Run(); err != nil {
 		// Try main branch if master fails
@@ -1390,6 +1405,7 @@ func TestRestoreGitEntry_PullExisting(t *testing.T) {
 	cmd.Run()
 	cmd = exec.Command("git", "-C", workRepo, "remote", "add", "origin", sourceRepo)
 	cmd.Run()
+
 	cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "master")
 	if err := cmd.Run(); err != nil {
 		cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "main")
@@ -1398,6 +1414,7 @@ func TestRestoreGitEntry_PullExisting(t *testing.T) {
 
 	// Clone to target
 	targetDir := filepath.Join(tmpDir, "target")
+
 	cmd = exec.Command("git", "clone", sourceRepo, targetDir)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to clone: %v", err)
@@ -1476,6 +1493,7 @@ func TestRestoreGitSubEntry_Clone(t *testing.T) {
 	cmd.Run()
 	cmd = exec.Command("git", "-C", workRepo, "remote", "add", "origin", sourceRepo)
 	cmd.Run()
+
 	cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "master")
 	if err := cmd.Run(); err != nil {
 		cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "main")
@@ -1564,6 +1582,7 @@ func TestRestoreGitSubEntry_PullExisting(t *testing.T) {
 	cmd.Run()
 	cmd = exec.Command("git", "-C", workRepo, "remote", "add", "origin", sourceRepo)
 	cmd.Run()
+
 	cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "master")
 	if err := cmd.Run(); err != nil {
 		cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "main")
@@ -1684,6 +1703,7 @@ func TestRestoreFiles_SourceMissing(t *testing.T) {
 	mgr.Verbose = true
 
 	entry := config.Entry{Name: "test", Files: []string{"missing.txt"}}
+
 	err := mgr.restoreFiles(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFiles() error = %v", err)
@@ -1710,6 +1730,7 @@ func TestRestoreFolder_SourceMissing(t *testing.T) {
 	mgr.Verbose = true
 
 	entry := config.Entry{Name: "test"}
+
 	err := mgr.restoreFolder(entry, backupDir, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolder() error = %v", err)
@@ -1797,6 +1818,7 @@ func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 	mgr.Verbose = true
 
 	subEntry := cfg.Applications[0].Entries[0]
+
 	err := mgr.restoreFilesSubEntry("test", subEntry, backupPath, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFilesSubEntry() error = %v", err)
@@ -1842,6 +1864,7 @@ func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
 	mgr.Verbose = true
 
 	subEntry := cfg.Applications[0].Entries[0]
+
 	err := mgr.restoreFolderSubEntry("test", subEntry, backupPath, targetDir)
 	if err != nil {
 		t.Fatalf("restoreFolderSubEntry() error = %v", err)

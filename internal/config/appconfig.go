@@ -35,6 +35,7 @@ func LoadAppConfig() (*AppConfig, error) {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("app config not found at %s - run 'dot-manager init' or create it manually", configPath)
 		}
+
 		return nil, fmt.Errorf("reading app config: %w", err)
 	}
 
@@ -102,5 +103,6 @@ func AppConfigPath() string {
 	if err != nil {
 		return ""
 	}
+
 	return filepath.Join(home, appConfigDir, appConfigFile)
 }

@@ -12,7 +12,7 @@ import (
 
 func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "y", "Y", "enter":
+	case "y", "Y", KeyEnter:
 		m.Screen = ScreenProgress
 		m.processing = true
 		m.results = nil
@@ -39,13 +39,14 @@ func (m Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, m.startOperation()
-	case "n", "N", "esc":
+	case "n", "N", KeyEsc:
 		if m.Operation == OpInstallPackages {
 			m.Screen = ScreenPackageSelect
 		} else {
 			m.Screen = ScreenPathSelect
 		}
 	}
+
 	return m, nil
 }
 
@@ -54,6 +55,7 @@ func (m Model) viewConfirm() string {
 
 	// Title
 	icon := "󰁯"
+
 	switch m.Operation {
 	case OpInstallPackages:
 		icon = "󰏖"
@@ -72,6 +74,7 @@ func (m Model) viewConfirm() string {
 	if m.Operation == OpInstallPackages {
 		// Count selected packages
 		selected := 0
+
 		for _, pkg := range m.Packages {
 			if pkg.Selected {
 				selected++
@@ -84,6 +87,7 @@ func (m Model) viewConfirm() string {
 
 		// List selected packages (up to 10)
 		count := 0
+
 		for _, pkg := range m.Packages {
 			if pkg.Selected {
 				count++
@@ -95,6 +99,7 @@ func (m Model) viewConfirm() string {
 				}
 			}
 		}
+
 		if count > 10 {
 			b.WriteString(SubtitleStyle.Render(fmt.Sprintf("  ... and %d more", count-10)))
 			b.WriteString("\n")
@@ -102,6 +107,7 @@ func (m Model) viewConfirm() string {
 	} else {
 		// Count selected paths
 		selected := 0
+
 		for _, p := range m.Paths {
 			if p.Selected {
 				selected++
@@ -115,6 +121,7 @@ func (m Model) viewConfirm() string {
 
 		// List selected paths (up to 10)
 		count := 0
+
 		for _, item := range m.Paths {
 			if item.Selected {
 				count++
@@ -125,6 +132,7 @@ func (m Model) viewConfirm() string {
 				}
 			}
 		}
+
 		if count > 10 {
 			b.WriteString(SubtitleStyle.Render(fmt.Sprintf("  ... and %d more", count-10)))
 			b.WriteString("\n")
@@ -215,6 +223,7 @@ func (m Model) installNextPackage() tea.Cmd {
 				Err:     err,
 			}
 		}
+
 		return PackageInstallMsg{
 			Package: pkg,
 			Success: true,
@@ -258,6 +267,7 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 			if m.Platform.OS == "windows" {
 				return exec.Command("powershell", "-Command", customCmd)
 			}
+
 			return exec.Command("sh", "-c", customCmd)
 		}
 	}
@@ -274,6 +284,7 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 					Invoke-Expression $command
 					Remove-Item $tmpFile -ErrorAction SilentlyContinue
 				`, urlSpec.URL, urlSpec.Command)
+
 				return exec.Command("powershell", "-Command", script)
 			}
 			// Unix: download to temp, chmod, run install command, cleanup
@@ -284,6 +295,7 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 				chmod +x "$tmpfile" && \
 				%s
 			`, urlSpec.URL, strings.ReplaceAll(urlSpec.Command, "{file}", "$tmpfile"))
+
 			return exec.Command("sh", "-c", script)
 		}
 	}
@@ -297,6 +309,7 @@ func (m Model) performRestore(item PathItem) (bool, string) {
 	if item.Entry.IsFolder() {
 		return m.restoreFolder(backupPath, item.Target)
 	}
+
 	return m.restoreFiles(item.Entry.Files, backupPath, item.Target)
 }
 
@@ -368,6 +381,7 @@ func (m Model) restoreFolder(source, target string) (bool, string) {
 	if adopted {
 		return true, fmt.Sprintf("Adopted and linked: %s → %s", target, source)
 	}
+
 	return true, fmt.Sprintf("Created symlink: %s → %s", target, source)
 }
 
@@ -424,11 +438,13 @@ func (m Model) restoreFiles(files []string, source, target string) (bool, string
 					lastErr = fmt.Sprintf("Failed to adopt %s: %v", file, err)
 					continue
 				}
+
 				if err := os.Remove(dstFile); err != nil {
 					lastErr = fmt.Sprintf("Failed to remove original %s: %v", file, err)
 					continue
 				}
 			}
+
 			adopted++
 			srcExists = true
 		}
@@ -458,6 +474,7 @@ func (m Model) restoreFiles(files []string, source, target string) (bool, string
 			lastErr = fmt.Sprintf("Failed to symlink %s: %v", file, err)
 			continue
 		}
+
 		created++
 	}
 
@@ -470,9 +487,11 @@ func (m Model) restoreFiles(files []string, source, target string) (bool, string
 		if adopted > 0 {
 			msg += fmt.Sprintf(", adopt %d", adopted)
 		}
+
 		if skipped > 0 {
 			msg += fmt.Sprintf(", skip %d", skipped)
 		}
+
 		return true, msg
 	}
 
@@ -480,9 +499,11 @@ func (m Model) restoreFiles(files []string, source, target string) (bool, string
 	if adopted > 0 {
 		msg += fmt.Sprintf(", adopted %d", adopted)
 	}
+
 	if skipped > 0 {
 		msg += fmt.Sprintf(", skipped %d", skipped)
 	}
+
 	return true, msg
 }
 

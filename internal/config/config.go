@@ -11,18 +11,12 @@ import (
 
 // Config is the main configuration structure supporting both v2 and v3 formats
 type Config struct {
-	Version    int     `yaml:"version"`
-	BackupRoot string  `yaml:"backup_root"`
-
-	// v2 format: flat entries list
-	Entries    []Entry `yaml:"entries,omitempty"`
-
-	// v3 format: hierarchical applications
-	Applications []Application `yaml:"applications,omitempty"`
-
-	// Package manager configuration
-	DefaultManager  string   `yaml:"default_manager,omitempty"`
-	ManagerPriority []string `yaml:"manager_priority,omitempty"`
+	BackupRoot      string        `yaml:"backup_root"`
+	DefaultManager  string        `yaml:"default_manager,omitempty"`
+	Entries         []Entry       `yaml:"entries,omitempty"`
+	Applications    []Application `yaml:"applications,omitempty"`
+	ManagerPriority []string      `yaml:"manager_priority,omitempty"`
+	Version         int           `yaml:"version"`
 }
 
 // PackageSpec defines a package to install (for backward compatibility)
@@ -43,13 +37,15 @@ type URLInstallSpec struct {
 
 // PathSpec defines a path configuration (for backward compatibility)
 type PathSpec struct {
-	Name    string            `yaml:"name"`
-	Files   []string          `yaml:"files"`
-	Backup  string            `yaml:"backup"`
 	Targets map[string]string `yaml:"targets"`
+	Name    string            `yaml:"name"`
+	Backup  string            `yaml:"backup"`
+	Files   []string          `yaml:"files"`
 }
 
-
+// Load reads and parses the configuration file from the given path.
+// It supports both v2 and v3 configuration formats, returning an error
+// if the version is unsupported or if the file cannot be read or parsed.
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -72,6 +68,9 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+// ExpandPaths expands environment variables and tilde (~) in all path fields
+// of the configuration, including backup paths, target paths, and file paths.
+// It processes both v2 entries and v3 application entries.
 func (c *Config) ExpandPaths(envVars map[string]string) {
 	c.BackupRoot = expandPath(c.BackupRoot, envVars)
 
@@ -81,6 +80,7 @@ func (c *Config) ExpandPaths(envVars map[string]string) {
 		for k, v := range c.Entries[i].Targets {
 			c.Entries[i].Targets[k] = expandPath(v, envVars)
 		}
+
 		for j := range c.Entries[i].Files {
 			c.Entries[i].Files[j] = expandPath(c.Entries[i].Files[j], envVars)
 		}
@@ -93,6 +93,7 @@ func (c *Config) ExpandPaths(envVars map[string]string) {
 			for k, v := range c.Applications[i].Entries[j].Targets {
 				c.Applications[i].Entries[j].Targets[k] = expandPath(v, envVars)
 			}
+
 			for k := range c.Applications[i].Entries[j].Files {
 				c.Applications[i].Entries[j].Files[k] = expandPath(c.Applications[i].Entries[j].Files[k], envVars)
 			}
@@ -103,77 +104,91 @@ func (c *Config) ExpandPaths(envVars map[string]string) {
 // GetConfigEntries returns entries that are config type (have backup)
 func (c *Config) GetConfigEntries() []Entry {
 	result := make([]Entry, 0, len(c.Entries))
+
 	for _, e := range c.Entries {
 		if e.IsConfig() {
 			result = append(result, e)
 		}
 	}
+
 	return result
 }
 
 // GetFilteredConfigEntries returns config entries filtered by filter context
 func (c *Config) GetFilteredConfigEntries(ctx *FilterContext) []Entry {
 	result := make([]Entry, 0, len(c.Entries))
+
 	for _, e := range c.Entries {
 		if e.IsConfig() && MatchesFilters(e.Filters, ctx) {
 			result = append(result, e)
 		}
 	}
+
 	return result
 }
 
 // GetGitEntries returns entries that are git type (have repo)
 func (c *Config) GetGitEntries() []Entry {
 	result := make([]Entry, 0, len(c.Entries))
+
 	for _, e := range c.Entries {
 		if e.IsGit() {
 			result = append(result, e)
 		}
 	}
+
 	return result
 }
 
 // GetFilteredGitEntries returns git entries filtered by filter context
 func (c *Config) GetFilteredGitEntries(ctx *FilterContext) []Entry {
 	result := make([]Entry, 0, len(c.Entries))
+
 	for _, e := range c.Entries {
 		if e.IsGit() && MatchesFilters(e.Filters, ctx) {
 			result = append(result, e)
 		}
 	}
+
 	return result
 }
 
 // GetPackageEntries returns entries that have package configuration
 func (c *Config) GetPackageEntries() []Entry {
 	result := make([]Entry, 0, len(c.Entries))
+
 	for _, e := range c.Entries {
 		if e.HasPackage() {
 			result = append(result, e)
 		}
 	}
+
 	return result
 }
 
 // GetFilteredPackageEntries returns package entries filtered by filter context
 func (c *Config) GetFilteredPackageEntries(ctx *FilterContext) []Entry {
 	result := make([]Entry, 0, len(c.Entries))
+
 	for _, e := range c.Entries {
 		if e.HasPackage() && MatchesFilters(e.Filters, ctx) {
 			result = append(result, e)
 		}
 	}
+
 	return result
 }
 
 // GetFilteredApplications returns applications filtered by filter context (v3)
 func (c *Config) GetFilteredApplications(ctx *FilterContext) []Application {
 	result := make([]Application, 0, len(c.Applications))
+
 	for _, app := range c.Applications {
 		if MatchesFilters(app.Filters, ctx) {
 			result = append(result, app)
 		}
 	}
+
 	return result
 }
 
@@ -182,10 +197,12 @@ func (c *Config) GetAllSubEntries(ctx *FilterContext) []SubEntry {
 	apps := c.GetFilteredApplications(ctx)
 	// Estimate capacity based on average entries per app
 	estimatedCap := len(apps) * 5
+
 	result := make([]SubEntry, 0, estimatedCap)
 	for _, app := range apps {
 		result = append(result, app.Entries...)
 	}
+
 	return result
 }
 
@@ -195,6 +212,7 @@ func (c *Config) GetAllConfigSubEntries(ctx *FilterContext) []SubEntry {
 	// Estimate capacity based on average entries per app
 	estimatedCap := len(apps) * 3
 	result := make([]SubEntry, 0, estimatedCap)
+
 	for _, app := range apps {
 		for _, entry := range app.Entries {
 			if entry.IsConfig() {
@@ -202,6 +220,7 @@ func (c *Config) GetAllConfigSubEntries(ctx *FilterContext) []SubEntry {
 			}
 		}
 	}
+
 	return result
 }
 
@@ -211,6 +230,7 @@ func (c *Config) GetAllGitSubEntries(ctx *FilterContext) []SubEntry {
 	// Estimate capacity based on average entries per app
 	estimatedCap := len(apps) * 2
 	result := make([]SubEntry, 0, estimatedCap)
+
 	for _, app := range apps {
 		for _, entry := range app.Entries {
 			if entry.IsGit() {
@@ -218,6 +238,7 @@ func (c *Config) GetAllGitSubEntries(ctx *FilterContext) []SubEntry {
 			}
 		}
 	}
+
 	return result
 }
 
@@ -225,9 +246,11 @@ func (c *Config) GetAllGitSubEntries(ctx *FilterContext) []SubEntry {
 func (c *Config) GetPaths() []PathSpec {
 	entries := c.GetConfigEntries()
 	result := make([]PathSpec, 0, len(entries))
+
 	for _, e := range entries {
 		result = append(result, e.ToPathSpec())
 	}
+
 	return result
 }
 
@@ -235,9 +258,11 @@ func (c *Config) GetPaths() []PathSpec {
 func (c *Config) GetPackageSpecs() []PackageSpec {
 	entries := c.GetPackageEntries()
 	result := make([]PackageSpec, 0, len(entries))
+
 	for _, e := range entries {
 		result = append(result, e.ToPackageSpec())
 	}
+
 	return result
 }
 
@@ -270,14 +295,19 @@ func expandPath(path string, envVars map[string]string) string {
 	return path
 }
 
+// IsFolder returns true if this PathSpec manages an entire folder rather than
+// specific files. A PathSpec is considered a folder if its Files slice is empty.
 func (p *PathSpec) IsFolder() bool {
 	return len(p.Files) == 0
 }
 
+// GetTarget returns the target path for the specified OS type (linux/windows).
+// It returns an empty string if no target is defined for the given OS.
 func (p *PathSpec) GetTarget(osType string) string {
 	if target, ok := p.Targets[osType]; ok {
 		return target
 	}
+
 	return ""
 }
 

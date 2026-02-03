@@ -1,0 +1,140 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    # Default linters
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Reports suspicious constructs
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Advanced static analysis
+    - unused        # Detect unused constants, variables, functions
+
+    # Additional recommended linters
+    - gofmt         # Check whether code is gofmt-formatted
+    - goimports     # Check import statements are formatted well
+    - misspell      # Detect commonly misspelled English words
+    - revive        # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Detect unused function parameters
+    - gosec         # Security-focused linter
+    - bodyclose     # Check if HTTP response body is closed
+    - noctx         # Detect sending http request without context.Context
+    - gocritic      # Comprehensive diagnostic linter
+    - gocyclo       # Detect cyclomatic complexity
+    - dupl          # Detect code cloning
+    - errorlint     # Find code that will cause problems with error wrapping
+    - exhaustive    # Check exhaustiveness of enum switch statements
+    - copyloopvar   # Detect loop variable issues in Go 1.22+
+    - goconst       # Find repeated strings that could be replaced by constants
+    - goprintffuncname # Check that printf-like functions are named with f at the end
+    - predeclared   # Find code that shadows predeclared identifiers
+    - stylecheck    # Stylecheck is a replacement for golint
+    - whitespace    # Detect leading/trailing whitespace
+    - wsl           # Force empty lines in the right places
+
+  disable:
+    - funlen        # Too strict about function length
+    - cyclop        # Redundant with gocyclo
+    - lll           # Line length - let gofmt handle it
+    - exhaustruct   # Too strict for struct literals
+    - gochecknoinits # init functions are sometimes necessary
+    - gochecknoglobals # Globals are sometimes necessary
+    - paralleltest  # Not always needed
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - (io.Closer).Close
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow  # Too strict for now
+
+  gocyclo:
+    min-complexity: 15
+
+  dupl:
+    threshold: 100
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  misspell:
+    locale: US
+
+  revive:
+    rules:
+      - name: unused-parameter
+        disabled: true  # unparam handles this better
+      - name: var-naming
+        disabled: false
+      - name: exported
+        disabled: false
+
+  gosec:
+    excludes:
+      - G204  # Subprocess with variable - needed for package managers
+      - G304  # File path provided as taint input - needed for config files
+
+  stylecheck:
+    checks: ["all", "-ST1000", "-ST1003"]  # Disable package comment requirements
+
+  wsl:
+    # Allow cuddling with assignments
+    allow-assign-and-anything: true
+    allow-cuddle-declarations: true
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude some linters from running on tests
+    - path: _test\.go
+      linters:
+        - dupl
+        - gosec
+        - goconst
+        - errcheck      # Tests often intentionally ignore errors
+        - gocyclo       # Test functions can be complex
+        - funlen        # Test functions can be long
+
+    # Exclude known issue with Cobra command functions
+    - path: cmd/
+      linters:
+        - wsl
+
+    # Allow globals in main.go
+    - path: cmd/dot-manager/main\.go
+      linters:
+        - gochecknoglobals
+
+    # TUI code can have complex view functions
+    - path: internal/tui/
+      linters:
+        - gocyclo       # View rendering functions can be complex
+        - gocritic      # Style suggestions for TUI code
+        - exhaustive    # UI code doesn't need all enum cases handled
+        - dupl          # Form navigation logic has acceptable duplication
+        - wsl           # TUI code has different whitespace patterns
+
+    # Allow G301 for config directories (0755 is standard)
+    - text: "G301: Expect directory permissions to be 0750 or less"
+      linters:
+        - gosec
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  sort-results: true

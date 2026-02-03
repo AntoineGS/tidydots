@@ -102,6 +102,7 @@ func (t *TextField) Update(msg tea.Msg) tea.Cmd {
 
 	var cmd tea.Cmd
 	t.input, cmd = t.input.Update(msg)
+
 	return cmd
 }
 
