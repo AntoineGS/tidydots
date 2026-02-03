@@ -3,6 +3,7 @@ package manager
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -86,13 +87,13 @@ func TestPathError_Error(t *testing.T) {
 	}
 
 	// Should contain operation, path, and underlying error
-	if !contains(errMsg, "restore") {
+	if !strings.Contains(errMsg, "restore") {
 		t.Errorf("Error message missing operation: %s", errMsg)
 	}
-	if !contains(errMsg, "/home/user/.config") {
+	if !strings.Contains(errMsg, "/home/user/.config") {
 		t.Errorf("Error message missing path: %s", errMsg)
 	}
-	if !contains(errMsg, "file not found") {
+	if !strings.Contains(errMsg, "file not found") {
 		t.Errorf("Error message missing underlying error: %s", errMsg)
 	}
 }
@@ -119,13 +120,13 @@ func TestGitError(t *testing.T) {
 	}
 
 	errMsg := ge.Error()
-	if !contains(errMsg, "git") {
+	if !strings.Contains(errMsg, "git") {
 		t.Errorf("Error message should mention git: %s", errMsg)
 	}
-	if !contains(errMsg, "https://github.com/test/repo.git") {
+	if !strings.Contains(errMsg, "https://github.com/test/repo.git") {
 		t.Errorf("Error message should contain repo URL: %s", errMsg)
 	}
-	if !contains(errMsg, "main") {
+	if !strings.Contains(errMsg, "main") {
 		t.Errorf("Error message should contain branch: %s", errMsg)
 	}
 }
@@ -141,17 +142,4 @@ func TestGitError_Unwrap(t *testing.T) {
 	if unwrapped.Error() != underlying.Error() {
 		t.Errorf("Unwrap() = %v, want %v", unwrapped, underlying)
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || findInString(s, substr)))
-}
-
-func findInString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

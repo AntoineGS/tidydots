@@ -71,3 +71,86 @@ func TestRestore_ContextTimeout(t *testing.T) {
 		t.Errorf("RestoreWithContext() error = %v, want context.DeadlineExceeded", err)
 	}
 }
+
+func TestBackup_ContextCancellation(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create source directory with files
+	homeDir := filepath.Join(tmpDir, "home")
+	nvimDir := filepath.Join(homeDir, ".config", "nvim")
+	os.MkdirAll(nvimDir, 0755)
+	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
+
+	cfg := &config.Config{
+		Version:    2,
+		BackupRoot: backupRoot,
+		Entries: []config.Entry{
+			{
+				Name:   "nvim",
+				Backup: "./nvim",
+				Targets: map[string]string{
+					"linux": nvimDir,
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	// Create context that cancels immediately
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel before operation starts
+
+	err := mgr.BackupWithContext(ctx)
+
+	if err != context.Canceled {
+		t.Errorf("BackupWithContext() error = %v, want context.Canceled", err)
+	}
+}
+
+func TestBackup_ContextTimeout(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	homeDir := filepath.Join(tmpDir, "home")
+	nvimDir := filepath.Join(homeDir, ".config", "nvim")
+	os.MkdirAll(nvimDir, 0755)
+	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
+
+	cfg := &config.Config{
+		Version:    2,
+		BackupRoot: backupRoot,
+		Entries: []config.Entry{
+			{
+				Name:   "nvim",
+				Backup: "./nvim",
+				Targets: map[string]string{
+					"linux": nvimDir,
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	// Create context with very short timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+
+	time.Sleep(10 * time.Millisecond) // Ensure timeout
+
+	err := mgr.BackupWithContext(ctx)
+
+	if err != context.DeadlineExceeded {
+		t.Errorf("BackupWithContext() error = %v, want context.DeadlineExceeded", err)
+	}
+}

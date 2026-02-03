@@ -503,3 +503,413 @@ func TestBackupV3_WithFiles(t *testing.T) {
 		t.Errorf("Backup content = %q, want %q", string(content), "bash config")
 	}
 }
+
+func TestBackupV3_FolderSubEntry(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create config folder
+	configDir := filepath.Join(tmpDir, "home", ".config", "app")
+	os.MkdirAll(configDir, 0755)
+	os.WriteFile(filepath.Join(configDir, "config.json"), []byte("config"), 0644)
+	os.WriteFile(filepath.Join(configDir, "settings.json"), []byte("settings"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(filepath.Join(backupRoot, "app"), 0755)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "app",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./app",
+						Targets: map[string]string{
+							"linux": configDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Backup()
+	if err != nil {
+		t.Fatalf("Backup() error = %v", err)
+	}
+
+	// Check files were backed up (folder backup adds base name as subfolder)
+	backedUpConfig := filepath.Join(backupRoot, "app", "app", "config.json")
+	backedUpSettings := filepath.Join(backupRoot, "app", "app", "settings.json")
+
+	if !pathExists(backedUpConfig) {
+		t.Error("config.json was not backed up")
+	}
+	if !pathExists(backedUpSettings) {
+		t.Error("settings.json was not backed up")
+	}
+}
+
+func TestBackupV3_MultipleApplications(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create multiple config directories
+	homeDir := filepath.Join(tmpDir, "home")
+	nvimDir := filepath.Join(homeDir, ".config", "nvim")
+	os.MkdirAll(nvimDir, 0755)
+	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim"), 0644)
+
+	os.MkdirAll(homeDir, 0755)
+	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
+	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "nvim",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./nvim",
+						Targets: map[string]string{
+							"linux": nvimDir,
+						},
+					},
+				},
+			},
+			{
+				Name: "bash",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{".bashrc"},
+						Backup: "./bash",
+						Targets: map[string]string{
+							"linux": homeDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Backup()
+	if err != nil {
+		t.Fatalf("Backup() error = %v", err)
+	}
+
+	// Check nvim was backed up
+	backedUpNvim := filepath.Join(backupRoot, "nvim", "nvim", "init.lua")
+	if !pathExists(backedUpNvim) {
+		t.Error("nvim/init.lua was not backed up")
+	}
+
+	// Check bash was backed up
+	backedUpBash := filepath.Join(backupRoot, "bash", ".bashrc")
+	if !pathExists(backedUpBash) {
+		t.Error(".bashrc was not backed up")
+	}
+}
+
+func TestBackupV3_SkipsWrongOS(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	homeDir := filepath.Join(tmpDir, "home")
+	os.MkdirAll(homeDir, 0755)
+	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "bash",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{".bashrc"},
+						Backup: "./bash",
+						Targets: map[string]string{
+							"windows": homeDir, // Wrong OS
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	err := mgr.Backup()
+	if err != nil {
+		t.Fatalf("Backup() error = %v", err)
+	}
+
+	// Nothing should be backed up (wrong OS)
+	backedUpFile := filepath.Join(backupRoot, "bash", ".bashrc")
+	if pathExists(backedUpFile) {
+		t.Error(".bashrc should not be backed up for wrong OS")
+	}
+}
+
+func TestBackupV3_DryRun(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	homeDir := filepath.Join(tmpDir, "home")
+	os.MkdirAll(homeDir, 0755)
+	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "bash",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{".bashrc"},
+						Backup: "./bash",
+						Targets: map[string]string{
+							"linux": homeDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.DryRun = true
+
+	err := mgr.Backup()
+	if err != nil {
+		t.Fatalf("Backup() error = %v", err)
+	}
+
+	// Nothing should be backed up in dry-run mode
+	backedUpFile := filepath.Join(backupRoot, "bash", ".bashrc")
+	if pathExists(backedUpFile) {
+		t.Error(".bashrc should not be backed up in dry-run mode")
+	}
+}
+
+func TestBackupFilesSubEntry_SourceMissing(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Target doesn't exist
+	homeDir := filepath.Join(tmpDir, "home")
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "test")
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{"missing.txt"},
+						Backup: "./test",
+						Targets: map[string]string{
+							"linux": homeDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	subEntry := cfg.Applications[0].Entries[0]
+	err := mgr.backupFilesSubEntry("test", subEntry, backupPath, homeDir)
+	if err != nil {
+		t.Fatalf("backupFilesSubEntry() error = %v", err)
+	}
+
+	// Nothing should be backed up
+	backedUpFile := filepath.Join(backupPath, "missing.txt")
+	if pathExists(backedUpFile) {
+		t.Error("file should not be backed up when target doesn't exist")
+	}
+}
+
+func TestBackupFolderSubEntry_SourceMissing(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Target doesn't exist
+	targetDir := filepath.Join(tmpDir, "target")
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "test")
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./test",
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	subEntry := cfg.Applications[0].Entries[0]
+	err := mgr.backupFolderSubEntry("test", subEntry, backupPath, targetDir)
+	if err != nil {
+		t.Fatalf("backupFolderSubEntry() error = %v", err)
+	}
+
+	// Backup should not be created
+	if pathExists(backupPath) {
+		t.Error("backup should not be created when target doesn't exist")
+	}
+}
+
+func TestBackupFilesSubEntry_MissingFile(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Target directory exists but specific file doesn't
+	homeDir := filepath.Join(tmpDir, "home")
+	os.MkdirAll(homeDir, 0755)
+	os.WriteFile(filepath.Join(homeDir, "exists.txt"), []byte("exists"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "test")
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{"exists.txt", "missing.txt"},
+						Backup: "./test",
+						Targets: map[string]string{
+							"linux": homeDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	subEntry := cfg.Applications[0].Entries[0]
+	err := mgr.backupFilesSubEntry("test", subEntry, backupPath, homeDir)
+	if err != nil {
+		t.Fatalf("backupFilesSubEntry() error = %v", err)
+	}
+
+	// Only existing file should be backed up
+	backedUpExists := filepath.Join(backupPath, "exists.txt")
+	backedUpMissing := filepath.Join(backupPath, "missing.txt")
+
+	if !pathExists(backedUpExists) {
+		t.Error("exists.txt should be backed up")
+	}
+	if pathExists(backedUpMissing) {
+		t.Error("missing.txt should not be backed up")
+	}
+}
+
+func TestBackupV3_ErrorInSubEntry(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create a target that's a file (invalid for folder backup)
+	targetFile := filepath.Join(tmpDir, "target")
+	os.WriteFile(targetFile, []byte("not a folder"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(filepath.Join(backupRoot, "test"), 0755)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./test",
+						Targets: map[string]string{
+							"linux": targetFile,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	err := mgr.Backup()
+	// Should log error but not fail completely
+	if err != nil {
+		t.Logf("Backup() returned: %v", err)
+	}
+}

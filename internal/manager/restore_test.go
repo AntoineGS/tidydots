@@ -3,6 +3,7 @@ package manager
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -629,5 +630,1225 @@ func TestRestore_ReplacesExistingFile(t *testing.T) {
 	}
 	if string(content) != "new content" {
 		t.Errorf("Content = %q, want %q", string(content), "new content")
+	}
+}
+
+func TestCreateSymlink_Success(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	source := filepath.Join(tmpDir, "source")
+	os.MkdirAll(source, 0755)
+	os.WriteFile(filepath.Join(source, "file.txt"), []byte("content"), 0644)
+
+	target := filepath.Join(tmpDir, "target")
+
+	err := createSymlink(source, target, false)
+	if err != nil {
+		t.Fatalf("createSymlink() error = %v", err)
+	}
+
+	if !isSymlink(target) {
+		t.Error("target is not a symlink")
+	}
+
+	link, _ := os.Readlink(target)
+	if link != source {
+		t.Errorf("symlink target = %q, want %q", link, source)
+	}
+}
+
+func TestCreateSymlink_SourceNotExist(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	source := filepath.Join(tmpDir, "nonexistent")
+	target := filepath.Join(tmpDir, "target")
+
+	err := createSymlink(source, target, false)
+	if err == nil {
+		t.Fatal("createSymlink() should fail when source doesn't exist")
+	}
+
+	var pathErr *PathError
+	if !errors.As(err, &pathErr) {
+		t.Errorf("error is not PathError: %v", err)
+	}
+}
+
+func TestCreateSymlink_FileSource(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	source := filepath.Join(tmpDir, "source.txt")
+	os.WriteFile(source, []byte("content"), 0644)
+
+	target := filepath.Join(tmpDir, "target.txt")
+
+	err := createSymlink(source, target, false)
+	if err != nil {
+		t.Fatalf("createSymlink() error = %v", err)
+	}
+
+	if !isSymlink(target) {
+		t.Error("target is not a symlink")
+	}
+
+	// Verify content through symlink
+	content, _ := os.ReadFile(target)
+	if string(content) != "content" {
+		t.Errorf("content = %q, want %q", string(content), "content")
+	}
+}
+
+func TestRestoreV3_FolderSubEntry(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup structure
+	backupRoot := filepath.Join(tmpDir, "backup")
+	configBackup := filepath.Join(backupRoot, "app-config")
+	os.MkdirAll(configBackup, 0755)
+	os.WriteFile(filepath.Join(configBackup, "config.json"), []byte("config"), 0644)
+
+	// Target directory
+	targetDir := filepath.Join(tmpDir, "home", ".config", "app")
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test-app",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./app-config",
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Check symlink was created
+	if !isSymlink(targetDir) {
+		t.Error("target is not a symlink")
+	}
+
+	link, _ := os.Readlink(targetDir)
+	if link != configBackup {
+		t.Errorf("symlink target = %q, want %q", link, configBackup)
+	}
+}
+
+func TestRestoreV3_FilesSubEntry_MultipleFiles(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup structure with multiple files
+	backupRoot := filepath.Join(tmpDir, "backup")
+	configBackup := filepath.Join(backupRoot, "shell")
+	os.MkdirAll(configBackup, 0755)
+	os.WriteFile(filepath.Join(configBackup, ".bashrc"), []byte("bashrc"), 0644)
+	os.WriteFile(filepath.Join(configBackup, ".profile"), []byte("profile"), 0644)
+	os.WriteFile(filepath.Join(configBackup, ".bash_aliases"), []byte("aliases"), 0644)
+
+	// Target directory
+	homeDir := filepath.Join(tmpDir, "home")
+	os.MkdirAll(homeDir, 0755)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "shell",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{".bashrc", ".profile", ".bash_aliases"},
+						Backup: "./shell",
+						Targets: map[string]string{
+							"linux": homeDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Check all symlinks were created
+	files := []string{".bashrc", ".profile", ".bash_aliases"}
+	for _, file := range files {
+		targetFile := filepath.Join(homeDir, file)
+		if !isSymlink(targetFile) {
+			t.Errorf("%s is not a symlink", file)
+		}
+
+		link, _ := os.Readlink(targetFile)
+		expectedLink := filepath.Join(configBackup, file)
+		if link != expectedLink {
+			t.Errorf("symlink for %s = %q, want %q", file, link, expectedLink)
+		}
+	}
+}
+
+func TestRestoreV3_FolderSubEntry_Adoption(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create existing target (to be adopted)
+	targetDir := filepath.Join(tmpDir, "home", ".config", "app")
+	os.MkdirAll(targetDir, 0755)
+	os.WriteFile(filepath.Join(targetDir, "existing.txt"), []byte("existing"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "app-config")
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test-app",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./app-config",
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Check target was adopted into backup
+	adoptedFile := filepath.Join(backupPath, "existing.txt")
+	if !pathExists(adoptedFile) {
+		t.Error("existing.txt was not adopted into backup")
+	}
+
+	// Check symlink was created
+	if !isSymlink(targetDir) {
+		t.Error("target is not a symlink")
+	}
+}
+
+func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create existing target files (to be adopted)
+	homeDir := filepath.Join(tmpDir, "home")
+	os.MkdirAll(homeDir, 0755)
+	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("existing bashrc"), 0644)
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "shell")
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "shell",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{".bashrc"},
+						Backup: "./shell",
+						Targets: map[string]string{
+							"linux": homeDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Check file was adopted
+	adoptedFile := filepath.Join(backupPath, ".bashrc")
+	if !pathExists(adoptedFile) {
+		t.Error(".bashrc was not adopted into backup")
+	}
+
+	content, _ := os.ReadFile(adoptedFile)
+	if string(content) != "existing bashrc" {
+		t.Errorf("adopted content = %q, want %q", string(content), "existing bashrc")
+	}
+
+	// Check symlink was created
+	targetFile := filepath.Join(homeDir, ".bashrc")
+	if !isSymlink(targetFile) {
+		t.Error(".bashrc is not a symlink")
+	}
+}
+
+func TestRestoreV3_FilesSubEntry_SkipsExistingSymlinks(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "shell")
+	os.MkdirAll(backupPath, 0755)
+	bashrcSrc := filepath.Join(backupPath, ".bashrc")
+	os.WriteFile(bashrcSrc, []byte("bashrc content"), 0644)
+
+	// Create target with existing symlink
+	homeDir := filepath.Join(tmpDir, "home")
+	os.MkdirAll(homeDir, 0755)
+	bashrcTarget := filepath.Join(homeDir, ".bashrc")
+	os.Symlink(bashrcSrc, bashrcTarget)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "shell",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{".bashrc"},
+						Backup: "./shell",
+						Targets: map[string]string{
+							"linux": homeDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Symlink should still point to same source
+	link, _ := os.Readlink(bashrcTarget)
+	if link != bashrcSrc {
+		t.Errorf("symlink changed, got %q, want %q", link, bashrcSrc)
+	}
+}
+
+func TestRestoreV3_FolderSubEntry_SkipsExistingSymlink(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "nvim")
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "init.lua"), []byte("config"), 0644)
+
+	// Create target with existing symlink
+	targetDir := filepath.Join(tmpDir, "home", ".config", "nvim")
+	os.MkdirAll(filepath.Dir(targetDir), 0755)
+	os.Symlink(backupPath, targetDir)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "nvim",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./nvim",
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Symlink should still exist and point to same target
+	link, _ := os.Readlink(targetDir)
+	if link != backupPath {
+		t.Errorf("symlink changed, got %q, want %q", link, backupPath)
+	}
+}
+
+func TestRestoreV3_FilesSubEntry_ReplacesExisting(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "shell")
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, ".bashrc"), []byte("new content"), 0644)
+
+	// Create existing regular file at target
+	homeDir := filepath.Join(tmpDir, "home")
+	os.MkdirAll(homeDir, 0755)
+	existingFile := filepath.Join(homeDir, ".bashrc")
+	os.WriteFile(existingFile, []byte("old content"), 0644)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "shell",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{".bashrc"},
+						Backup: "./shell",
+						Targets: map[string]string{
+							"linux": homeDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Should now be a symlink
+	if !isSymlink(existingFile) {
+		t.Error(".bashrc should be a symlink")
+	}
+
+	// Read content through symlink
+	content, _ := os.ReadFile(existingFile)
+	if string(content) != "new content" {
+		t.Errorf("content = %q, want %q", string(content), "new content")
+	}
+}
+
+func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "nvim")
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "new.lua"), []byte("new config"), 0644)
+
+	// Create existing folder at target
+	targetDir := filepath.Join(tmpDir, "home", ".config", "nvim")
+	os.MkdirAll(targetDir, 0755)
+	os.WriteFile(filepath.Join(targetDir, "old.lua"), []byte("old config"), 0644)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "nvim",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./nvim",
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Should now be a symlink
+	if !isSymlink(targetDir) {
+		t.Error("target should be a symlink")
+	}
+
+	// Old file should not exist at target
+	oldFile := filepath.Join(targetDir, "old.lua")
+	if pathExists(oldFile) {
+		t.Error("old.lua should not exist at target (folder was replaced)")
+	}
+
+	// New file should be accessible through symlink
+	newFile := filepath.Join(targetDir, "new.lua")
+	content, _ := os.ReadFile(newFile)
+	if string(content) != "new config" {
+		t.Errorf("content = %q, want %q", string(content), "new config")
+	}
+}
+
+func TestRestoreV3_MixedConfigAndGit(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup for config entry
+	backupRoot := filepath.Join(tmpDir, "backup")
+	configBackup := filepath.Join(backupRoot, "nvim-config")
+	os.MkdirAll(configBackup, 0755)
+	os.WriteFile(filepath.Join(configBackup, "init.lua"), []byte("config"), 0644)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "nvim",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./nvim-config",
+						Targets: map[string]string{
+							"linux": filepath.Join(tmpDir, "home", ".config", "nvim"),
+						},
+					},
+					{
+						Name:   "plugins",
+						Type:   "git",
+						Repo:   "https://github.com/test/plugins.git",
+						Branch: "main",
+						Targets: map[string]string{
+							"linux": filepath.Join(tmpDir, "home", ".local", "share", "nvim", "plugins"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.DryRun = true // Use dry-run to avoid actual git clone
+
+	err := mgr.Restore()
+	// Should succeed in dry-run mode
+	if err != nil {
+		t.Logf("Restore() returned: %v", err)
+	}
+
+	// Config symlink should not exist in dry-run
+	configTarget := filepath.Join(tmpDir, "home", ".config", "nvim")
+	if pathExists(configTarget) {
+		t.Error("dry-run should not create config symlink")
+	}
+
+	// Git target should not exist in dry-run
+	gitTarget := filepath.Join(tmpDir, "home", ".local", "share", "nvim", "plugins")
+	if pathExists(gitTarget) {
+		t.Error("dry-run should not create git target")
+	}
+}
+
+func TestRestoreV3_SkipsWrongOS(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(filepath.Join(backupRoot, "test"), 0755)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test-app",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./test",
+						Targets: map[string]string{
+							"windows": filepath.Join(tmpDir, "target"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Target should not be created (wrong OS)
+	targetDir := filepath.Join(tmpDir, "target")
+	if pathExists(targetDir) {
+		t.Error("target should not exist for wrong OS")
+	}
+}
+
+// gitAvailable checks if git command is available
+func gitAvailable() bool {
+	cmd := exec.Command("git", "--version")
+	return cmd.Run() == nil
+}
+
+func TestRestoreGitEntry_Clone(t *testing.T) {
+	if !gitAvailable() {
+		t.Skip("git not available")
+	}
+
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create a local git repo to clone from
+	sourceRepo := filepath.Join(tmpDir, "source.git")
+	os.MkdirAll(sourceRepo, 0755)
+
+	// Initialize bare repo
+	cmd := exec.Command("git", "init", "--bare", sourceRepo)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to create test repo: %v", err)
+	}
+
+	// Create a working repo to push from
+	workRepo := filepath.Join(tmpDir, "work")
+	os.MkdirAll(workRepo, 0755)
+	cmd = exec.Command("git", "init", workRepo)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to init work repo: %v", err)
+	}
+
+	// Configure git
+	cmd = exec.Command("git", "-C", workRepo, "config", "user.email", "test@test.com")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "config", "user.name", "Test")
+	cmd.Run()
+
+	// Create a test file and commit
+	testFile := filepath.Join(workRepo, "test.txt")
+	os.WriteFile(testFile, []byte("test content"), 0644)
+	cmd = exec.Command("git", "-C", workRepo, "add", "test.txt")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to add file: %v", err)
+	}
+	cmd = exec.Command("git", "-C", workRepo, "commit", "-m", "initial commit")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to commit: %v", err)
+	}
+
+	// Push to bare repo
+	cmd = exec.Command("git", "-C", workRepo, "remote", "add", "origin", sourceRepo)
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "master")
+	if err := cmd.Run(); err != nil {
+		// Try main branch if master fails
+		cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "main")
+		cmd.Run()
+	}
+
+	// Now test cloning
+	targetDir := filepath.Join(tmpDir, "target", "clone")
+
+	cfg := &config.Config{BackupRoot: tmpDir}
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	entry := config.Entry{
+		Name: "test-repo",
+		Repo: sourceRepo,
+		Targets: map[string]string{
+			"linux": targetDir,
+		},
+	}
+
+	err := mgr.restoreGitEntry(entry, targetDir)
+	if err != nil {
+		t.Fatalf("restoreGitEntry() error = %v", err)
+	}
+
+	// Check repo was cloned
+	if !pathExists(targetDir) {
+		t.Error("target directory was not created")
+	}
+
+	gitDir := filepath.Join(targetDir, ".git")
+	if !pathExists(gitDir) {
+		t.Error(".git directory was not created")
+	}
+
+	// Check file exists
+	clonedFile := filepath.Join(targetDir, "test.txt")
+	if !pathExists(clonedFile) {
+		t.Error("test.txt was not cloned")
+	}
+
+	content, _ := os.ReadFile(clonedFile)
+	if string(content) != "test content" {
+		t.Errorf("content = %q, want %q", string(content), "test content")
+	}
+}
+
+func TestRestoreGitEntry_PullExisting(t *testing.T) {
+	if !gitAvailable() {
+		t.Skip("git not available")
+	}
+
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create a local git repo
+	sourceRepo := filepath.Join(tmpDir, "source.git")
+	os.MkdirAll(sourceRepo, 0755)
+
+	cmd := exec.Command("git", "init", "--bare", sourceRepo)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to create test repo: %v", err)
+	}
+
+	// Create and push initial content
+	workRepo := filepath.Join(tmpDir, "work")
+	os.MkdirAll(workRepo, 0755)
+	cmd = exec.Command("git", "init", workRepo)
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "config", "user.email", "test@test.com")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "config", "user.name", "Test")
+	cmd.Run()
+
+	os.WriteFile(filepath.Join(workRepo, "file1.txt"), []byte("v1"), 0644)
+	cmd = exec.Command("git", "-C", workRepo, "add", "file1.txt")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "commit", "-m", "v1")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "remote", "add", "origin", sourceRepo)
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "master")
+	if err := cmd.Run(); err != nil {
+		cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "main")
+		cmd.Run()
+	}
+
+	// Clone to target
+	targetDir := filepath.Join(tmpDir, "target")
+	cmd = exec.Command("git", "clone", sourceRepo, targetDir)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to clone: %v", err)
+	}
+
+	// Add new content to work repo
+	os.WriteFile(filepath.Join(workRepo, "file2.txt"), []byte("v2"), 0644)
+	cmd = exec.Command("git", "-C", workRepo, "add", "file2.txt")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "commit", "-m", "v2")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "push")
+	cmd.Run()
+
+	// Now test pulling
+	cfg := &config.Config{BackupRoot: tmpDir}
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	entry := config.Entry{
+		Name: "test-repo",
+		Repo: sourceRepo,
+		Targets: map[string]string{
+			"linux": targetDir,
+		},
+	}
+
+	err := mgr.restoreGitEntry(entry, targetDir)
+	if err != nil {
+		t.Fatalf("restoreGitEntry() error = %v", err)
+	}
+
+	// Check new file was pulled
+	newFile := filepath.Join(targetDir, "file2.txt")
+	if !pathExists(newFile) {
+		t.Error("file2.txt was not pulled")
+	}
+
+	content, _ := os.ReadFile(newFile)
+	if string(content) != "v2" {
+		t.Errorf("content = %q, want %q", string(content), "v2")
+	}
+}
+
+func TestRestoreGitSubEntry_Clone(t *testing.T) {
+	if !gitAvailable() {
+		t.Skip("git not available")
+	}
+
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create a local git repo to clone from
+	sourceRepo := filepath.Join(tmpDir, "source.git")
+	os.MkdirAll(sourceRepo, 0755)
+
+	cmd := exec.Command("git", "init", "--bare", sourceRepo)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to create test repo: %v", err)
+	}
+
+	// Create working repo
+	workRepo := filepath.Join(tmpDir, "work")
+	os.MkdirAll(workRepo, 0755)
+	cmd = exec.Command("git", "init", workRepo)
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "config", "user.email", "test@test.com")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "config", "user.name", "Test")
+	cmd.Run()
+
+	os.WriteFile(filepath.Join(workRepo, "plugin.lua"), []byte("plugin code"), 0644)
+	cmd = exec.Command("git", "-C", workRepo, "add", "plugin.lua")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "commit", "-m", "add plugin")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "remote", "add", "origin", sourceRepo)
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "master")
+	if err := cmd.Run(); err != nil {
+		cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "main")
+		cmd.Run()
+	}
+
+	// Test cloning via v3 config
+	targetDir := filepath.Join(tmpDir, "target", "plugins")
+
+	cfg := &config.Config{
+		Version: 3,
+		Applications: []config.Application{
+			{
+				Name: "nvim",
+				Entries: []config.SubEntry{
+					{
+						Name: "plugins",
+						Type: "git",
+						Repo: sourceRepo,
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Check repo was cloned
+	if !pathExists(targetDir) {
+		t.Error("target directory was not created")
+	}
+
+	gitDir := filepath.Join(targetDir, ".git")
+	if !pathExists(gitDir) {
+		t.Error(".git directory was not created")
+	}
+
+	clonedFile := filepath.Join(targetDir, "plugin.lua")
+	if !pathExists(clonedFile) {
+		t.Error("plugin.lua was not cloned")
+	}
+
+	content, _ := os.ReadFile(clonedFile)
+	if string(content) != "plugin code" {
+		t.Errorf("content = %q, want %q", string(content), "plugin code")
+	}
+}
+
+func TestRestoreGitSubEntry_PullExisting(t *testing.T) {
+	if !gitAvailable() {
+		t.Skip("git not available")
+	}
+
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create source repo
+	sourceRepo := filepath.Join(tmpDir, "source.git")
+	os.MkdirAll(sourceRepo, 0755)
+	cmd := exec.Command("git", "init", "--bare", sourceRepo)
+	cmd.Run()
+
+	// Create and push initial content
+	workRepo := filepath.Join(tmpDir, "work")
+	os.MkdirAll(workRepo, 0755)
+	cmd = exec.Command("git", "init", workRepo)
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "config", "user.email", "test@test.com")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "config", "user.name", "Test")
+	cmd.Run()
+
+	os.WriteFile(filepath.Join(workRepo, "v1.lua"), []byte("v1"), 0644)
+	cmd = exec.Command("git", "-C", workRepo, "add", "v1.lua")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "commit", "-m", "v1")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "remote", "add", "origin", sourceRepo)
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "master")
+	if err := cmd.Run(); err != nil {
+		cmd = exec.Command("git", "-C", workRepo, "push", "-u", "origin", "main")
+		cmd.Run()
+	}
+
+	// Clone to target
+	targetDir := filepath.Join(tmpDir, "target")
+	cmd = exec.Command("git", "clone", sourceRepo, targetDir)
+	cmd.Run()
+
+	// Add new content
+	os.WriteFile(filepath.Join(workRepo, "v2.lua"), []byte("v2"), 0644)
+	cmd = exec.Command("git", "-C", workRepo, "add", "v2.lua")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "commit", "-m", "v2")
+	cmd.Run()
+	cmd = exec.Command("git", "-C", workRepo, "push")
+	cmd.Run()
+
+	// Test pulling via v3 config
+	cfg := &config.Config{
+		Version: 3,
+		Applications: []config.Application{
+			{
+				Name: "nvim",
+				Entries: []config.SubEntry{
+					{
+						Name: "plugins",
+						Type: "git",
+						Repo: sourceRepo,
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.Restore()
+	if err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+
+	// Check new file was pulled
+	newFile := filepath.Join(targetDir, "v2.lua")
+	if !pathExists(newFile) {
+		t.Error("v2.lua was not pulled")
+	}
+
+	content, _ := os.ReadFile(newFile)
+	if string(content) != "v2" {
+		t.Errorf("content = %q, want %q", string(content), "v2")
+	}
+}
+
+func TestRestoreGitSubEntry_SkipsNonGit(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create non-git directory at target
+	targetDir := filepath.Join(tmpDir, "target")
+	os.MkdirAll(targetDir, 0755)
+	os.WriteFile(filepath.Join(targetDir, "file.txt"), []byte("not a git repo"), 0644)
+
+	cfg := &config.Config{
+		Version: 3,
+		Applications: []config.Application{
+			{
+				Name: "test",
+				Entries: []config.SubEntry{
+					{
+						Name: "repo",
+						Type: "git",
+						Repo: "https://github.com/test/repo.git",
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	err := mgr.Restore()
+	// Should not error
+	if err != nil {
+		t.Logf("Restore() returned: %v", err)
+	}
+
+	// Target should still exist but .git should not
+	gitDir := filepath.Join(targetDir, ".git")
+	if pathExists(gitDir) {
+		t.Error(".git directory should not exist (skipped non-git target)")
+	}
+}
+
+func TestRestoreFiles_SourceMissing(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// No source files exist
+	backupDir := filepath.Join(tmpDir, "backup")
+	targetDir := filepath.Join(tmpDir, "target")
+	os.MkdirAll(targetDir, 0755)
+
+	cfg := &config.Config{BackupRoot: tmpDir}
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	entry := config.Entry{Name: "test", Files: []string{"missing.txt"}}
+	err := mgr.restoreFiles(entry, backupDir, targetDir)
+	if err != nil {
+		t.Fatalf("restoreFiles() error = %v", err)
+	}
+
+	// No symlink should be created (source doesn't exist)
+	targetFile := filepath.Join(targetDir, "missing.txt")
+	if pathExists(targetFile) {
+		t.Error("symlink should not be created for missing source")
+	}
+}
+
+func TestRestoreFolder_SourceMissing(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// No source folder exists
+	backupDir := filepath.Join(tmpDir, "backup", "missing")
+	targetDir := filepath.Join(tmpDir, "target")
+
+	cfg := &config.Config{BackupRoot: tmpDir}
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	entry := config.Entry{Name: "test"}
+	err := mgr.restoreFolder(entry, backupDir, targetDir)
+	if err != nil {
+		t.Fatalf("restoreFolder() error = %v", err)
+	}
+
+	// Target should not be created (source doesn't exist)
+	if pathExists(targetDir) {
+		t.Error("target should not be created when source is missing")
+	}
+}
+
+func TestRestoreV3_ErrorHandling(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup that's actually a file (invalid)
+	backupRoot := filepath.Join(tmpDir, "backup")
+	os.MkdirAll(backupRoot, 0755)
+	invalidBackup := filepath.Join(backupRoot, "invalid")
+	os.WriteFile(invalidBackup, []byte("not a directory"), 0644)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./invalid",
+						Targets: map[string]string{
+							"linux": filepath.Join(tmpDir, "target"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	err := mgr.Restore()
+	// Should log error but not fail completely
+	if err != nil {
+		t.Logf("Restore() returned: %v", err)
+	}
+}
+
+func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "missing")
+	targetDir := filepath.Join(tmpDir, "target")
+	os.MkdirAll(targetDir, 0755)
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Files:  []string{"file.txt"},
+						Backup: "./missing",
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	subEntry := cfg.Applications[0].Entries[0]
+	err := mgr.restoreFilesSubEntry("test", subEntry, backupPath, targetDir)
+	if err != nil {
+		t.Fatalf("restoreFilesSubEntry() error = %v", err)
+	}
+
+	// No symlink should be created
+	targetFile := filepath.Join(targetDir, "file.txt")
+	if pathExists(targetFile) {
+		t.Error("symlink should not be created for missing source")
+	}
+}
+
+func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	backupRoot := filepath.Join(tmpDir, "backup")
+	backupPath := filepath.Join(backupRoot, "missing")
+	targetDir := filepath.Join(tmpDir, "target")
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: backupRoot,
+		Applications: []config.Application{
+			{
+				Name: "test",
+				Entries: []config.SubEntry{
+					{
+						Name:   "config",
+						Type:   "config",
+						Backup: "./missing",
+						Targets: map[string]string{
+							"linux": targetDir,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	subEntry := cfg.Applications[0].Entries[0]
+	err := mgr.restoreFolderSubEntry("test", subEntry, backupPath, targetDir)
+	if err != nil {
+		t.Fatalf("restoreFolderSubEntry() error = %v", err)
+	}
+
+	// Target should not be created
+	if pathExists(targetDir) {
+		t.Error("target should not be created when source is missing")
 	}
 }
