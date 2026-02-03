@@ -1509,3 +1509,36 @@ func TestGetAllGitSubEntries(t *testing.T) {
 		t.Errorf("GetAllGitSubEntries(darwin) returned %d sub-entries, want 0", len(darwinGitSubEntries))
 	}
 }
+
+func TestLoad_FileHandleClosed(t *testing.T) {
+	// Create temp config file
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.yaml")
+
+	content := `version: 2
+backup_root: /test
+entries:
+  - name: test
+    backup: ./test
+    targets:
+      linux: ~/.config/test
+`
+	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load config
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// Try to remove file immediately - should succeed if handle closed
+	if err := os.Remove(cfgPath); err != nil {
+		t.Errorf("Failed to remove config file, handle may not be closed: %v", err)
+	}
+
+	if cfg == nil {
+		t.Error("Expected config to be loaded")
+	}
+}

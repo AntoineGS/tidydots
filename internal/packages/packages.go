@@ -285,8 +285,19 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 		return false, fmt.Sprintf("Failed to create temp file: %v", err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
+
+	// Close immediately - we only need the path
+	if err := tmpFile.Close(); err != nil {
+		return false, fmt.Sprintf("Failed to close temp file: %v", err)
+	}
+
+	// Ensure cleanup on all exit paths
+	defer func() {
+		if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+			// Log but don't fail on cleanup errors
+			fmt.Printf("[WARN] Failed to remove temp file %s: %v\n", tmpPath, err)
+		}
+	}()
 
 	// Download file
 	var downloadCmd *exec.Cmd
@@ -306,7 +317,9 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 
 	// Make executable on Unix
 	if runtime.GOOS != "windows" {
-		os.Chmod(tmpPath, 0755)
+		if err := os.Chmod(tmpPath, 0755); err != nil {
+			return false, fmt.Sprintf("Failed to make executable: %v", err)
+		}
 	}
 
 	// Run install command

@@ -85,33 +85,46 @@ func pathExists(path string) bool {
 	return err == nil
 }
 
-func copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
+func copyFile(src, dst string) (err error) {
+	srcFile, openErr := os.Open(src)
+	if openErr != nil {
+		return fmt.Errorf("opening source: %w", openErr)
 	}
-	defer srcFile.Close()
+	defer srcFile.Close() // Explicit close
 
-	srcInfo, err := srcFile.Stat()
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-		return err
+	srcInfo, statErr := srcFile.Stat()
+	if statErr != nil {
+		return fmt.Errorf("stating source: %w", statErr)
 	}
 
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-
-	if _, err := io.Copy(dstFile, srcFile); err != nil {
-		return err
+	if mkdirErr := os.MkdirAll(filepath.Dir(dst), 0755); mkdirErr != nil {
+		return fmt.Errorf("creating destination directory: %w", mkdirErr)
 	}
 
-	return os.Chmod(dst, srcInfo.Mode())
+	dstFile, createErr := os.Create(dst)
+	if createErr != nil {
+		return fmt.Errorf("creating destination: %w", createErr)
+	}
+	defer func() {
+		if cerr := dstFile.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("closing destination: %w", cerr)
+		}
+	}()
+
+	if _, err = io.Copy(dstFile, srcFile); err != nil {
+		return fmt.Errorf("copying data: %w", err)
+	}
+
+	// Explicitly sync before setting permissions
+	if err = dstFile.Sync(); err != nil {
+		return fmt.Errorf("syncing destination: %w", err)
+	}
+
+	if err = os.Chmod(dst, srcInfo.Mode()); err != nil {
+		return fmt.Errorf("setting permissions: %w", err)
+	}
+
+	return nil
 }
 
 func copyDir(src, dst string) error {
