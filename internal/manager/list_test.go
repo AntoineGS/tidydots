@@ -1,9 +1,13 @@
 package manager
 
 import (
+	"bytes"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/AntoineGS/dot-manager/internal/config"
+	"github.com/AntoineGS/dot-manager/internal/platform"
 )
 
 func TestList_FiltersByOS(t *testing.T) {
@@ -149,5 +153,64 @@ func TestList_V3Format(t *testing.T) {
 	err := m.List()
 	if err != nil {
 		t.Errorf("List() error = %v", err)
+	}
+}
+
+func TestList_SkipsGitEntries(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &config.Config{
+		Version:    3,
+		BackupRoot: tmpDir,
+		Applications: []config.Application{
+			{
+				Name: "test-app",
+				Entries: []config.SubEntry{
+					{
+						Type:   "config",
+						Name:   "config-entry",
+						Backup: "./config",
+						Targets: map[string]string{
+							"linux": "/home/user/.config/app",
+						},
+					},
+					{
+						Type: "git",
+						Name: "git-entry",
+						Repo: "https://github.com/test/repo.git",
+						Targets: map[string]string{
+							"linux": "/home/user/.local/share/app",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	mgr.List()
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	// Should contain config-entry
+	if !strings.Contains(output, "config-entry") {
+		t.Error("Expected config-entry in output")
+	}
+
+	// Should not contain git-entry
+	if strings.Contains(output, "git-entry") {
+		t.Error("Did not expect git-entry in output")
 	}
 }

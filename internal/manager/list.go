@@ -19,6 +19,10 @@ func (m *Manager) List() error {
 		}
 
 		for _, entry := range app.Entries {
+			if !entry.IsConfig() {
+				continue
+			}
+
 			target := entry.GetTarget(m.Platform.OS)
 			if target == "" {
 				continue
