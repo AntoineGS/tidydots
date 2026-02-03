@@ -38,7 +38,7 @@ entries:
       linux: "/etc/pacman.d/hooks"
 `
 
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
@@ -63,7 +63,7 @@ entries:
 	}
 
 	// Test first entry (neovim)
-	if cfg.Entries[0].Name != "neovim" {
+	if cfg.Entries[0].Name != "neovim" { // nolint:goconst // test data
 		t.Errorf("Entries[0].Name = %q, want %q", cfg.Entries[0].Name, "neovim")
 	}
 
@@ -108,7 +108,7 @@ func TestLoadInvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
-	if err := os.WriteFile(configPath, []byte("invalid: yaml: content:"), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte("invalid: yaml: content:"), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
@@ -128,7 +128,7 @@ version: 1
 backup_root: "~/dotfiles"
 entries: []
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
@@ -323,7 +323,7 @@ func TestLoadDefaultVersion(t *testing.T) {
 backup_root: "~/dotfiles"
 entries: []
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
@@ -389,7 +389,7 @@ entries:
         pacman: neovim
         apt: neovim
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
@@ -410,7 +410,7 @@ entries:
 		t.Errorf("len(Entries) = %d, want 1", len(cfg.Entries))
 	}
 
-	if cfg.Entries[0].Name != "neovim" {
+	if cfg.Entries[0].Name != "neovim" { // nolint:goconst // test data
 		t.Errorf("Entries[0].Name = %q, want %q", cfg.Entries[0].Name, "neovim")
 	}
 
@@ -481,7 +481,7 @@ entries:
           url: "https://example.com/tool.tar.gz"
           command: "tar xzf {file} -C /usr/local/bin"
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
@@ -524,7 +524,7 @@ entries:
         linux: "curl -fsSL https://example.com/install.sh | bash"
         windows: "iwr https://example.com/install.ps1 | iex"
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
@@ -544,94 +544,6 @@ entries:
 	custom := cfg.Entries[0].Package.Custom
 	if custom["linux"] != "curl -fsSL https://example.com/install.sh | bash" {
 		t.Errorf("Custom[linux] = %q", custom["linux"])
-	}
-}
-
-func TestLoadWithGitEntry(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "config.yaml")
-
-	configContent := `
-version: 2
-backup_root: "~/dotfiles"
-entries:
-  - name: "oh-my-zsh"
-    repo: "https://github.com/ohmyzsh/ohmyzsh.git"
-    branch: "master"
-    sudo: true
-    targets:
-      linux: "/usr/share/oh-my-zsh"
-`
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write test config: %v", err)
-	}
-
-	cfg, err := Load(configPath)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-
-	if len(cfg.Entries) != 1 {
-		t.Fatalf("len(Entries) = %d, want 1", len(cfg.Entries))
-	}
-
-	entry := cfg.Entries[0]
-	if entry.Name != "oh-my-zsh" {
-		t.Errorf("Name = %q, want %q", entry.Name, "oh-my-zsh")
-	}
-
-	if entry.Repo != "https://github.com/ohmyzsh/ohmyzsh.git" {
-		t.Errorf("Repo = %q", entry.Repo)
-	}
-
-	if entry.Branch != "master" {
-		t.Errorf("Branch = %q, want %q", entry.Branch, "master")
-	}
-
-	if !entry.Sudo {
-		t.Error("Sudo = false, want true")
-	}
-
-	if !entry.IsGit() {
-		t.Error("IsGit() = false, want true")
-	}
-
-	if entry.IsConfig() {
-		t.Error("IsConfig() = true, want false")
-	}
-}
-
-func TestGetGitEntries(t *testing.T) {
-	t.Parallel()
-
-	cfg := &Config{
-		Version: 2,
-		Entries: []Entry{
-			{Name: "neovim", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
-			{Name: "oh-my-zsh", Repo: "https://github.com/ohmyzsh/ohmyzsh.git", Sudo: true, Targets: map[string]string{"linux": "/usr/share/oh-my-zsh"}},
-			{Name: "fzf", Repo: "https://github.com/junegunn/fzf.git", Targets: map[string]string{"linux": "~/.fzf"}},
-		},
-	}
-
-	// Test getting all git entries (both root and non-root)
-	entries := cfg.GetGitEntries()
-	if len(entries) != 2 {
-		t.Errorf("GetGitEntries() returned %d entries, want 2", len(entries))
-	}
-
-	// Check both entries are present
-	names := make(map[string]bool)
-	for _, e := range entries {
-		names[e.Name] = true
-	}
-
-	if !names["fzf"] {
-		t.Error("GetGitEntries() should include 'fzf'")
-	}
-
-	if !names["oh-my-zsh"] {
-		t.Error("GetGitEntries() should include 'oh-my-zsh'")
 	}
 }
 
@@ -700,133 +612,6 @@ func TestGetPackageEntries(t *testing.T) {
 	}
 }
 
-func TestValidateGitEntry(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		entry   Entry
-		wantErr bool
-	}{
-		{
-			name: "valid git entry",
-			entry: Entry{
-				Name: "plugin",
-				Repo: "https://github.com/test/plugin.git",
-				Targets: map[string]string{
-					"linux": "~/.plugins/test",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid git entry with branch",
-			entry: Entry{
-				Name:   "plugin",
-				Repo:   "https://github.com/test/plugin.git",
-				Branch: "develop",
-				Targets: map[string]string{
-					"linux": "~/.plugins/test",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "git entry missing targets",
-			entry: Entry{
-				Name: "plugin",
-				Repo: "https://github.com/test/plugin.git",
-			},
-			wantErr: true,
-		},
-		{
-			name: "git entry with empty target",
-			entry: Entry{
-				Name: "plugin",
-				Repo: "https://github.com/test/plugin.git",
-				Targets: map[string]string{
-					"linux": "",
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "entry with both backup and repo",
-			entry: Entry{
-				Name:   "invalid",
-				Backup: "./backup",
-				Repo:   "https://github.com/test/repo.git",
-				Targets: map[string]string{
-					"linux": "~/.test",
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "entry with neither backup, repo, nor package",
-			entry: Entry{
-				Name: "empty",
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := ValidateEntry(&tt.entry)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateEntry() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestEntryIsConfigAndIsGit(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		entry    Entry
-		isConfig bool
-		isGit    bool
-	}{
-		{
-			name:     "config entry",
-			entry:    Entry{Name: "nvim", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
-			isConfig: true,
-			isGit:    false,
-		},
-		{
-			name:     "git entry",
-			entry:    Entry{Name: "plugin", Repo: "https://github.com/test/repo.git", Targets: map[string]string{"linux": "~/.plugins"}},
-			isConfig: false,
-			isGit:    true,
-		},
-		{
-			name:     "package-only entry",
-			entry:    Entry{Name: "ripgrep", Package: &EntryPackage{Managers: map[string]string{"pacman": "ripgrep"}}},
-			isConfig: false,
-			isGit:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := tt.entry.IsConfig(); got != tt.isConfig {
-				t.Errorf("IsConfig() = %v, want %v", got, tt.isConfig)
-			}
-
-			if got := tt.entry.IsGit(); got != tt.isGit {
-				t.Errorf("IsGit() = %v, want %v", got, tt.isGit)
-			}
-		})
-	}
-}
-
 func TestGetFilteredConfigEntries(t *testing.T) {
 	t.Parallel()
 
@@ -875,36 +660,6 @@ func TestGetFilteredConfigEntries(t *testing.T) {
 	windowsEntries := cfg.GetFilteredConfigEntries(windowsCtx)
 	if len(windowsEntries) != 3 {
 		t.Errorf("GetFilteredConfigEntries(windows) returned %d entries, want 3", len(windowsEntries))
-	}
-}
-
-func TestGetFilteredGitEntries(t *testing.T) {
-	t.Parallel()
-
-	cfg := &Config{
-		Version: 2,
-		Entries: []Entry{
-			{Name: "linux-repo", Repo: "https://github.com/test/linux.git", Targets: map[string]string{"linux": "~/.linux"}, Filters: []Filter{{Include: map[string]string{"os": "linux"}}}},
-			{Name: "all-repo", Repo: "https://github.com/test/all.git", Targets: map[string]string{"linux": "~/.all"}},
-		},
-	}
-
-	linuxCtx := &FilterContext{OS: "linux", Hostname: "desktop", User: "john"}
-
-	entries := cfg.GetFilteredGitEntries(linuxCtx)
-	if len(entries) != 2 {
-		t.Errorf("GetFilteredGitEntries(linux) returned %d entries, want 2", len(entries))
-	}
-
-	windowsCtx := &FilterContext{OS: "windows", Hostname: "desktop", User: "john"}
-
-	windowsEntries := cfg.GetFilteredGitEntries(windowsCtx)
-	if len(windowsEntries) != 1 {
-		t.Errorf("GetFilteredGitEntries(windows) returned %d entries, want 1", len(windowsEntries))
-	}
-
-	if windowsEntries[0].Name != "all-repo" {
-		t.Errorf("Expected all-repo, got %s", windowsEntries[0].Name)
 	}
 }
 
@@ -993,18 +748,17 @@ applications:
         pacman: "neovim"
         apt: "neovim"
 
-  - name: "oh-my-zsh"
-    description: "Zsh framework"
+  - name: "zsh"
+    description: "Zsh configuration"
     entries:
-      - type: "git"
-        name: "oh-my-zsh-repo"
-        repo: "https://github.com/ohmyzsh/ohmyzsh.git"
-        branch: "master"
+      - type: "config"
+        name: "zshrc"
+        backup: "./zsh"
         sudo: true
         targets:
-          linux: "/usr/share/oh-my-zsh"
+          linux: "/etc/zsh/zshrc"
 `
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
@@ -1043,10 +797,6 @@ applications:
 
 	// Test first sub-entry (nvim-config)
 	subEntry1 := app1.Entries[0]
-	if subEntry1.Type != "config" {
-		t.Errorf("SubEntry[0].Type = %q, want %q", subEntry1.Type, "config")
-	}
-
 	if subEntry1.Name != "nvim-config" {
 		t.Errorf("SubEntry[0].Name = %q, want %q", subEntry1.Name, "nvim-config")
 	}
@@ -1065,10 +815,6 @@ applications:
 
 	// Test second sub-entry (nvim-local)
 	subEntry2 := app1.Entries[1]
-	if subEntry2.Type != "config" {
-		t.Errorf("SubEntry[1].Type = %q, want %q", subEntry2.Type, "config")
-	}
-
 	if len(subEntry2.Files) != 1 {
 		t.Errorf("len(SubEntry[1].Files) = %d, want 1", len(subEntry2.Files))
 	}
@@ -1086,36 +832,28 @@ applications:
 		t.Errorf("Applications[0].Package.Managers[pacman] = %q, want %q", app1.Package.Managers["pacman"], "neovim")
 	}
 
-	// Test second application (oh-my-zsh)
+	// Test second application (zsh)
 	app2 := cfg.Applications[1]
-	if app2.Name != "oh-my-zsh" {
-		t.Errorf("Applications[1].Name = %q, want %q", app2.Name, "oh-my-zsh")
+	if app2.Name != "zsh" {
+		t.Errorf("Applications[1].Name = %q, want %q", app2.Name, "zsh")
 	}
 
 	if len(app2.Entries) != 1 {
 		t.Fatalf("len(Applications[1].Entries) = %d, want 1", len(app2.Entries))
 	}
 
-	// Test git sub-entry
-	gitEntry := app2.Entries[0]
-	if gitEntry.Type != "git" {
-		t.Errorf("GitEntry.Type = %q, want %q", gitEntry.Type, "git")
+	// Test config sub-entry with sudo
+	configEntry := app2.Entries[0]
+	if configEntry.Name != "zshrc" {
+		t.Errorf("ConfigEntry.Name = %q, want %q", configEntry.Name, "zshrc")
 	}
 
-	if !gitEntry.IsGit() {
-		t.Error("GitEntry.IsGit() = false, want true")
+	if !configEntry.IsConfig() {
+		t.Error("ConfigEntry.IsConfig() = false, want true")
 	}
 
-	if gitEntry.Repo != "https://github.com/ohmyzsh/ohmyzsh.git" {
-		t.Errorf("GitEntry.Repo = %q", gitEntry.Repo)
-	}
-
-	if gitEntry.Branch != "master" {
-		t.Errorf("GitEntry.Branch = %q, want %q", gitEntry.Branch, "master")
-	}
-
-	if !gitEntry.Sudo {
-		t.Error("GitEntry.Sudo = false, want true")
+	if !configEntry.Sudo {
+		t.Error("ConfigEntry.Sudo = false, want true")
 	}
 }
 
@@ -1132,7 +870,7 @@ func TestGetFilteredApplications(t *testing.T) {
 					{Include: map[string]string{"os": "linux"}},
 				},
 				Entries: []SubEntry{
-					{Type: "config", Name: "nvim-config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
+					{Name: "nvim-config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
 				},
 				Package: &EntryPackage{Managers: map[string]string{"pacman": "neovim"}},
 			},
@@ -1143,14 +881,14 @@ func TestGetFilteredApplications(t *testing.T) {
 					{Include: map[string]string{"os": "windows"}},
 				},
 				Entries: []SubEntry{
-					{Type: "config", Name: "vscode-config", Backup: "./vscode", Targets: map[string]string{"windows": "~/AppData/Roaming/Code"}},
+					{Name: "vscode-config", Backup: "./vscode", Targets: map[string]string{"windows": "~/AppData/Roaming/Code"}},
 				},
 			},
 			{
 				Name:        "git",
 				Description: "Version control",
 				Entries: []SubEntry{
-					{Type: "config", Name: "gitconfig", Files: []string{".gitconfig"}, Backup: "./git", Targets: map[string]string{"linux": "~", "windows": "~"}},
+					{Name: "gitconfig", Files: []string{".gitconfig"}, Backup: "./git", Targets: map[string]string{"linux": "~", "windows": "~"}},
 				},
 			},
 			{
@@ -1160,7 +898,7 @@ func TestGetFilteredApplications(t *testing.T) {
 					{Include: map[string]string{"hostname": "work-.*"}},
 				},
 				Entries: []SubEntry{
-					{Type: "config", Name: "work-config", Backup: "./work", Targets: map[string]string{"linux": "~/.work"}},
+					{Name: "work-config", Backup: "./work", Targets: map[string]string{"linux": "~/.work"}},
 				},
 			},
 		},
@@ -1235,20 +973,11 @@ func TestExpandPathsV3(t *testing.T) {
 				Name: "neovim",
 				Entries: []SubEntry{
 					{
-						Type:   "config",
 						Name:   "nvim-config",
 						Backup: "./nvim",
 						Files:  []string{"$CUSTOM_VAR"},
 						Targets: map[string]string{
 							"linux": "~/.config/nvim",
-						},
-					},
-					{
-						Type: "git",
-						Name: "nvim-plugin",
-						Repo: "https://github.com/test/plugin.git",
-						Targets: map[string]string{
-							"linux": "~/.local/share/nvim/site/pack/plugins",
 						},
 					},
 				},
@@ -1284,12 +1013,6 @@ func TestExpandPathsV3(t *testing.T) {
 	expectedTarget := filepath.Join(home, ".config/nvim")
 	if cfg.Applications[0].Entries[0].Targets["linux"] != expectedTarget {
 		t.Errorf("SubEntry Targets[linux] = %q, want %q", cfg.Applications[0].Entries[0].Targets["linux"], expectedTarget)
-	}
-
-	// Test target expansion for git entry
-	expectedGitTarget := filepath.Join(home, ".local/share/nvim/site/pack/plugins")
-	if cfg.Applications[0].Entries[1].Targets["linux"] != expectedGitTarget {
-		t.Errorf("Git SubEntry Targets[linux] = %q, want %q", cfg.Applications[0].Entries[1].Targets["linux"], expectedGitTarget)
 	}
 }
 
@@ -1371,8 +1094,7 @@ func TestGetAllSubEntries(t *testing.T) {
 					{Include: map[string]string{"os": "linux"}},
 				},
 				Entries: []SubEntry{
-					{Type: "config", Name: "nvim-config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
-					{Type: "git", Name: "nvim-plugin", Repo: "https://github.com/test/plugin.git", Targets: map[string]string{"linux": "~/.local/share/nvim"}},
+					{Name: "nvim-config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
 				},
 			},
 			{
@@ -1382,14 +1104,14 @@ func TestGetAllSubEntries(t *testing.T) {
 					{Include: map[string]string{"os": "windows"}},
 				},
 				Entries: []SubEntry{
-					{Type: "config", Name: "vscode-config", Backup: "./vscode", Targets: map[string]string{"windows": "~/AppData/Roaming/Code"}},
+					{Name: "vscode-config", Backup: "./vscode", Targets: map[string]string{"windows": "~/AppData/Roaming/Code"}},
 				},
 			},
 			{
 				Name:        "git",
 				Description: "Version control",
 				Entries: []SubEntry{
-					{Type: "config", Name: "gitconfig", Files: []string{".gitconfig"}, Backup: "./git", Targets: map[string]string{"linux": "~"}},
+					{Name: "gitconfig", Files: []string{".gitconfig"}, Backup: "./git", Targets: map[string]string{"linux": "~"}},
 				},
 			},
 		},
@@ -1399,8 +1121,8 @@ func TestGetAllSubEntries(t *testing.T) {
 	linuxCtx := &FilterContext{OS: "linux", Hostname: "laptop", User: "john"}
 
 	subEntries := cfg.GetAllSubEntries(linuxCtx)
-	if len(subEntries) != 3 {
-		t.Errorf("GetAllSubEntries(linux) returned %d sub-entries, want 3", len(subEntries))
+	if len(subEntries) != 2 {
+		t.Errorf("GetAllSubEntries(linux) returned %d sub-entries, want 2", len(subEntries))
 	}
 
 	// Verify we got the correct entries
@@ -1411,10 +1133,6 @@ func TestGetAllSubEntries(t *testing.T) {
 
 	if !names["nvim-config"] {
 		t.Error("Expected nvim-config to be included")
-	}
-
-	if !names["nvim-plugin"] {
-		t.Error("Expected nvim-plugin to be included")
 	}
 
 	if !names["gitconfig"] {
@@ -1469,19 +1187,18 @@ func TestGetAllConfigSubEntries(t *testing.T) {
 					{Include: map[string]string{"os": "linux"}},
 				},
 				Entries: []SubEntry{
-					{Type: "config", Name: "nvim-config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
-					{Type: "git", Name: "nvim-plugin", Repo: "https://github.com/test/plugin.git", Targets: map[string]string{"linux": "~/.local/share/nvim"}},
-					{Type: "config", Name: "nvim-local", Files: []string{"local.lua"}, Backup: "./nvim-local", Targets: map[string]string{"linux": "~/.config/nvim/lua"}},
+					{Name: "nvim-config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
+					{Name: "nvim-local", Files: []string{"local.lua"}, Backup: "./nvim-local", Targets: map[string]string{"linux": "~/.config/nvim/lua"}},
 				},
 			},
 			{
-				Name:        "oh-my-zsh",
-				Description: "Zsh framework",
+				Name:        "zsh",
+				Description: "Zsh configuration",
 				Filters: []Filter{
 					{Include: map[string]string{"os": "linux"}},
 				},
 				Entries: []SubEntry{
-					{Type: "git", Name: "oh-my-zsh-repo", Repo: "https://github.com/ohmyzsh/ohmyzsh.git", Targets: map[string]string{"linux": "/usr/share/oh-my-zsh"}},
+					{Name: "zshrc", Backup: "./zsh", Targets: map[string]string{"linux": "~/.zshrc"}},
 				},
 			},
 			{
@@ -1491,24 +1208,24 @@ func TestGetAllConfigSubEntries(t *testing.T) {
 					{Include: map[string]string{"os": "windows"}},
 				},
 				Entries: []SubEntry{
-					{Type: "config", Name: "vscode-config", Backup: "./vscode", Targets: map[string]string{"windows": "~/AppData/Roaming/Code"}},
+					{Name: "vscode-config", Backup: "./vscode", Targets: map[string]string{"windows": "~/AppData/Roaming/Code"}},
 				},
 			},
 		},
 	}
 
-	// Test with Linux context - should only get config type sub-entries from neovim
+	// Test with Linux context - should get config sub-entries from neovim and zsh
 	linuxCtx := &FilterContext{OS: "linux", Hostname: "laptop", User: "john"}
 
 	configSubEntries := cfg.GetAllConfigSubEntries(linuxCtx)
-	if len(configSubEntries) != 2 {
-		t.Errorf("GetAllConfigSubEntries(linux) returned %d sub-entries, want 2", len(configSubEntries))
+	if len(configSubEntries) != 3 {
+		t.Errorf("GetAllConfigSubEntries(linux) returned %d sub-entries, want 3", len(configSubEntries))
 	}
 
 	// Verify we only got config type entries
 	for _, e := range configSubEntries {
 		if !e.IsConfig() {
-			t.Errorf("GetAllConfigSubEntries returned non-config entry: %s (type: %s)", e.Name, e.Type)
+			t.Errorf("GetAllConfigSubEntries returned non-config entry: %s", e.Name)
 		}
 	}
 
@@ -1525,12 +1242,8 @@ func TestGetAllConfigSubEntries(t *testing.T) {
 		t.Error("Expected nvim-local to be included")
 	}
 
-	if names["nvim-plugin"] {
-		t.Error("Expected nvim-plugin (git type) to be excluded")
-	}
-
-	if names["oh-my-zsh-repo"] {
-		t.Error("Expected oh-my-zsh-repo (git type) to be excluded")
+	if !names["zshrc"] {
+		t.Error("Expected zshrc to be included")
 	}
 
 	// Test with Windows context - should get vscode-config only
@@ -1554,107 +1267,6 @@ func TestGetAllConfigSubEntries(t *testing.T) {
 	}
 }
 
-func TestGetAllGitSubEntries(t *testing.T) {
-	t.Parallel()
-
-	cfg := &Config{
-		Version: 3,
-		Applications: []Application{
-			{
-				Name:        "neovim",
-				Description: "Text editor",
-				Filters: []Filter{
-					{Include: map[string]string{"os": "linux"}},
-				},
-				Entries: []SubEntry{
-					{Type: "config", Name: "nvim-config", Backup: "./nvim", Targets: map[string]string{"linux": "~/.config/nvim"}},
-					{Type: "git", Name: "nvim-plugin", Repo: "https://github.com/test/plugin.git", Targets: map[string]string{"linux": "~/.local/share/nvim"}},
-				},
-			},
-			{
-				Name:        "oh-my-zsh",
-				Description: "Zsh framework",
-				Filters: []Filter{
-					{Include: map[string]string{"os": "linux"}},
-				},
-				Entries: []SubEntry{
-					{Type: "git", Name: "oh-my-zsh-repo", Repo: "https://github.com/ohmyzsh/ohmyzsh.git", Branch: "master", Sudo: true, Targets: map[string]string{"linux": "/usr/share/oh-my-zsh"}},
-				},
-			},
-			{
-				Name:        "windows-tools",
-				Description: "Windows utilities",
-				Filters: []Filter{
-					{Include: map[string]string{"os": "windows"}},
-				},
-				Entries: []SubEntry{
-					{Type: "git", Name: "windows-repo", Repo: "https://github.com/test/windows.git", Targets: map[string]string{"windows": "~/tools"}},
-					{Type: "config", Name: "windows-config", Backup: "./windows", Targets: map[string]string{"windows": "~/config"}},
-				},
-			},
-		},
-	}
-
-	// Test with Linux context - should only get git type sub-entries from neovim and oh-my-zsh
-	linuxCtx := &FilterContext{OS: "linux", Hostname: "laptop", User: "john"}
-
-	gitSubEntries := cfg.GetAllGitSubEntries(linuxCtx)
-	if len(gitSubEntries) != 2 {
-		t.Errorf("GetAllGitSubEntries(linux) returned %d sub-entries, want 2", len(gitSubEntries))
-	}
-
-	// Verify we only got git type entries
-	for _, e := range gitSubEntries {
-		if !e.IsGit() {
-			t.Errorf("GetAllGitSubEntries returned non-git entry: %s (type: %s)", e.Name, e.Type)
-		}
-	}
-
-	names := make(map[string]bool)
-	for _, e := range gitSubEntries {
-		names[e.Name] = true
-	}
-
-	if !names["nvim-plugin"] {
-		t.Error("Expected nvim-plugin to be included")
-	}
-
-	if !names["oh-my-zsh-repo"] {
-		t.Error("Expected oh-my-zsh-repo to be included")
-	}
-
-	if names["nvim-config"] {
-		t.Error("Expected nvim-config (config type) to be excluded")
-	}
-
-	// Test sudo flag is preserved
-	for _, e := range gitSubEntries {
-		if e.Name == "oh-my-zsh-repo" && !e.Sudo {
-			t.Error("Expected oh-my-zsh-repo to have Sudo=true")
-		}
-	}
-
-	// Test with Windows context - should get windows-repo only
-	windowsCtx := &FilterContext{OS: "windows", Hostname: "desktop", User: "john"}
-
-	windowsGitSubEntries := cfg.GetAllGitSubEntries(windowsCtx)
-	if len(windowsGitSubEntries) != 1 {
-		t.Errorf("GetAllGitSubEntries(windows) returned %d sub-entries, want 1", len(windowsGitSubEntries))
-	}
-
-	if windowsGitSubEntries[0].Name != "windows-repo" {
-		t.Errorf("Expected windows-repo, got %s", windowsGitSubEntries[0].Name)
-	}
-
-	// Test with no matching entries (all filtered out)
-	darwinCtx := &FilterContext{OS: "darwin", Hostname: "mac", User: "john"}
-
-	darwinGitSubEntries := cfg.GetAllGitSubEntries(darwinCtx)
-	if len(darwinGitSubEntries) != 0 {
-		t.Errorf("GetAllGitSubEntries(darwin) returned %d sub-entries, want 0", len(darwinGitSubEntries))
-	}
-}
-
 func TestLoad_FileHandleClosed(t *testing.T) {
 	// Create temp config file
 	tmpDir := t.TempDir()
@@ -1668,7 +1280,7 @@ entries:
     targets:
       linux: ~/.config/test
 `
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 

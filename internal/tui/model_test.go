@@ -278,7 +278,7 @@ func TestGetApplicationAtCursor(t *testing.T) {
 		t.Errorf("Expected first app to be 'bash', got '%s'", model.Applications[0].Application.Name)
 	}
 
-	if model.Applications[1].Application.Name != "nvim" {
+	if model.Applications[1].Application.Name != "nvim" { // nolint:goconst // test data
 		t.Errorf("Expected second app to be 'nvim', got '%s'", model.Applications[1].Application.Name)
 	}
 

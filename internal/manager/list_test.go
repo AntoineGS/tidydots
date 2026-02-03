@@ -97,9 +97,8 @@ func TestList_V2Format(t *testing.T) {
 			},
 		},
 		{
-			Name:   "git-entry",
-			Repo:   "https://github.com/test/repo.git",
-			Branch: "main",
+			Name: "git-entry",
+
 			Targets: map[string]string{
 				"linux": "~/.local/share/test",
 			},
@@ -125,19 +124,9 @@ func TestList_V3Format(t *testing.T) {
 			Entries: []config.SubEntry{
 				{
 					Name:   "config",
-					Type:   "config",
 					Backup: "./test",
 					Targets: map[string]string{
 						"linux": "~/.config/test",
-					},
-				},
-				{
-					Name:   "repo",
-					Type:   "git",
-					Repo:   "https://github.com/test/repo.git",
-					Branch: "main",
-					Targets: map[string]string{
-						"linux": "~/.local/share/test",
 					},
 				},
 			},
@@ -167,7 +156,7 @@ func TestList_SkipsGitEntries(t *testing.T) {
 				Name: "test-app",
 				Entries: []config.SubEntry{
 					{
-						Type:   "config",
+
 						Name:   "config-entry",
 						Backup: "./config",
 						Targets: map[string]string{
@@ -175,9 +164,9 @@ func TestList_SkipsGitEntries(t *testing.T) {
 						},
 					},
 					{
-						Type: "git",
+
 						Name: "git-entry",
-						Repo: "https://github.com/test/repo.git",
+
 						Targets: map[string]string{
 							"linux": "/home/user/.local/share/app",
 						},
@@ -195,13 +184,13 @@ func TestList_SkipsGitEntries(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	mgr.List()
+	_ = mgr.List()
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Should contain config-entry

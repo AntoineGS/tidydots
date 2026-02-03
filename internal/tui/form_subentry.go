@@ -343,6 +343,8 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case subFieldIsSudo:
 			m.subEntryForm.isSudo = !m.subEntryForm.isSudo
 			return m, nil
+		case subFieldName, subFieldLinux, subFieldWindows, subFieldBackup, subFieldFiles:
+			// Text and list fields don't toggle
 		}
 
 	case KeyEnter, "e":
@@ -361,6 +363,8 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case subFieldIsSudo:
 			m.subEntryForm.isSudo = !m.subEntryForm.isSudo
 			return m, nil
+		case subFieldName, subFieldLinux, subFieldWindows, subFieldBackup, subFieldFiles:
+			// Text and list fields don't toggle
 		}
 
 	case "s", "ctrl+s":
@@ -476,6 +480,8 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.subEntryForm.windowsTargetInput, cmd = m.subEntryForm.windowsTargetInput.Update(msg)
 	case subFieldBackup:
 		m.subEntryForm.backupInput, cmd = m.subEntryForm.backupInput.Update(msg)
+	case subFieldIsFolder, subFieldFiles, subFieldIsSudo:
+		// Boolean and list fields don't use text input
 	}
 
 	// Update suggestions for path fields after text changes
@@ -661,6 +667,8 @@ func (m Model) updateSubEntryFileInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // viewSubEntryForm renders the sub-entry form
+//
+//nolint:gocyclo // UI rendering with many states
 func (m Model) viewSubEntryForm() string {
 	if m.subEntryForm == nil {
 		return ""
@@ -768,11 +776,12 @@ func (m Model) viewSubEntryForm() string {
 			for i, file := range m.subEntryForm.files {
 				prefix := IndentSpaces
 				// Show input if editing this file
-				if m.subEntryForm.editingFile && m.subEntryForm.editingFileIndex == i {
+				switch {
+				case m.subEntryForm.editingFile && m.subEntryForm.editingFileIndex == i:
 					b.WriteString(fmt.Sprintf("%s%s\n", prefix, m.subEntryForm.newFileInput.View()))
-				} else if ft == subFieldFiles && !m.subEntryForm.addingFile && !m.subEntryForm.editingFile && m.subEntryForm.filesCursor == i {
+				case ft == subFieldFiles && !m.subEntryForm.addingFile && !m.subEntryForm.editingFile && m.subEntryForm.filesCursor == i:
 					b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render("• "+file)))
-				} else {
+				default:
 					b.WriteString(fmt.Sprintf("%s• %s\n", prefix, file))
 				}
 			}
@@ -819,6 +828,8 @@ func (m Model) viewSubEntryForm() string {
 }
 
 // renderSubEntryFieldValue renders a field value with appropriate styling
+//
+//nolint:unparam // placeholder parameter kept for consistency and future extensibility
 func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder string) string {
 	if m.subEntryForm == nil {
 		return placeholder
@@ -839,6 +850,8 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 		input = m.subEntryForm.windowsTargetInput
 	case subFieldBackup:
 		input = m.subEntryForm.backupInput
+	case subFieldIsFolder, subFieldFiles, subFieldIsSudo:
+		return placeholder
 	default:
 		return placeholder
 	}
@@ -1043,6 +1056,8 @@ func (m *Model) updateSubEntryFormFocus() {
 		m.subEntryForm.windowsTargetInput.Focus()
 	case subFieldBackup:
 		m.subEntryForm.backupInput.Focus()
+	case subFieldIsFolder, subFieldFiles, subFieldIsSudo:
+		// Boolean and list fields don't use text input focus
 	}
 }
 
@@ -1072,6 +1087,8 @@ func (m *Model) enterSubEntryFieldEditMode() {
 		m.subEntryForm.originalValue = m.subEntryForm.backupInput.Value()
 		m.subEntryForm.backupInput.Focus()
 		m.subEntryForm.backupInput.SetCursor(len(m.subEntryForm.backupInput.Value()))
+	case subFieldIsFolder, subFieldFiles, subFieldIsSudo:
+		// Boolean and list fields don't use text input editing
 	}
 }
 
@@ -1091,6 +1108,8 @@ func (m *Model) cancelSubEntryFieldEdit() {
 		m.subEntryForm.windowsTargetInput.SetValue(m.subEntryForm.originalValue)
 	case subFieldBackup:
 		m.subEntryForm.backupInput.SetValue(m.subEntryForm.originalValue)
+	case subFieldIsFolder, subFieldFiles, subFieldIsSudo:
+		// Boolean and list fields don't use text input restoration
 	}
 
 	m.subEntryForm.editingField = false
@@ -1121,6 +1140,10 @@ func (m *Model) updateSuggestionsSubEntry() {
 		input = m.subEntryForm.windowsTargetInput.Value()
 	case subFieldBackup:
 		input = m.subEntryForm.backupInput.Value()
+	case subFieldName, subFieldIsFolder, subFieldFiles, subFieldIsSudo:
+		m.subEntryForm.showSuggestions = false
+		m.subEntryForm.suggestions = nil
+		return
 	default:
 		m.subEntryForm.showSuggestions = false
 		m.subEntryForm.suggestions = nil
@@ -1153,6 +1176,8 @@ func (m *Model) acceptSuggestionSubEntry() {
 	case subFieldBackup:
 		m.subEntryForm.backupInput.SetValue(suggestion)
 		m.subEntryForm.backupInput.SetCursor(len(suggestion))
+	case subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldName:
+		// Other fields don't use suggestions
 	}
 
 	// Keep suggestions open for continued navigation if it's a directory
@@ -1174,6 +1199,8 @@ func (m *Model) isSubEntryTextInputField() bool {
 	switch ft {
 	case subFieldName, subFieldLinux, subFieldWindows, subFieldBackup:
 		return true
+	case subFieldIsFolder, subFieldFiles, subFieldIsSudo:
+		// These fields don't have suggestions
 	}
 
 	return false
@@ -1303,14 +1330,8 @@ func (f *SubEntryForm) Validate() error {
 	}
 
 	// Check if at least one target is specified
-	hasTarget := false
-	if strings.TrimSpace(f.linuxTargetInput.Value()) != "" {
-		hasTarget = true
-	}
-
-	if strings.TrimSpace(f.windowsTargetInput.Value()) != "" {
-		hasTarget = true
-	}
+	hasTarget := strings.TrimSpace(f.linuxTargetInput.Value()) != "" ||
+		strings.TrimSpace(f.windowsTargetInput.Value()) != ""
 
 	if !hasTarget {
 		return errors.New("at least one target is required")

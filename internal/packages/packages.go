@@ -1,6 +1,7 @@
 package packages
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -52,9 +53,9 @@ type Package struct {
 	Name        string                    `yaml:"name"`
 	Description string                    `yaml:"description,omitempty"`
 	Managers    map[PackageManager]string `yaml:"managers,omitempty"`
-	Custom      map[string]string         `yaml:"custom,omitempty"`     // OS -> command
-	URL         map[string]URLInstall     `yaml:"url,omitempty"`        // OS -> URL install
-	GitBranch   string                    `yaml:"git_branch,omitempty"` // Optional branch for git repos
+	Custom      map[string]string         `yaml:"custom,omitempty"`      // OS -> command
+	URL         map[string]URLInstall     `yaml:"url,omitempty"`         // OS -> URL install
+	GitBranch   string                    `yaml:"git_branch,omitempty"`  // Optional branch for git repos
 	GitTargets  map[string]string         `yaml:"git_targets,omitempty"` // OS -> clone destination path
 	Filters     []config.Filter           `yaml:"filters,omitempty"`
 }
@@ -237,23 +238,25 @@ func (m *Manager) installWithManager(mgr PackageManager, pkgName string) (bool, 
 
 	switch mgr {
 	case Pacman:
-		cmd = exec.Command("sudo", "pacman", "-S", "--noconfirm", pkgName)
+		cmd = exec.CommandContext(context.Background(), "sudo", "pacman", "-S", "--noconfirm", pkgName)
 	case Yay:
-		cmd = exec.Command("yay", "-S", "--noconfirm", pkgName)
+		cmd = exec.CommandContext(context.Background(), "yay", "-S", "--noconfirm", pkgName)
 	case Paru:
-		cmd = exec.Command("paru", "-S", "--noconfirm", pkgName)
+		cmd = exec.CommandContext(context.Background(), "paru", "-S", "--noconfirm", pkgName)
 	case Apt:
-		cmd = exec.Command("sudo", "apt-get", "install", "-y", pkgName)
+		cmd = exec.CommandContext(context.Background(), "sudo", "apt-get", "install", "-y", pkgName)
 	case Dnf:
-		cmd = exec.Command("sudo", "dnf", "install", "-y", pkgName)
+		cmd = exec.CommandContext(context.Background(), "sudo", "dnf", "install", "-y", pkgName)
 	case Brew:
-		cmd = exec.Command("brew", "install", pkgName)
+		cmd = exec.CommandContext(context.Background(), "brew", "install", pkgName)
 	case Winget:
-		cmd = exec.Command("winget", "install", "--accept-package-agreements", "--accept-source-agreements", pkgName)
+		cmd = exec.CommandContext(context.Background(), "winget", "install", "--accept-package-agreements", "--accept-source-agreements", pkgName)
 	case Scoop:
-		cmd = exec.Command("scoop", "install", pkgName)
+		cmd = exec.CommandContext(context.Background(), "scoop", "install", pkgName)
 	case Choco:
-		cmd = exec.Command("choco", "install", "-y", pkgName)
+		cmd = exec.CommandContext(context.Background(), "choco", "install", "-y", pkgName)
+	case Git:
+		return false, "Git packages should be installed via installGitPackage"
 	default:
 		return false, fmt.Sprintf("Unknown package manager: %s", mgr)
 	}
@@ -284,9 +287,9 @@ func (m *Manager) runCustomCommand(command string) (bool, string) {
 
 	var cmd *exec.Cmd
 	if runtime.GOOS == platform.OSWindows {
-		cmd = exec.Command("powershell", "-Command", command)
+		cmd = exec.CommandContext(context.Background(), "powershell", "-Command", command)
 	} else {
-		cmd = exec.Command("sh", "-c", command)
+		cmd = exec.CommandContext(context.Background(), "sh", "-c", command)
 	}
 
 	cmd.Stdout = os.Stdout
@@ -336,10 +339,10 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 		// Escape single quotes in URL and path for PowerShell
 		escapedURL := strings.ReplaceAll(urlInstall.URL, "'", "''")
 		escapedPath := strings.ReplaceAll(tmpPath, "'", "''")
-		downloadCmd = exec.Command("powershell", "-Command",
+		downloadCmd = exec.CommandContext(context.Background(), "powershell", "-Command", //nolint:gosec // intentional download command
 			fmt.Sprintf("Invoke-WebRequest -Uri '%s' -OutFile '%s'", escapedURL, escapedPath))
 	} else {
-		downloadCmd = exec.Command("curl", "-fsSL", "-o", tmpPath, urlInstall.URL)
+		downloadCmd = exec.CommandContext(context.Background(), "curl", "-fsSL", "-o", tmpPath, urlInstall.URL) //nolint:gosec // intentional download command
 	}
 
 	if err := downloadCmd.Run(); err != nil {
@@ -358,9 +361,9 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 
 	var installCmd *exec.Cmd
 	if runtime.GOOS == platform.OSWindows {
-		installCmd = exec.Command("powershell", "-Command", command)
+		installCmd = exec.CommandContext(context.Background(), "powershell", "-Command", command) //nolint:gosec // intentional install command
 	} else {
-		installCmd = exec.Command("sh", "-c", command)
+		installCmd = exec.CommandContext(context.Background(), "sh", "-c", command) //nolint:gosec // intentional install command
 	}
 
 	installCmd.Stdout = os.Stdout
@@ -406,9 +409,9 @@ func (m *Manager) gitClone(repoURL, targetPath, branch string) (bool, string) {
 	var cmd *exec.Cmd
 
 	if branch != "" {
-		cmd = exec.Command("git", "clone", "-b", branch, repoURL, targetPath)
+		cmd = exec.CommandContext(context.Background(), "git", "clone", "-b", branch, repoURL, targetPath)
 	} else {
-		cmd = exec.Command("git", "clone", repoURL, targetPath)
+		cmd = exec.CommandContext(context.Background(), "git", "clone", repoURL, targetPath)
 	}
 
 	if m.DryRun {
@@ -426,7 +429,7 @@ func (m *Manager) gitClone(repoURL, targetPath, branch string) (bool, string) {
 }
 
 func (m *Manager) gitPull(repoPath string) (bool, string) {
-	cmd := exec.Command("git", "-C", repoPath, "pull")
+	cmd := exec.CommandContext(context.Background(), "git", "-C", repoPath, "pull")
 
 	if m.DryRun {
 		return true, fmt.Sprintf("Would run: git -C %s pull", repoPath)
@@ -536,19 +539,22 @@ func IsInstalled(pkgName string, manager string) bool {
 
 	switch PackageManager(manager) {
 	case Pacman, Yay, Paru:
-		cmd = exec.Command("pacman", "-Q", pkgName)
+		cmd = exec.CommandContext(context.Background(), "pacman", "-Q", pkgName)
 	case Apt:
-		cmd = exec.Command("dpkg", "-s", pkgName)
+		cmd = exec.CommandContext(context.Background(), "dpkg", "-s", pkgName)
 	case Dnf:
-		cmd = exec.Command("rpm", "-q", pkgName)
+		cmd = exec.CommandContext(context.Background(), "rpm", "-q", pkgName)
 	case Brew:
-		cmd = exec.Command("brew", "list", pkgName)
+		cmd = exec.CommandContext(context.Background(), "brew", "list", pkgName)
 	case Winget:
-		cmd = exec.Command("winget", "list", "--id", pkgName)
+		cmd = exec.CommandContext(context.Background(), "winget", "list", "--id", pkgName)
 	case Scoop:
-		cmd = exec.Command("scoop", "info", pkgName)
+		cmd = exec.CommandContext(context.Background(), "scoop", "info", pkgName)
 	case Choco:
-		cmd = exec.Command("choco", "list", "--local-only", pkgName)
+		cmd = exec.CommandContext(context.Background(), "choco", "list", "--local-only", pkgName)
+	case Git:
+		// For Git repos, we can't easily check installation status via this method
+		return false
 	default:
 		// For custom/url methods, we can't easily check installation status
 		return false

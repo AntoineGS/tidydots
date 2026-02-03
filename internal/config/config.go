@@ -47,7 +47,7 @@ type PathSpec struct {
 // It supports both v2 and v3 configuration formats, returning an error
 // if the version is unsupported or if the file cannot be read or parsed.
 func Load(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // path is from user config, intentional
 	if err != nil {
 		return nil, fmt.Errorf("reading config file: %w", err)
 	}
@@ -127,32 +127,6 @@ func (c *Config) GetFilteredConfigEntries(ctx *FilterContext) []Entry {
 	return result
 }
 
-// GetGitEntries returns entries that are git type (have repo)
-func (c *Config) GetGitEntries() []Entry {
-	result := make([]Entry, 0, len(c.Entries))
-
-	for _, e := range c.Entries {
-		if e.IsGit() {
-			result = append(result, e)
-		}
-	}
-
-	return result
-}
-
-// GetFilteredGitEntries returns git entries filtered by filter context
-func (c *Config) GetFilteredGitEntries(ctx *FilterContext) []Entry {
-	result := make([]Entry, 0, len(c.Entries))
-
-	for _, e := range c.Entries {
-		if e.IsGit() && MatchesFilters(e.Filters, ctx) {
-			result = append(result, e)
-		}
-	}
-
-	return result
-}
-
 // GetPackageEntries returns entries that have package configuration
 func (c *Config) GetPackageEntries() []Entry {
 	result := make([]Entry, 0, len(c.Entries))
@@ -216,24 +190,6 @@ func (c *Config) GetAllConfigSubEntries(ctx *FilterContext) []SubEntry {
 	for _, app := range apps {
 		for _, entry := range app.Entries {
 			if entry.IsConfig() {
-				result = append(result, entry)
-			}
-		}
-	}
-
-	return result
-}
-
-// GetAllGitSubEntries returns only git type sub-entries from filtered applications (v3)
-func (c *Config) GetAllGitSubEntries(ctx *FilterContext) []SubEntry {
-	apps := c.GetFilteredApplications(ctx)
-	// Estimate capacity based on average entries per app
-	estimatedCap := len(apps) * 2
-	result := make([]SubEntry, 0, estimatedCap)
-
-	for _, app := range apps {
-		for _, entry := range app.Entries {
-			if entry.IsGit() {
 				result = append(result, entry)
 			}
 		}

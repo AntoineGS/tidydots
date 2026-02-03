@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -59,6 +60,8 @@ func (m Model) viewConfirm() string {
 	switch m.Operation {
 	case OpInstallPackages:
 		icon = "󰏖"
+	case OpRestore, OpRestoreDryRun, OpAdd, OpList:
+		// Use default icon
 	}
 	title := fmt.Sprintf("%s  Confirm %s", icon, m.Operation.String())
 	b.WriteString(TitleStyle.Render(title))
@@ -116,11 +119,14 @@ func (m Model) viewConfirm() string {
 
 		// Summary
 		var summary string
-		if m.Operation == OpRestoreDryRun {
+		switch m.Operation {
+		case OpRestoreDryRun:
 			summary = fmt.Sprintf("Preview restore for %d selected paths?\n\nNo changes will be made to your filesystem.", selected)
-		} else if m.Operation == OpRestore {
+		case OpRestore:
 			summary = fmt.Sprintf("Restore %d selected paths?", selected)
-		} else {
+		case OpAdd, OpList, OpInstallPackages:
+			summary = fmt.Sprintf("You are about to %s %d path(s):", m.Operation.String(), selected)
+		default:
 			summary = fmt.Sprintf("You are about to %s %d path(s):", m.Operation.String(), selected)
 		}
 		b.WriteString(summary)
@@ -248,23 +254,23 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 	if pkgName, ok := pkg.Entry.Package.Managers[pkg.Method]; ok {
 		switch pkg.Method {
 		case "pacman":
-			return exec.Command("sudo", "pacman", "-S", "--noconfirm", pkgName)
+			return exec.CommandContext(context.Background(), "sudo", "pacman", "-S", "--noconfirm", pkgName) //nolint:gosec // intentional command
 		case "yay":
-			return exec.Command("yay", "-S", "--noconfirm", pkgName)
+			return exec.CommandContext(context.Background(), "yay", "-S", "--noconfirm", pkgName) //nolint:gosec // intentional command
 		case "paru":
-			return exec.Command("paru", "-S", "--noconfirm", pkgName)
+			return exec.CommandContext(context.Background(), "paru", "-S", "--noconfirm", pkgName) //nolint:gosec // intentional command
 		case "apt":
-			return exec.Command("sudo", "apt-get", "install", "-y", pkgName)
+			return exec.CommandContext(context.Background(), "sudo", "apt-get", "install", "-y", pkgName) //nolint:gosec // intentional command
 		case "dnf":
-			return exec.Command("sudo", "dnf", "install", "-y", pkgName)
+			return exec.CommandContext(context.Background(), "sudo", "dnf", "install", "-y", pkgName) //nolint:gosec // intentional command
 		case "brew":
-			return exec.Command("brew", "install", pkgName)
+			return exec.CommandContext(context.Background(), "brew", "install", pkgName) //nolint:gosec // intentional command
 		case "winget":
-			return exec.Command("winget", "install", "--accept-package-agreements", "--accept-source-agreements", pkgName)
+			return exec.CommandContext(context.Background(), "winget", "install", "--accept-package-agreements", "--accept-source-agreements", pkgName) //nolint:gosec // intentional command
 		case "scoop":
-			return exec.Command("scoop", "install", pkgName)
+			return exec.CommandContext(context.Background(), "scoop", "install", pkgName) //nolint:gosec // intentional command
 		case "choco":
-			return exec.Command("choco", "install", "-y", pkgName)
+			return exec.CommandContext(context.Background(), "choco", "install", "-y", pkgName) //nolint:gosec // intentional command
 		}
 	}
 
@@ -272,10 +278,10 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 	if pkg.Method == "custom" {
 		if customCmd, ok := pkg.Entry.Package.Custom[m.Platform.OS]; ok {
 			if m.Platform.OS == "windows" {
-				return exec.Command("powershell", "-Command", customCmd)
+				return exec.CommandContext(context.Background(), "powershell", "-Command", customCmd) //nolint:gosec // intentional command
 			}
 
-			return exec.Command("sh", "-c", customCmd)
+			return exec.CommandContext(context.Background(), "sh", "-c", customCmd) //nolint:gosec // intentional command
 		}
 	}
 
@@ -292,7 +298,7 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 					Remove-Item $tmpFile -ErrorAction SilentlyContinue
 				`, urlSpec.URL, urlSpec.Command)
 
-				return exec.Command("powershell", "-Command", script)
+				return exec.CommandContext(context.Background(), "powershell", "-Command", script) //nolint:gosec // intentional command
 			}
 			// Unix: download to temp, chmod, run install command, cleanup
 			script := fmt.Sprintf(`
@@ -303,7 +309,7 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 				%s
 			`, urlSpec.URL, strings.ReplaceAll(urlSpec.Command, "{file}", "$tmpfile"))
 
-			return exec.Command("sh", "-c", script)
+			return exec.CommandContext(context.Background(), "sh", "-c", script) //nolint:gosec // intentional command
 		}
 	}
 
@@ -341,7 +347,7 @@ func (m Model) restoreFolder(source, target string) (bool, string) {
 		// Create backup parent directory
 		backupParent := filepath.Dir(source)
 		if _, err := os.Stat(backupParent); os.IsNotExist(err) {
-			if err := os.MkdirAll(backupParent, 0755); err != nil {
+			if err := os.MkdirAll(backupParent, 0750); err != nil {
 				return false, fmt.Sprintf("Failed to create backup directory: %v", err)
 			}
 		}
@@ -366,7 +372,7 @@ func (m Model) restoreFolder(source, target string) (bool, string) {
 	// Create parent directory if needed
 	parentDir := filepath.Dir(target)
 	if _, err := os.Stat(parentDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(parentDir, 0755); err != nil {
+		if err := os.MkdirAll(parentDir, 0750); err != nil {
 			return false, fmt.Sprintf("Failed to create directory: %v", err)
 		}
 	}
@@ -396,7 +402,7 @@ func (m Model) restoreFiles(files []string, source, target string) (bool, string
 	// Create backup directory if needed (for adopting)
 	if _, err := os.Stat(source); os.IsNotExist(err) {
 		if !m.DryRun {
-			if err := os.MkdirAll(source, 0755); err != nil {
+			if err := os.MkdirAll(source, 0750); err != nil {
 				return false, fmt.Sprintf("Failed to create backup directory: %v", err)
 			}
 		}
@@ -405,7 +411,7 @@ func (m Model) restoreFiles(files []string, source, target string) (bool, string
 	// Create target directory if needed
 	if _, err := os.Stat(target); os.IsNotExist(err) {
 		if !m.DryRun {
-			if err := os.MkdirAll(target, 0755); err != nil {
+			if err := os.MkdirAll(target, 0750); err != nil {
 				return false, fmt.Sprintf("Failed to create directory: %v", err)
 			}
 		}
@@ -515,7 +521,7 @@ func (m Model) restoreFiles(files []string, source, target string) (bool, string
 }
 
 func copyFileSimple(src, dst string) error {
-	data, err := os.ReadFile(src)
+	data, err := os.ReadFile(src) //nolint:gosec // file path from config
 	if err != nil {
 		return err
 	}

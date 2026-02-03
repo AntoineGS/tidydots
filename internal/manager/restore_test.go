@@ -16,8 +16,12 @@ func TestRestoreFolder(t *testing.T) {
 
 	// Create source directory with content
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("config"), 0644)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Target directory
 	targetDir := filepath.Join(tmpDir, "target", "config")
@@ -55,10 +59,14 @@ func TestRestoreFolderSkipsExistingSymlink(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(srcDir, 0755)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	targetDir := filepath.Join(tmpDir, "target")
-	os.Symlink(srcDir, targetDir)
+	if err := os.Symlink(srcDir, targetDir); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: tmpDir}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -85,9 +93,15 @@ func TestRestoreFiles(t *testing.T) {
 
 	// Create source files
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "file1.txt"), []byte("content1"), 0644)
-	os.WriteFile(filepath.Join(srcDir, "file2.txt"), []byte("content2"), 0644)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "file1.txt"), []byte("content1"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "file2.txt"), []byte("content2"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	targetDir := filepath.Join(tmpDir, "target")
 
@@ -123,12 +137,20 @@ func TestRestoreFilesRemovesExisting(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("new content"), 0644)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("new content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	targetDir := filepath.Join(tmpDir, "target")
-	os.MkdirAll(targetDir, 0755)
-	os.WriteFile(filepath.Join(targetDir, "config.txt"), []byte("old content"), 0644)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "config.txt"), []byte("old content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: tmpDir}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -152,8 +174,12 @@ func TestRestoreDryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("content"), 0644)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	targetDir := filepath.Join(tmpDir, "target")
 
@@ -182,12 +208,20 @@ func TestRestoreIntegration(t *testing.T) {
 	// Create backup structure
 	backupRoot := filepath.Join(tmpDir, "backup")
 	nvimBackup := filepath.Join(backupRoot, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("vim config"), 0644)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("vim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	bashBackup := filepath.Join(backupRoot, "bash")
-	os.MkdirAll(bashBackup, 0755)
-	os.WriteFile(filepath.Join(bashBackup, ".bashrc"), []byte("bash config"), 0644)
+	if err := os.MkdirAll(bashBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bashBackup, ".bashrc"), []byte("bash config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create config
 	cfg := &config.Config{
@@ -241,8 +275,12 @@ func TestRestoreV3Application(t *testing.T) {
 	// Create backup structure
 	backupRoot := filepath.Join(tmpDir, "backup")
 	nvimBackup := filepath.Join(backupRoot, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("vim config"), 0644)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("vim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create v3 config with Application
 	cfg := &config.Config{
@@ -293,12 +331,20 @@ func TestRestoreV3MultipleSubEntries(t *testing.T) {
 	backupRoot := filepath.Join(tmpDir, "backup")
 
 	configBackup := filepath.Join(backupRoot, "nvim-config")
-	os.MkdirAll(configBackup, 0755)
-	os.WriteFile(filepath.Join(configBackup, "init.lua"), []byte("config"), 0644)
+	if err := os.MkdirAll(configBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configBackup, "init.lua"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	dataBackup := filepath.Join(backupRoot, "nvim-data")
-	os.MkdirAll(dataBackup, 0755)
-	os.WriteFile(filepath.Join(dataBackup, "lazy.lua"), []byte("data"), 0644)
+	if err := os.MkdirAll(dataBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dataBackup, "lazy.lua"), []byte("data"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create v3 config with multiple sub-entries
 	cfg := &config.Config{
@@ -357,14 +403,16 @@ func TestRestoreEntry_PathError(t *testing.T) {
 	}{
 		{
 			name: "symlink_creation_failure_returns_path_error",
-			setup: func(t *testing.T, tmpDir string) (*Manager, config.Entry) {
+			setup: func(_ *testing.T, tmpDir string) (*Manager, config.Entry) {
 				// Create backup but make target dir read-only
 				backupRoot := filepath.Join(tmpDir, "backup")
 				backupDir := filepath.Join(backupRoot, "test")
-				os.MkdirAll(backupDir, 0755)
+				if err := os.MkdirAll(backupDir, 0750); err != nil {
+					t.Fatal(err)
+				}
 
 				targetDir := filepath.Join(tmpDir, "readonly")
-				os.MkdirAll(targetDir, 0444) // read-only
+				_ = os.MkdirAll(targetDir, 0444) //nolint:gosec // intentionally read-only for test
 
 				cfg := &config.Config{
 					BackupRoot: backupRoot,
@@ -419,13 +467,21 @@ func TestRestoreV3_FilesSubEntry(t *testing.T) {
 
 	// Create backup files
 	backupRoot := filepath.Join(tmpDir, "backup", "bash")
-	os.MkdirAll(backupRoot, 0755)
-	os.WriteFile(filepath.Join(backupRoot, ".bashrc"), []byte("bashrc content"), 0644)
-	os.WriteFile(filepath.Join(backupRoot, ".profile"), []byte("profile content"), 0644)
+	if err := os.MkdirAll(backupRoot, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupRoot, ".bashrc"), []byte("bashrc content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupRoot, ".profile"), []byte("profile content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Target directory
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -435,8 +491,8 @@ func TestRestoreV3_FilesSubEntry(t *testing.T) {
 				Name: "bash",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc", ".profile"},
 						Backup: "./bash",
 						Targets: map[string]string{
@@ -469,7 +525,7 @@ func TestRestoreV3_FilesSubEntry(t *testing.T) {
 	}
 
 	// Read through symlinks to verify content
-	content, err := os.ReadFile(bashrcTarget)
+	content, err := os.ReadFile(bashrcTarget) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Failed to read .bashrc: %v", err)
 	}
@@ -485,14 +541,22 @@ func TestRestore_ReplacesExistingFile(t *testing.T) {
 
 	// Create backup
 	backupDir := filepath.Join(tmpDir, "backup", "config")
-	os.MkdirAll(backupDir, 0755)
-	os.WriteFile(filepath.Join(backupDir, "file.txt"), []byte("new content"), 0644)
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupDir, "file.txt"), []byte("new content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create existing file at target
 	targetDir := filepath.Join(tmpDir, "target")
-	os.MkdirAll(targetDir, 0755)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 	existingFile := filepath.Join(targetDir, "file.txt")
-	os.WriteFile(existingFile, []byte("old content"), 0644)
+	if err := os.WriteFile(existingFile, []byte("old content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -523,7 +587,7 @@ func TestRestore_ReplacesExistingFile(t *testing.T) {
 	}
 
 	// Read content through symlink
-	content, err := os.ReadFile(existingFile)
+	content, err := os.ReadFile(existingFile) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
 	}
@@ -538,8 +602,12 @@ func TestCreateSymlink_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	source := filepath.Join(tmpDir, "source")
-	os.MkdirAll(source, 0755)
-	os.WriteFile(filepath.Join(source, "file.txt"), []byte("content"), 0644)
+	if err := os.MkdirAll(source, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "file.txt"), []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	target := filepath.Join(tmpDir, "target")
 
@@ -581,7 +649,9 @@ func TestCreateSymlink_FileSource(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	source := filepath.Join(tmpDir, "source.txt")
-	os.WriteFile(source, []byte("content"), 0644)
+	if err := os.WriteFile(source, []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	target := filepath.Join(tmpDir, "target.txt")
 
@@ -595,7 +665,7 @@ func TestCreateSymlink_FileSource(t *testing.T) {
 	}
 
 	// Verify content through symlink
-	content, _ := os.ReadFile(target)
+	content, _ := os.ReadFile(target) //nolint:gosec // test file
 	if string(content) != "content" {
 		t.Errorf("content = %q, want %q", string(content), "content")
 	}
@@ -608,8 +678,12 @@ func TestRestoreV3_FolderSubEntry(t *testing.T) {
 	// Create backup structure
 	backupRoot := filepath.Join(tmpDir, "backup")
 	configBackup := filepath.Join(backupRoot, "app-config")
-	os.MkdirAll(configBackup, 0755)
-	os.WriteFile(filepath.Join(configBackup, "config.json"), []byte("config"), 0644)
+	if err := os.MkdirAll(configBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configBackup, "config.json"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Target directory
 	targetDir := filepath.Join(tmpDir, "home", ".config", "app")
@@ -622,8 +696,8 @@ func TestRestoreV3_FolderSubEntry(t *testing.T) {
 				Name: "test-app",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./app-config",
 						Targets: map[string]string{
 							"linux": targetDir,
@@ -660,14 +734,24 @@ func TestRestoreV3_FilesSubEntry_MultipleFiles(t *testing.T) {
 	// Create backup structure with multiple files
 	backupRoot := filepath.Join(tmpDir, "backup")
 	configBackup := filepath.Join(backupRoot, "shell")
-	os.MkdirAll(configBackup, 0755)
-	os.WriteFile(filepath.Join(configBackup, ".bashrc"), []byte("bashrc"), 0644)
-	os.WriteFile(filepath.Join(configBackup, ".profile"), []byte("profile"), 0644)
-	os.WriteFile(filepath.Join(configBackup, ".bash_aliases"), []byte("aliases"), 0644)
+	if err := os.MkdirAll(configBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configBackup, ".bashrc"), []byte("bashrc"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configBackup, ".profile"), []byte("profile"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configBackup, ".bash_aliases"), []byte("aliases"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Target directory
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -677,8 +761,8 @@ func TestRestoreV3_FilesSubEntry_MultipleFiles(t *testing.T) {
 				Name: "shell",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc", ".profile", ".bash_aliases"},
 						Backup: "./shell",
 						Targets: map[string]string{
@@ -721,8 +805,12 @@ func TestRestoreV3_FolderSubEntry_Adoption(t *testing.T) {
 
 	// Create existing target (to be adopted)
 	targetDir := filepath.Join(tmpDir, "home", ".config", "app")
-	os.MkdirAll(targetDir, 0755)
-	os.WriteFile(filepath.Join(targetDir, "existing.txt"), []byte("existing"), 0644)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "existing.txt"), []byte("existing"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
 	backupPath := filepath.Join(backupRoot, "app-config")
@@ -735,8 +823,8 @@ func TestRestoreV3_FolderSubEntry_Adoption(t *testing.T) {
 				Name: "test-app",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./app-config",
 						Targets: map[string]string{
 							"linux": targetDir,
@@ -773,8 +861,12 @@ func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
 
 	// Create existing target files (to be adopted)
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
-	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("existing bashrc"), 0644)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("existing bashrc"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
 	backupPath := filepath.Join(backupRoot, "shell")
@@ -787,8 +879,8 @@ func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
 				Name: "shell",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc"},
 						Backup: "./shell",
 						Targets: map[string]string{
@@ -814,7 +906,7 @@ func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
 		t.Error(".bashrc was not adopted into backup")
 	}
 
-	content, _ := os.ReadFile(adoptedFile)
+	content, _ := os.ReadFile(adoptedFile) //nolint:gosec // test file
 	if string(content) != "existing bashrc" {
 		t.Errorf("adopted content = %q, want %q", string(content), "existing bashrc")
 	}
@@ -833,15 +925,23 @@ func TestRestoreV3_FilesSubEntry_SkipsExistingSymlinks(t *testing.T) {
 	// Create backup
 	backupRoot := filepath.Join(tmpDir, "backup")
 	backupPath := filepath.Join(backupRoot, "shell")
-	os.MkdirAll(backupPath, 0755)
+	if err := os.MkdirAll(backupPath, 0750); err != nil {
+		t.Fatal(err)
+	}
 	bashrcSrc := filepath.Join(backupPath, ".bashrc")
-	os.WriteFile(bashrcSrc, []byte("bashrc content"), 0644)
+	if err := os.WriteFile(bashrcSrc, []byte("bashrc content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create target with existing symlink
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 	bashrcTarget := filepath.Join(homeDir, ".bashrc")
-	os.Symlink(bashrcSrc, bashrcTarget)
+	if err := os.Symlink(bashrcSrc, bashrcTarget); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -851,8 +951,8 @@ func TestRestoreV3_FilesSubEntry_SkipsExistingSymlinks(t *testing.T) {
 				Name: "shell",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc"},
 						Backup: "./shell",
 						Targets: map[string]string{
@@ -887,13 +987,21 @@ func TestRestoreV3_FolderSubEntry_SkipsExistingSymlink(t *testing.T) {
 	// Create backup
 	backupRoot := filepath.Join(tmpDir, "backup")
 	backupPath := filepath.Join(backupRoot, "nvim")
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "init.lua"), []byte("config"), 0644)
+	if err := os.MkdirAll(backupPath, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "init.lua"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create target with existing symlink
 	targetDir := filepath.Join(tmpDir, "home", ".config", "nvim")
-	os.MkdirAll(filepath.Dir(targetDir), 0755)
-	os.Symlink(backupPath, targetDir)
+	if err := os.MkdirAll(filepath.Dir(targetDir), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(backupPath, targetDir); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -903,8 +1011,8 @@ func TestRestoreV3_FolderSubEntry_SkipsExistingSymlink(t *testing.T) {
 				Name: "nvim",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./nvim",
 						Targets: map[string]string{
 							"linux": targetDir,
@@ -938,14 +1046,22 @@ func TestRestoreV3_FilesSubEntry_ReplacesExisting(t *testing.T) {
 	// Create backup
 	backupRoot := filepath.Join(tmpDir, "backup")
 	backupPath := filepath.Join(backupRoot, "shell")
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, ".bashrc"), []byte("new content"), 0644)
+	if err := os.MkdirAll(backupPath, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, ".bashrc"), []byte("new content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create existing regular file at target
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 	existingFile := filepath.Join(homeDir, ".bashrc")
-	os.WriteFile(existingFile, []byte("old content"), 0644)
+	if err := os.WriteFile(existingFile, []byte("old content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -955,8 +1071,8 @@ func TestRestoreV3_FilesSubEntry_ReplacesExisting(t *testing.T) {
 				Name: "shell",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc"},
 						Backup: "./shell",
 						Targets: map[string]string{
@@ -982,7 +1098,7 @@ func TestRestoreV3_FilesSubEntry_ReplacesExisting(t *testing.T) {
 	}
 
 	// Read content through symlink
-	content, _ := os.ReadFile(existingFile)
+	content, _ := os.ReadFile(existingFile) //nolint:gosec // test file
 	if string(content) != "new content" {
 		t.Errorf("content = %q, want %q", string(content), "new content")
 	}
@@ -995,13 +1111,21 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 	// Create backup
 	backupRoot := filepath.Join(tmpDir, "backup")
 	backupPath := filepath.Join(backupRoot, "nvim")
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "new.lua"), []byte("new config"), 0644)
+	if err := os.MkdirAll(backupPath, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "new.lua"), []byte("new config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create existing folder at target
 	targetDir := filepath.Join(tmpDir, "home", ".config", "nvim")
-	os.MkdirAll(targetDir, 0755)
-	os.WriteFile(filepath.Join(targetDir, "old.lua"), []byte("old config"), 0644)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "old.lua"), []byte("old config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -1011,8 +1135,8 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 				Name: "nvim",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./nvim",
 						Targets: map[string]string{
 							"linux": targetDir,
@@ -1045,7 +1169,7 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 	// New file should be accessible through symlink
 	newFile := filepath.Join(targetDir, "new.lua")
 
-	content, _ := os.ReadFile(newFile)
+	content, _ := os.ReadFile(newFile) //nolint:gosec // test file
 	if string(content) != "new config" {
 		t.Errorf("content = %q, want %q", string(content), "new config")
 	}
@@ -1056,7 +1180,9 @@ func TestRestoreV3_SkipsWrongOS(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "test"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "test"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -1066,8 +1192,8 @@ func TestRestoreV3_SkipsWrongOS(t *testing.T) {
 				Name: "test-app",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./test",
 						Targets: map[string]string{
 							"windows": filepath.Join(tmpDir, "target"),
@@ -1094,8 +1220,6 @@ func TestRestoreV3_SkipsWrongOS(t *testing.T) {
 	}
 }
 
-
-
 func TestRestoreFiles_SourceMissing(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
@@ -1103,7 +1227,9 @@ func TestRestoreFiles_SourceMissing(t *testing.T) {
 	// No source files exist
 	backupDir := filepath.Join(tmpDir, "backup")
 	targetDir := filepath.Join(tmpDir, "target")
-	os.MkdirAll(targetDir, 0755)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: tmpDir}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -1156,9 +1282,13 @@ func TestRestoreV3_ErrorHandling(t *testing.T) {
 
 	// Create backup that's actually a file (invalid)
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(backupRoot, 0755)
+	if err := os.MkdirAll(backupRoot, 0750); err != nil {
+		t.Fatal(err)
+	}
 	invalidBackup := filepath.Join(backupRoot, "invalid")
-	os.WriteFile(invalidBackup, []byte("not a directory"), 0644)
+	if err := os.WriteFile(invalidBackup, []byte("not a directory"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -1168,8 +1298,8 @@ func TestRestoreV3_ErrorHandling(t *testing.T) {
 				Name: "test",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./invalid",
 						Targets: map[string]string{
 							"linux": filepath.Join(tmpDir, "target"),
@@ -1198,7 +1328,9 @@ func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 	backupRoot := filepath.Join(tmpDir, "backup")
 	backupPath := filepath.Join(backupRoot, "missing")
 	targetDir := filepath.Join(tmpDir, "target")
-	os.MkdirAll(targetDir, 0755)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -1208,8 +1340,8 @@ func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 				Name: "test",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{"file.txt"},
 						Backup: "./missing",
 						Targets: map[string]string{
@@ -1239,6 +1371,7 @@ func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 	}
 }
 
+//nolint:dupl // similar test structure is intentional
 func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
@@ -1255,8 +1388,8 @@ func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
 				Name: "test",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./missing",
 						Targets: map[string]string{
 							"linux": targetDir,

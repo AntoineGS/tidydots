@@ -13,7 +13,7 @@ func TestRestore_IgnoresGitEntries(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
 	backupRoot := filepath.Join(tmpDir, "backup")
-	if err := os.MkdirAll(backupRoot, 0755); err != nil {
+	if err := os.MkdirAll(backupRoot, 0750); err != nil {
 		t.Fatal(err)
 	}
 
@@ -33,7 +33,7 @@ func TestRestore_IgnoresGitEntries(t *testing.T) {
 			},
 			{
 				Name: "git-entry",
-				Repo: "https://github.com/test/repo.git",
+
 				Targets: map[string]string{
 					"linux": gitTarget,
 				},
@@ -43,10 +43,10 @@ func TestRestore_IgnoresGitEntries(t *testing.T) {
 
 	// Create backup for config entry
 	configBackup := filepath.Join(backupRoot, "config")
-	if err := os.MkdirAll(configBackup, 0755); err != nil {
+	if err := os.MkdirAll(configBackup, 0750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(configBackup, "test.conf"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(configBackup, "test.conf"), []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 

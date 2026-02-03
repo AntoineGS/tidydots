@@ -1,3 +1,4 @@
+// Package manager tests.
 package manager
 
 import (
@@ -15,8 +16,12 @@ func TestAdoptFolder(t *testing.T) {
 
 	// Create a target folder that exists but backup doesn't
 	targetDir := filepath.Join(tmpDir, "target", "config")
-	os.MkdirAll(targetDir, 0755)
-	os.WriteFile(filepath.Join(targetDir, "settings.json"), []byte("my settings"), 0644)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "settings.json"), []byte("my settings"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Backup location (doesn't exist yet)
 	backupDir := filepath.Join(tmpDir, "backup", "config")
@@ -38,7 +43,7 @@ func TestAdoptFolder(t *testing.T) {
 		t.Error("Backup file should exist after adopt")
 	}
 
-	content, _ := os.ReadFile(backupFile)
+	content, _ := os.ReadFile(backupFile) //nolint:gosec // test file
 	if string(content) != "my settings" {
 		t.Errorf("Backup content = %q, want %q", string(content), "my settings")
 	}
@@ -61,9 +66,15 @@ func TestAdoptFiles(t *testing.T) {
 
 	// Create target files that exist but backup doesn't
 	targetDir := filepath.Join(tmpDir, "target")
-	os.MkdirAll(targetDir, 0755)
-	os.WriteFile(filepath.Join(targetDir, "config1.txt"), []byte("config1 content"), 0644)
-	os.WriteFile(filepath.Join(targetDir, "config2.txt"), []byte("config2 content"), 0644)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "config1.txt"), []byte("config1 content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "config2.txt"), []byte("config2 content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Backup location (doesn't exist yet)
 	backupDir := filepath.Join(tmpDir, "backup")
@@ -94,7 +105,7 @@ func TestAdoptFiles(t *testing.T) {
 	}
 
 	// Check content was preserved
-	content, _ := os.ReadFile(filepath.Join(backupDir, "config1.txt"))
+	content, _ := os.ReadFile(filepath.Join(backupDir, "config1.txt")) //nolint:gosec // test file
 	if string(content) != "config1 content" {
 		t.Errorf("Backup content = %q, want %q", string(content), "config1 content")
 	}
@@ -106,12 +117,20 @@ func TestAdoptSkipsExistingBackup(t *testing.T) {
 
 	// Create both target and backup
 	targetDir := filepath.Join(tmpDir, "target", "config")
-	os.MkdirAll(targetDir, 0755)
-	os.WriteFile(filepath.Join(targetDir, "settings.json"), []byte("target content"), 0644)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "settings.json"), []byte("target content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupDir := filepath.Join(tmpDir, "backup", "config")
-	os.MkdirAll(backupDir, 0755)
-	os.WriteFile(filepath.Join(backupDir, "settings.json"), []byte("backup content"), 0644)
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupDir, "settings.json"), []byte("backup content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: filepath.Join(tmpDir, "backup")}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -125,7 +144,7 @@ func TestAdoptSkipsExistingBackup(t *testing.T) {
 	}
 
 	// Backup content should be preserved (not overwritten)
-	content, _ := os.ReadFile(filepath.Join(backupDir, "settings.json"))
+	content, _ := os.ReadFile(filepath.Join(backupDir, "settings.json")) //nolint:gosec // test file
 	if string(content) != "backup content" {
 		t.Errorf("Backup content = %q, want %q (should not be overwritten)", string(content), "backup content")
 	}
@@ -142,8 +161,12 @@ func TestAdoptDryRun(t *testing.T) {
 
 	// Create target that exists but backup doesn't
 	targetDir := filepath.Join(tmpDir, "target", "config")
-	os.MkdirAll(targetDir, 0755)
-	os.WriteFile(filepath.Join(targetDir, "settings.json"), []byte("content"), 0644)
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "settings.json"), []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupDir := filepath.Join(tmpDir, "backup", "config")
 
@@ -184,15 +207,23 @@ func TestAdoptIntegration(t *testing.T) {
 
 	// User has nvim config
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("-- my nvim config"), 0644)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("-- my nvim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// User has .bashrc
-	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("# my bashrc"), 0644)
+	if err := os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("# my bashrc"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Empty backup (fresh repo clone)
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(backupRoot, 0755)
+	if err := os.MkdirAll(backupRoot, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -241,7 +272,7 @@ func TestAdoptIntegration(t *testing.T) {
 		t.Error(".bashrc should be adopted to backup")
 	}
 
-	content, _ := os.ReadFile(bashBackup)
+	content, _ := os.ReadFile(bashBackup) //nolint:gosec // test file
 	if string(content) != "# my bashrc" {
 		t.Error(".bashrc content should be preserved")
 	}

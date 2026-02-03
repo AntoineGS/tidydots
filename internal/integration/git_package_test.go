@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,12 +22,12 @@ func TestGitPackageEndToEnd(t *testing.T) {
 
 	// Create bare repo with a test file
 	workDir := filepath.Join(tmpDir, "work")
-	if err := os.MkdirAll(workDir, 0755); err != nil {
+	if err := os.MkdirAll(workDir, 0750); err != nil {
 		t.Fatal(err)
 	}
 
 	// Initialize repo
-	cmd := exec.Command("git", "init")
+	cmd := exec.CommandContext(context.Background(), "git", "init")
 	cmd.Dir = workDir
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
@@ -34,18 +35,18 @@ func TestGitPackageEndToEnd(t *testing.T) {
 
 	// Add test file
 	testFile := filepath.Join(workDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test content"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
 	// Commit
-	cmd = exec.Command("git", "add", ".")
+	cmd = exec.CommandContext(context.Background(), "git", "add", ".")
 	cmd.Dir = workDir
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
 
-	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd = exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit")
 	cmd.Dir = workDir
 	cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@test.com",
 		"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@test.com")
@@ -54,7 +55,7 @@ func TestGitPackageEndToEnd(t *testing.T) {
 	}
 
 	// Clone to bare
-	cmd = exec.Command("git", "clone", "--bare", workDir, bareRepo)
+	cmd = exec.CommandContext(context.Background(), "git", "clone", "--bare", workDir, bareRepo) //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +88,7 @@ func TestGitPackageEndToEnd(t *testing.T) {
 
 	// Verify clone
 	clonedFile := filepath.Join(cloneDest, "test.txt")
-	content, err := os.ReadFile(clonedFile)
+	content, err := os.ReadFile(clonedFile) //nolint:gosec // test file
 	if err != nil {
 		t.Errorf("Failed to read cloned file: %v", err)
 	}

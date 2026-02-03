@@ -553,6 +553,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.updateApplicationForm(msg)
 		case FormSubEntry:
 			return m.updateSubEntryForm(msg)
+		case FormNone:
+			fallthrough
 		default:
 			return m.updateAddForm(msg)
 		}
@@ -597,6 +599,12 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateConfirm(msg)
 	case ScreenResults:
 		return m.updateResults(msg)
+	case ScreenProgress:
+		// Progress screen doesn't handle key events
+		return m, nil
+	case ScreenAddForm:
+		// AddForm is handled earlier, but adding case for exhaustiveness
+		return m, nil
 	}
 
 	return m, nil
@@ -625,6 +633,8 @@ func (m Model) View() string {
 			return m.viewApplicationForm()
 		case FormSubEntry:
 			return m.viewSubEntryForm()
+		case FormNone:
+			return m.viewAddForm()
 		default:
 			return m.viewAddForm()
 		}

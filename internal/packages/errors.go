@@ -1,3 +1,4 @@
+// Package packages provides multi-package-manager support.
 package packages
 
 import (

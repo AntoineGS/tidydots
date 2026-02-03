@@ -16,12 +16,18 @@ func TestBackupFolder(t *testing.T) {
 
 	// Create source directory with content
 	srcDir := filepath.Join(tmpDir, "source", "config")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "settings.json"), []byte("settings"), 0644)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "settings.json"), []byte("settings"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Backup directory
 	backupDir := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: tmpDir}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -38,7 +44,7 @@ func TestBackupFolder(t *testing.T) {
 		t.Error("File was not backed up")
 	}
 
-	content, _ := os.ReadFile(copiedFile)
+	content, _ := os.ReadFile(copiedFile) //nolint:gosec // test file
 	if string(content) != "settings" {
 		t.Errorf("Backup content = %q, want %q", string(content), "settings")
 	}
@@ -50,15 +56,23 @@ func TestBackupFolderSkipsSymlink(t *testing.T) {
 
 	// Create real source
 	realSrc := filepath.Join(tmpDir, "real")
-	os.MkdirAll(realSrc, 0755)
-	os.WriteFile(filepath.Join(realSrc, "file.txt"), []byte("content"), 0644)
+	if err := os.MkdirAll(realSrc, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(realSrc, "file.txt"), []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create symlink as "source"
 	symlinkSrc := filepath.Join(tmpDir, "symlink")
-	os.Symlink(realSrc, symlinkSrc)
+	if err := os.Symlink(realSrc, symlinkSrc); err != nil {
+		t.Fatal(err)
+	}
 
 	backupDir := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: tmpDir}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -83,12 +97,20 @@ func TestBackupFiles(t *testing.T) {
 
 	// Create source files
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "config1.txt"), []byte("config1"), 0644)
-	os.WriteFile(filepath.Join(srcDir, "config2.txt"), []byte("config2"), 0644)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "config1.txt"), []byte("config1"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "config2.txt"), []byte("config2"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupDir := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: tmpDir}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -116,16 +138,24 @@ func TestBackupFilesSkipsSymlinks(t *testing.T) {
 
 	// Create real file
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(srcDir, 0755)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 	realFile := filepath.Join(srcDir, "real.txt")
-	os.WriteFile(realFile, []byte("real content"), 0644)
+	if err := os.WriteFile(realFile, []byte("real content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create symlink
 	symlinkFile := filepath.Join(srcDir, "symlink.txt")
-	os.Symlink(realFile, symlinkFile)
+	if err := os.Symlink(realFile, symlinkFile); err != nil {
+		t.Fatal(err)
+	}
 
 	backupDir := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: tmpDir}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -149,11 +179,17 @@ func TestBackupDryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(srcDir, 0755)
-	os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("content"), 0644)
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupDir := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{BackupRoot: tmpDir}
 	plat := &platform.Platform{OS: platform.OSLinux}
@@ -180,15 +216,25 @@ func TestBackupIntegration(t *testing.T) {
 	homeDir := filepath.Join(tmpDir, "home")
 
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0644)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
-	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash config"), 0644)
+	if err := os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create backup directories
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
-	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(backupRoot, "bash"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -233,7 +279,7 @@ func TestBackupIntegration(t *testing.T) {
 		t.Error(".bashrc was not backed up")
 	}
 
-	content, _ := os.ReadFile(backedUpBashrc)
+	content, _ := os.ReadFile(backedUpBashrc) //nolint:gosec // test file
 	if string(content) != "bash config" {
 		t.Errorf("Backup content = %q, want %q", string(content), "bash config")
 	}
@@ -246,12 +292,18 @@ func TestBackupV3Application(t *testing.T) {
 	// Create installed config
 	homeDir := filepath.Join(tmpDir, "home")
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0644)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create backup directory
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create v3 config
 	cfg := &config.Config{
@@ -293,7 +345,7 @@ func TestBackupV3Application(t *testing.T) {
 		return
 	}
 
-	content, err := os.ReadFile(backedUpInit)
+	content, err := os.ReadFile(backedUpInit) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Failed to read backed up file: %v", err)
 	}
@@ -311,10 +363,14 @@ func TestBackup_SymlinkAlreadyExists(t *testing.T) {
 	targetDir := t.TempDir()
 	target := filepath.Join(targetDir, "config")
 	backupDir := filepath.Join(m.Config.BackupRoot, "test")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create symlink first
-	os.Symlink(backupDir, target)
+	if err := os.Symlink(backupDir, target); err != nil {
+		t.Fatal(err)
+	}
 
 	entry := config.Entry{
 		Name:   "test",
@@ -339,7 +395,9 @@ func TestBackup_FilePermissionsPreserved(t *testing.T) {
 	// Create file with specific permissions
 	targetDir := t.TempDir()
 	target := filepath.Join(targetDir, "config")
-	os.WriteFile(target, []byte("test"), 0600)
+	if err := os.WriteFile(target, []byte("test"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupPath := filepath.Join(m.Config.BackupRoot, "test")
 
@@ -381,7 +439,9 @@ func TestBackup_DryRunNoChanges(t *testing.T) {
 
 	targetDir := t.TempDir()
 	target := filepath.Join(targetDir, "config")
-	os.WriteFile(target, []byte("test"), 0644)
+	if err := os.WriteFile(target, []byte("test"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	entry := config.Entry{
 		Name:   "dryrun-test",
@@ -415,11 +475,17 @@ func TestBackupWithContext(t *testing.T) {
 
 	homeDir := filepath.Join(tmpDir, "home")
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0644)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -457,12 +523,20 @@ func TestBackupV3_WithFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
-	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash config"), 0644)
-	os.WriteFile(filepath.Join(homeDir, ".profile"), []byte("profile config"), 0644)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".profile"), []byte("profile config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "bash"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -473,8 +547,8 @@ func TestBackupV3_WithFiles(t *testing.T) {
 				Description: "Bash shell",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc", ".profile"},
 						Backup: "./bash",
 						Targets: map[string]string{
@@ -505,7 +579,7 @@ func TestBackupV3_WithFiles(t *testing.T) {
 		t.Error(".profile was not backed up")
 	}
 
-	content, _ := os.ReadFile(backedUpBashrc)
+	content, _ := os.ReadFile(backedUpBashrc) //nolint:gosec // test file
 	if string(content) != "bash config" {
 		t.Errorf("Backup content = %q, want %q", string(content), "bash config")
 	}
@@ -517,12 +591,20 @@ func TestBackupV3_FolderSubEntry(t *testing.T) {
 
 	// Create config folder
 	configDir := filepath.Join(tmpDir, "home", ".config", "app")
-	os.MkdirAll(configDir, 0755)
-	os.WriteFile(filepath.Join(configDir, "config.json"), []byte("config"), 0644)
-	os.WriteFile(filepath.Join(configDir, "settings.json"), []byte("settings"), 0644)
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "settings.json"), []byte("settings"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "app"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "app"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -532,8 +614,8 @@ func TestBackupV3_FolderSubEntry(t *testing.T) {
 				Name: "app",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./app",
 						Targets: map[string]string{
 							"linux": configDir,
@@ -572,15 +654,27 @@ func TestBackupV3_MultipleApplications(t *testing.T) {
 	// Create multiple config directories
 	homeDir := filepath.Join(tmpDir, "home")
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim"), 0644)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
-	os.MkdirAll(homeDir, 0755)
-	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0644)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
-	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(backupRoot, "bash"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -590,8 +684,8 @@ func TestBackupV3_MultipleApplications(t *testing.T) {
 				Name: "nvim",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./nvim",
 						Targets: map[string]string{
 							"linux": nvimDir,
@@ -603,8 +697,8 @@ func TestBackupV3_MultipleApplications(t *testing.T) {
 				Name: "bash",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc"},
 						Backup: "./bash",
 						Targets: map[string]string{
@@ -637,16 +731,23 @@ func TestBackupV3_MultipleApplications(t *testing.T) {
 	}
 }
 
+//nolint:dupl // similar test structure is intentional
 func TestBackupV3_SkipsWrongOS(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
 
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
-	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0644)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "bash"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -656,8 +757,8 @@ func TestBackupV3_SkipsWrongOS(t *testing.T) {
 				Name: "bash",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc"},
 						Backup: "./bash",
 						Targets: map[string]string{
@@ -685,16 +786,23 @@ func TestBackupV3_SkipsWrongOS(t *testing.T) {
 	}
 }
 
+//nolint:dupl // similar test structure is intentional
 func TestBackupV3_DryRun(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
 
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
-	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0644)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte("bash"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "bash"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "bash"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -704,8 +812,8 @@ func TestBackupV3_DryRun(t *testing.T) {
 				Name: "bash",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{".bashrc"},
 						Backup: "./bash",
 						Targets: map[string]string{
@@ -750,8 +858,8 @@ func TestBackupFilesSubEntry_SourceMissing(t *testing.T) {
 				Name: "test",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{"missing.txt"},
 						Backup: "./test",
 						Targets: map[string]string{
@@ -781,6 +889,7 @@ func TestBackupFilesSubEntry_SourceMissing(t *testing.T) {
 	}
 }
 
+//nolint:dupl // similar test structure is intentional
 func TestBackupFolderSubEntry_SourceMissing(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
@@ -798,8 +907,8 @@ func TestBackupFolderSubEntry_SourceMissing(t *testing.T) {
 				Name: "test",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./test",
 						Targets: map[string]string{
 							"linux": targetDir,
@@ -833,8 +942,12 @@ func TestBackupFilesSubEntry_MissingFile(t *testing.T) {
 
 	// Target directory exists but specific file doesn't
 	homeDir := filepath.Join(tmpDir, "home")
-	os.MkdirAll(homeDir, 0755)
-	os.WriteFile(filepath.Join(homeDir, "exists.txt"), []byte("exists"), 0644)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, "exists.txt"), []byte("exists"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
 	backupPath := filepath.Join(backupRoot, "test")
@@ -847,8 +960,8 @@ func TestBackupFilesSubEntry_MissingFile(t *testing.T) {
 				Name: "test",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Files:  []string{"exists.txt", "missing.txt"},
 						Backup: "./test",
 						Targets: map[string]string{
@@ -890,10 +1003,14 @@ func TestBackupV3_ErrorInSubEntry(t *testing.T) {
 
 	// Create a target that's a file (invalid for folder backup)
 	targetFile := filepath.Join(tmpDir, "target")
-	os.WriteFile(targetFile, []byte("not a folder"), 0644)
+	if err := os.WriteFile(targetFile, []byte("not a folder"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "test"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "test"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -903,8 +1020,8 @@ func TestBackupV3_ErrorInSubEntry(t *testing.T) {
 				Name: "test",
 				Entries: []config.SubEntry{
 					{
-						Name:   "config",
-						Type:   "config",
+						Name: "config",
+
 						Backup: "./test",
 						Targets: map[string]string{
 							"linux": targetFile,
@@ -940,8 +1057,7 @@ func TestBackup_SkipsGitEntries(t *testing.T) {
 				Entries: []config.SubEntry{
 					{
 						Name: "git-entry",
-						Type: "git",
-						Repo: "https://github.com/test/repo.git",
+
 						Targets: map[string]string{
 							"linux": filepath.Join(tmpDir, "source"),
 						},

@@ -102,13 +102,13 @@ func (m *Manager) restoreFolder(entry config.Entry, source, target string) error
 			// Create backup parent directory
 			backupParent := filepath.Dir(source)
 			if !pathExists(backupParent) {
-				if err := os.MkdirAll(backupParent, 0755); err != nil {
+				if err := os.MkdirAll(backupParent, 0750); err != nil {
 					return NewPathError("adopt", source, fmt.Errorf("creating backup parent: %w", err))
 				}
 			}
 			// Move target to backup location
 			if entry.Sudo {
-				cmd := exec.Command("sudo", "mv", target, source)
+				cmd := exec.CommandContext(m.ctx, "sudo", "mv", target, source) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("adopt", target, fmt.Errorf("moving to backup: %w", err))
 				}
@@ -133,12 +133,12 @@ func (m *Manager) restoreFolder(entry config.Entry, source, target string) error
 
 		if !m.DryRun {
 			if entry.Sudo {
-				cmd := exec.Command("sudo", "mkdir", "-p", parentDir)
+				cmd := exec.CommandContext(m.ctx, "sudo", "mkdir", "-p", parentDir) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("restore", parentDir, fmt.Errorf("creating parent: %w", err))
 				}
 			} else {
-				if err := os.MkdirAll(parentDir, 0755); err != nil {
+				if err := os.MkdirAll(parentDir, 0750); err != nil {
 					return NewPathError("restore", parentDir, fmt.Errorf("creating parent: %w", err))
 				}
 			}
@@ -151,7 +151,7 @@ func (m *Manager) restoreFolder(entry config.Entry, source, target string) error
 
 		if !m.DryRun {
 			if entry.Sudo {
-				cmd := exec.Command("sudo", "rm", "-rf", target)
+				cmd := exec.CommandContext(m.ctx, "sudo", "rm", "-rf", target) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("removing existing: %w", err))
 				}
@@ -179,7 +179,7 @@ func (m *Manager) restoreFiles(entry config.Entry, source, target string) error 
 	// Create backup directory if it doesn't exist (needed for adopting)
 	if !pathExists(source) {
 		if !m.DryRun {
-			if err := os.MkdirAll(source, 0755); err != nil {
+			if err := os.MkdirAll(source, 0750); err != nil {
 				return NewPathError("restore", source, fmt.Errorf("creating backup directory: %w", err))
 			}
 		}
@@ -191,12 +191,12 @@ func (m *Manager) restoreFiles(entry config.Entry, source, target string) error 
 
 		if !m.DryRun {
 			if entry.Sudo {
-				cmd := exec.Command("sudo", "mkdir", "-p", target)
+				cmd := exec.CommandContext(m.ctx, "sudo", "mkdir", "-p", target) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("creating target directory: %w", err))
 				}
 			} else {
-				if err := os.MkdirAll(target, 0755); err != nil {
+				if err := os.MkdirAll(target, 0750); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("creating target directory: %w", err))
 				}
 			}
@@ -220,7 +220,7 @@ func (m *Manager) restoreFiles(entry config.Entry, source, target string) error 
 			if !m.DryRun {
 				// Move target file to backup location
 				if entry.Sudo {
-					cmd := exec.Command("sudo", "mv", dstFile, srcFile)
+					cmd := exec.CommandContext(m.ctx, "sudo", "mv", dstFile, srcFile) //nolint:gosec // intentional sudo command
 					if err := cmd.Run(); err != nil {
 						return NewPathError("adopt", dstFile, fmt.Errorf("moving to backup: %w", err))
 					}
@@ -250,7 +250,7 @@ func (m *Manager) restoreFiles(entry config.Entry, source, target string) error 
 
 			if !m.DryRun {
 				if entry.Sudo {
-					cmd := exec.Command("sudo", "rm", "-f", dstFile)
+					cmd := exec.CommandContext(m.ctx, "sudo", "rm", "-f", dstFile) //nolint:gosec // intentional sudo command
 					if err := cmd.Run(); err != nil {
 						return NewPathError("restore", dstFile, fmt.Errorf("removing existing file: %w", err))
 					}
@@ -293,17 +293,17 @@ func createSymlink(source, target string, useSudo bool) error {
 
 		if info.IsDir() {
 			// Use mklink /J for directory junctions on Windows
-			cmd := exec.Command("cmd", "/c", "mklink", "/J", target, source)
+			cmd := exec.CommandContext(context.Background(), "cmd", "/c", "mklink", "/J", target, source)
 			return cmd.Run()
 		}
 		// Use mklink for files
-		cmd := exec.Command("cmd", "/c", "mklink", target, source)
+		cmd := exec.CommandContext(context.Background(), "cmd", "/c", "mklink", target, source)
 
 		return cmd.Run()
 	}
 
 	if useSudo {
-		cmd := exec.Command("sudo", "ln", "-s", source, target)
+		cmd := exec.CommandContext(context.Background(), "sudo", "ln", "-s", source, target) //nolint:gosec // intentional sudo command
 		return cmd.Run()
 	}
 
@@ -311,7 +311,7 @@ func createSymlink(source, target string, useSudo bool) error {
 }
 
 // restoreGitEntry clones or updates a git repository
-func (m *Manager) restoreV3() error {
+func (m *Manager) restoreV3() error { //nolint:dupl // similar structure to backupV3, but semantically different
 	apps := m.GetApplications()
 
 	for _, app := range apps {
@@ -376,13 +376,13 @@ func (m *Manager) restoreFolderSubEntry(_ string, subEntry config.SubEntry, sour
 		if !m.DryRun {
 			backupParent := filepath.Dir(source)
 			if !pathExists(backupParent) {
-				if err := os.MkdirAll(backupParent, 0755); err != nil {
+				if err := os.MkdirAll(backupParent, 0750); err != nil {
 					return NewPathError("adopt", source, fmt.Errorf("creating backup parent: %w", err))
 				}
 			}
 
 			if subEntry.Sudo {
-				cmd := exec.Command("sudo", "mv", target, source)
+				cmd := exec.CommandContext(m.ctx, "sudo", "mv", target, source) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("adopt", target, fmt.Errorf("moving to backup: %w", err))
 				}
@@ -405,12 +405,12 @@ func (m *Manager) restoreFolderSubEntry(_ string, subEntry config.SubEntry, sour
 
 		if !m.DryRun {
 			if subEntry.Sudo {
-				cmd := exec.Command("sudo", "mkdir", "-p", parentDir)
+				cmd := exec.CommandContext(m.ctx, "sudo", "mkdir", "-p", parentDir) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("restore", parentDir, fmt.Errorf("creating parent: %w", err))
 				}
 			} else {
-				if err := os.MkdirAll(parentDir, 0755); err != nil {
+				if err := os.MkdirAll(parentDir, 0750); err != nil {
 					return NewPathError("restore", parentDir, fmt.Errorf("creating parent: %w", err))
 				}
 			}
@@ -422,7 +422,7 @@ func (m *Manager) restoreFolderSubEntry(_ string, subEntry config.SubEntry, sour
 
 		if !m.DryRun {
 			if subEntry.Sudo {
-				cmd := exec.Command("sudo", "rm", "-rf", target)
+				cmd := exec.CommandContext(m.ctx, "sudo", "rm", "-rf", target) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("removing existing: %w", err))
 				}
@@ -448,7 +448,7 @@ func (m *Manager) restoreFilesSubEntry(_ string, subEntry config.SubEntry, sourc
 	// Similar to restoreFiles but use subEntry fields
 	if !pathExists(source) {
 		if !m.DryRun {
-			if err := os.MkdirAll(source, 0755); err != nil {
+			if err := os.MkdirAll(source, 0750); err != nil {
 				return NewPathError("restore", source, fmt.Errorf("creating backup directory: %w", err))
 			}
 		}
@@ -459,12 +459,12 @@ func (m *Manager) restoreFilesSubEntry(_ string, subEntry config.SubEntry, sourc
 
 		if !m.DryRun {
 			if subEntry.Sudo {
-				cmd := exec.Command("sudo", "mkdir", "-p", target)
+				cmd := exec.CommandContext(m.ctx, "sudo", "mkdir", "-p", target) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("creating target directory: %w", err))
 				}
 			} else {
-				if err := os.MkdirAll(target, 0755); err != nil {
+				if err := os.MkdirAll(target, 0750); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("creating target directory: %w", err))
 				}
 			}
@@ -485,7 +485,7 @@ func (m *Manager) restoreFilesSubEntry(_ string, subEntry config.SubEntry, sourc
 
 			if !m.DryRun {
 				if subEntry.Sudo {
-					cmd := exec.Command("sudo", "mv", dstFile, srcFile)
+					cmd := exec.CommandContext(m.ctx, "sudo", "mv", dstFile, srcFile) //nolint:gosec // intentional sudo command
 					if err := cmd.Run(); err != nil {
 						return NewPathError("adopt", dstFile, fmt.Errorf("moving to backup: %w", err))
 					}
@@ -513,7 +513,7 @@ func (m *Manager) restoreFilesSubEntry(_ string, subEntry config.SubEntry, sourc
 
 			if !m.DryRun {
 				if subEntry.Sudo {
-					cmd := exec.Command("sudo", "rm", "-f", dstFile)
+					cmd := exec.CommandContext(m.ctx, "sudo", "rm", "-f", dstFile) //nolint:gosec // intentional sudo command
 					if err := cmd.Run(); err != nil {
 						return NewPathError("restore", dstFile, fmt.Errorf("removing existing file: %w", err))
 					}
@@ -536,4 +536,3 @@ func (m *Manager) restoreFilesSubEntry(_ string, subEntry config.SubEntry, sourc
 
 	return nil
 }
-

@@ -31,11 +31,11 @@ func setupTestManager(t *testing.T) *Manager {
 
 	// Create source directory
 	srcDir := filepath.Join(tmpDir, "test")
-	if err := os.MkdirAll(srcDir, 0755); err != nil {
+	if err := os.MkdirAll(srcDir, 0750); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(srcDir, "config.txt"), []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -81,11 +81,17 @@ func TestBackup_ContextCancellation(t *testing.T) {
 	// Create source directory with files
 	homeDir := filepath.Join(tmpDir, "home")
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0644)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -121,11 +127,17 @@ func TestBackup_ContextTimeout(t *testing.T) {
 
 	homeDir := filepath.Join(tmpDir, "home")
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0644)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	backupRoot := filepath.Join(tmpDir, "backup")
-	os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupRoot, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,

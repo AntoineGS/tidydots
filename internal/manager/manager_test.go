@@ -78,7 +78,7 @@ func TestIsSymlink(t *testing.T) {
 
 	// Create a regular file
 	regularFile := filepath.Join(tmpDir, "regular.txt")
-	if err := os.WriteFile(regularFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(regularFile, []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,7 +113,7 @@ func TestPathExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	existingFile := filepath.Join(tmpDir, "exists.txt")
-	if err := os.WriteFile(existingFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(existingFile, []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -144,7 +144,7 @@ func TestCopyFile(t *testing.T) {
 	srcFile := filepath.Join(tmpDir, "source.txt")
 	content := []byte("test content")
 
-	if err := os.WriteFile(srcFile, content, 0644); err != nil {
+	if err := os.WriteFile(srcFile, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -155,7 +155,7 @@ func TestCopyFile(t *testing.T) {
 	}
 
 	// Check content
-	got, err := os.ReadFile(dstFile)
+	got, err := os.ReadFile(dstFile) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Failed to read destination: %v", err)
 	}
@@ -171,9 +171,15 @@ func TestCopyDir(t *testing.T) {
 
 	// Create source directory structure
 	srcDir := filepath.Join(tmpDir, "source")
-	os.MkdirAll(filepath.Join(srcDir, "subdir"), 0755)
-	os.WriteFile(filepath.Join(srcDir, "file1.txt"), []byte("file1"), 0644)
-	os.WriteFile(filepath.Join(srcDir, "subdir", "file2.txt"), []byte("file2"), 0644)
+	if err := os.MkdirAll(filepath.Join(srcDir, "subdir"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "file1.txt"), []byte("file1"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "subdir", "file2.txt"), []byte("file2"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	dstDir := filepath.Join(tmpDir, "dest")
 
@@ -191,7 +197,7 @@ func TestCopyDir(t *testing.T) {
 	}
 
 	// Check content
-	content, _ := os.ReadFile(filepath.Join(dstDir, "file1.txt"))
+	content, _ := os.ReadFile(filepath.Join(dstDir, "file1.txt")) //nolint:gosec // test file
 	if string(content) != "file1" {
 		t.Errorf("file1.txt content = %q, want %q", string(content), "file1")
 	}
@@ -203,7 +209,9 @@ func TestRemoveAll(t *testing.T) {
 
 	// Test removing regular file
 	regularFile := filepath.Join(tmpDir, "regular.txt")
-	os.WriteFile(regularFile, []byte("test"), 0644)
+	if err := os.WriteFile(regularFile, []byte("test"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := removeAll(regularFile); err != nil {
 		t.Fatalf("removeAll(regular file) error = %v", err)
@@ -215,8 +223,12 @@ func TestRemoveAll(t *testing.T) {
 
 	// Test removing directory
 	dir := filepath.Join(tmpDir, "testdir")
-	os.MkdirAll(dir, 0755)
-	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("test"), 0644)
+	if err := os.MkdirAll(dir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte("test"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := removeAll(dir); err != nil {
 		t.Fatalf("removeAll(dir) error = %v", err)
@@ -228,9 +240,13 @@ func TestRemoveAll(t *testing.T) {
 
 	// Test that symlinks are not removed
 	target := filepath.Join(tmpDir, "target.txt")
-	os.WriteFile(target, []byte("target"), 0644)
+	if err := os.WriteFile(target, []byte("target"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	symlink := filepath.Join(tmpDir, "symlink.txt")
-	os.Symlink(target, symlink)
+	if err := os.Symlink(target, symlink); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := removeAll(symlink); err != nil {
 		t.Fatalf("removeAll(symlink) error = %v", err)
@@ -282,7 +298,7 @@ func TestCopyFilePreservesPermissions(t *testing.T) {
 	srcFile := filepath.Join(tmpDir, "source.sh")
 	content := []byte("#!/bin/bash\necho hello")
 
-	if err := os.WriteFile(srcFile, content, 0755); err != nil {
+	if err := os.WriteFile(srcFile, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -333,11 +349,15 @@ func TestIsSymlinkWithDirectory(t *testing.T) {
 
 	// Create a directory
 	dir := filepath.Join(tmpDir, "realdir")
-	os.MkdirAll(dir, 0755)
+	if err := os.MkdirAll(dir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a symlink to the directory
 	symlinkDir := filepath.Join(tmpDir, "symlinkdir")
-	os.Symlink(dir, symlinkDir)
+	if err := os.Symlink(dir, symlinkDir); err != nil {
+		t.Fatal(err)
+	}
 
 	if !isSymlink(symlinkDir) {
 		t.Error("isSymlink() should return true for directory symlink")
@@ -354,10 +374,14 @@ func TestPathExistsWithSymlink(t *testing.T) {
 
 	// Create a file and symlink
 	realFile := filepath.Join(tmpDir, "real.txt")
-	os.WriteFile(realFile, []byte("content"), 0644)
+	if err := os.WriteFile(realFile, []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	symlink := filepath.Join(tmpDir, "link.txt")
-	os.Symlink(realFile, symlink)
+	if err := os.Symlink(realFile, symlink); err != nil {
+		t.Fatal(err)
+	}
 
 	if !pathExists(symlink) {
 		t.Error("pathExists() should return true for symlink")
@@ -365,7 +389,9 @@ func TestPathExistsWithSymlink(t *testing.T) {
 
 	// Test with broken symlink
 	brokenLink := filepath.Join(tmpDir, "broken.txt")
-	os.Symlink(filepath.Join(tmpDir, "nonexistent"), brokenLink)
+	if err := os.Symlink(filepath.Join(tmpDir, "nonexistent"), brokenLink); err != nil {
+		t.Fatal(err)
+	}
 
 	// Broken symlinks still "exist" in terms of Lstat
 	if !pathExists(brokenLink) {
@@ -382,7 +408,7 @@ func TestGetApplications(t *testing.T) {
 				Name:    "test-app",
 				Filters: []config.Filter{{Include: map[string]string{"os": "linux"}}},
 				Entries: []config.SubEntry{
-					{Type: "config", Name: "config1", Backup: "./config1", Targets: map[string]string{"linux": "~/.config"}},
+					{Name: "config1", Backup: "./config1", Targets: map[string]string{"linux": "~/.config"}},
 				},
 			},
 		},

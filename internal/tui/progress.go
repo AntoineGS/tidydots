@@ -103,20 +103,6 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 	// Expand ~ in target path for file operations
 	targetPath := config.ExpandPath(item.Target, m.Platform.EnvVars)
 
-	if item.SubEntry.IsGit() {
-		// Git entry logic (same as before)
-		if pathExists(targetPath) {
-			gitDir := filepath.Join(targetPath, ".git")
-			if pathExists(gitDir) {
-				return StateLinked
-			}
-
-			return StateAdopt
-		}
-
-		return StateReady
-	}
-
 	// Config entry logic
 	backupPath := m.resolvePath(item.SubEntry.Backup)
 
@@ -308,6 +294,7 @@ func (m Model) viewProgress() string {
 	return BaseStyle.Render(b.String())
 }
 
+//nolint:gocyclo // UI handler with many states
 func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle filter mode input
 	if m.Operation == OpList && m.filtering {
@@ -688,6 +675,7 @@ func (m Model) viewResults() string {
 	return BaseStyle.Render(b.String())
 }
 
+//nolint:gocyclo // UI rendering with many states
 func (m Model) viewListTable() string {
 	var b strings.Builder
 
@@ -807,9 +795,7 @@ func (m Model) viewListTable() string {
 
 				// Type info width
 				typeInfo := ""
-				if subItem.SubEntry.IsGit() {
-					typeInfo = TypeGit
-				} else if subItem.SubEntry.IsFolder() {
+				if subItem.SubEntry.IsFolder() {
 					typeInfo = TypeFolder
 				} else {
 					fileCount := len(subItem.SubEntry.Files)
@@ -825,13 +811,8 @@ func (m Model) viewListTable() string {
 				}
 
 				// Source path width
-				sourcePath := ""
-				if subItem.SubEntry.IsGit() {
-					sourcePath = truncateStr(subItem.SubEntry.Repo)
-				} else {
-					// Show backup path as-is (e.g., "./nvim") without resolving
-					sourcePath = truncateStr(subItem.SubEntry.Backup)
-				}
+				// Show backup path as-is (e.g., "./nvim") without resolving
+				sourcePath := truncateStr(subItem.SubEntry.Backup)
 
 				if len(sourcePath) > maxSourceWidth {
 					maxSourceWidth = len(sourcePath)
@@ -950,9 +931,7 @@ func (m Model) viewListTable() string {
 
 					// Type info
 					typeInfo := ""
-					if subItem.SubEntry.IsGit() {
-						typeInfo = TypeGit
-					} else if subItem.SubEntry.IsFolder() {
+					if subItem.SubEntry.IsFolder() {
 						typeInfo = TypeFolder
 					} else {
 						fileCount := len(subItem.SubEntry.Files)
@@ -1019,7 +998,7 @@ func (m Model) viewListTable() string {
 		}
 
 		if end < totalVisibleRows {
-			scrollInfo = scrollInfo + " ↓"
+			scrollInfo += " ↓"
 		}
 	}
 
@@ -1029,12 +1008,14 @@ func (m Model) viewListTable() string {
 	// Help or confirmation prompt
 	b.WriteString("\n")
 
-	if m.confirmingDeleteApp || m.confirmingDeleteSubEntry {
+	switch {
+	case m.confirmingDeleteApp || m.confirmingDeleteSubEntry:
 		// Show delete confirmation prompt
 		var name string
-		if m.confirmingDeleteApp && appIdx >= 0 {
+		switch {
+		case m.confirmingDeleteApp && appIdx >= 0:
 			name = m.Applications[appIdx].Application.Name
-		} else if m.confirmingDeleteSubEntry && appIdx >= 0 && subIdx >= 0 {
+		case m.confirmingDeleteSubEntry && appIdx >= 0 && subIdx >= 0:
 			name = m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
 		}
 
@@ -1042,17 +1023,17 @@ func (m Model) viewListTable() string {
 			b.WriteString(WarningStyle.Render(fmt.Sprintf("Delete '%s'? ", name)))
 			b.WriteString(RenderHelpWithWidth(m.width, "y/enter", "yes", "n/esc", "no"))
 		}
-	} else if m.filtering {
+	case m.filtering:
 		b.WriteString(RenderHelpWithWidth(m.width,
 			"enter", "confirm",
 			"esc", "clear",
 		))
-	} else if m.showingDetail {
+	case m.showingDetail:
 		b.WriteString(RenderHelpWithWidth(m.width,
 			"h/←/esc", "close",
 			"q", "menu",
 		))
-	} else {
+	default:
 		b.WriteString(RenderHelpWithWidth(m.width,
 			"/", "filter",
 			"l/→", "details",
@@ -1089,12 +1070,8 @@ func (m Model) getFilteredApplications() []ApplicationItem {
 			subMatches := strings.Contains(strings.ToLower(sub.SubEntry.Name), filterLower) ||
 				strings.Contains(strings.ToLower(sub.Target), filterLower)
 
-			// Check source field
-			if sub.SubEntry.IsGit() {
-				subMatches = subMatches || strings.Contains(strings.ToLower(sub.SubEntry.Repo), filterLower)
-			} else {
-				subMatches = subMatches || strings.Contains(strings.ToLower(sub.SubEntry.Backup), filterLower)
-			}
+			// Check backup field
+			subMatches = subMatches || strings.Contains(strings.ToLower(sub.SubEntry.Backup), filterLower)
 
 			if appMatches || subMatches {
 				matchingSubItems = append(matchingSubItems, sub)

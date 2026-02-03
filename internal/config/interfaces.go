@@ -18,6 +18,5 @@ type Filterable interface {
 // EntryGetter defines interface for retrieving entries
 type EntryGetter interface {
 	GetConfigEntries() []Entry
-	GetGitEntries() []Entry
 	GetPackageEntries() []Entry
 }

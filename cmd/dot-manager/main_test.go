@@ -14,15 +14,15 @@ func TestRunInit(t *testing.T) {
 	appConfigPath := config.AppConfigPath()
 	var originalConfig []byte
 	var hadConfig bool
-	if data, err := os.ReadFile(appConfigPath); err == nil {
+	if data, err := os.ReadFile(appConfigPath); err == nil { //nolint:gosec // test file path is controlled
 		originalConfig = data
 		hadConfig = true
 	}
 	t.Cleanup(func() {
 		if hadConfig {
-			os.WriteFile(appConfigPath, originalConfig, 0600)
+			_ = os.WriteFile(appConfigPath, originalConfig, 0600)
 		} else {
-			os.Remove(appConfigPath)
+			_ = os.Remove(appConfigPath)
 		}
 	})
 
@@ -53,7 +53,7 @@ func TestRunInit(t *testing.T) {
 			setupPath: func(t *testing.T) string {
 				tmpDir := t.TempDir()
 				filePath := filepath.Join(tmpDir, "file.txt")
-				if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte("test"), 0600); err != nil {
 					t.Fatalf("failed to create test file: %v", err)
 				}
 				return filePath
@@ -96,15 +96,19 @@ func TestGetConfigDir(t *testing.T) {
 	appConfigPath := config.AppConfigPath()
 	var originalConfig []byte
 	var hadConfig bool
-	if data, err := os.ReadFile(appConfigPath); err == nil {
+	if data, err := os.ReadFile(appConfigPath); err == nil { //nolint:gosec // test file path is controlled
 		originalConfig = data
 		hadConfig = true
 	}
 	// Remove config file to test "app config not found" case
-	os.Remove(appConfigPath)
+	if err := os.Remove(appConfigPath); err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		if hadConfig {
-			os.WriteFile(appConfigPath, originalConfig, 0600)
+			if err := os.WriteFile(appConfigPath, originalConfig, 0600); err != nil {
+				t.Fatal(err)
+			}
 		}
 	})
 

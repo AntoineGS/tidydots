@@ -3,22 +3,16 @@ package config
 const (
 	// SubEntryTypeConfig represents a config type sub-entry
 	SubEntryTypeConfig = "config"
-	// SubEntryTypeGit represents a git type sub-entry
-	SubEntryTypeGit = "git"
 )
 
-// Entry is a unified configuration entry that can be:
-// - Config type (has backup field): symlink management
-// - Git type (has repo field): repository clones
-// Both types can optionally have a package field.
+// Entry is a unified configuration entry that manages symlink configuration.
+// Entries can optionally have a package field for installation.
 type Entry struct {
 	Targets     map[string]string `yaml:"targets,omitempty"`
 	Package     *EntryPackage     `yaml:"package,omitempty"`
 	Name        string            `yaml:"name"`
 	Description string            `yaml:"description,omitempty"`
 	Backup      string            `yaml:"backup,omitempty"`
-	Repo        string            `yaml:"repo,omitempty"`
-	Branch      string            `yaml:"branch,omitempty"`
 	Filters     []Filter          `yaml:"filters,omitempty"`
 	Files       []string          `yaml:"files,omitempty"`
 	Sudo        bool              `yaml:"sudo,omitempty"`
@@ -36,12 +30,8 @@ func (e *Entry) IsConfig() bool {
 	return e.Backup != ""
 }
 
-// IsGit returns true if this is a git type entry (has repo field)
-func (e *Entry) IsGit() bool {
-	return e.Repo != ""
-}
-
 // HasConfig returns true if this entry has configuration management (backup/targets)
+//
 // Deprecated: Use IsConfig() instead
 func (e *Entry) HasConfig() bool {
 	return e.IsConfig()
@@ -137,26 +127,18 @@ type Application struct {
 	Entries     []SubEntry    `yaml:"entries"`
 }
 
-// SubEntry represents an individual configuration or git entry within an application (v3 format)
+// SubEntry represents an individual configuration entry within an application (v3 format)
 type SubEntry struct {
 	Targets map[string]string `yaml:"targets,omitempty"`
-	Type    string            `yaml:"type"`
 	Name    string            `yaml:"name"`
 	Backup  string            `yaml:"backup,omitempty"`
-	Repo    string            `yaml:"repo,omitempty"`
-	Branch  string            `yaml:"branch,omitempty"`
 	Files   []string          `yaml:"files,omitempty"`
 	Sudo    bool              `yaml:"sudo,omitempty"`
 }
 
 // IsConfig returns true if this is a config type sub-entry
 func (s *SubEntry) IsConfig() bool {
-	return s.Type == SubEntryTypeConfig || s.Backup != ""
-}
-
-// IsGit returns true if this is a git type sub-entry
-func (s *SubEntry) IsGit() bool {
-	return s.Type == SubEntryTypeGit || s.Repo != ""
+	return s.Backup != ""
 }
 
 // IsFolder returns true if this config sub-entry manages an entire folder (no specific files)

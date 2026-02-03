@@ -48,35 +48,19 @@ func ValidateEntry(e *Entry) error {
 	}
 
 	isConfig := e.IsConfig()
-	isGit := e.IsGit()
 	hasPackage := e.HasPackage()
 
-	// Entry must be exactly one of: config type, git type, or package-only
-	if isConfig && isGit {
+	// Entry must have at least one of: config or package
+	if !isConfig && !hasPackage {
 		return ValidationError{
 			EntryName: e.Name,
-			Message:   "entry cannot have both backup (config type) and repo (git type)",
-		}
-	}
-
-	// Entry must have at least one of: config, git, or package
-	if !isConfig && !isGit && !hasPackage {
-		return ValidationError{
-			EntryName: e.Name,
-			Message:   "entry must have backup (config type), repo (git type), or package configuration",
+			Message:   "entry must have backup (config type) or package configuration",
 		}
 	}
 
 	// Validate config fields if present
 	if isConfig {
 		if err := validateConfigFields(e); err != nil {
-			return err
-		}
-	}
-
-	// Validate git fields if present
-	if isGit {
-		if err := validateGitFields(e); err != nil {
 			return err
 		}
 	}
@@ -115,47 +99,6 @@ func validateConfigFields(e *Entry) error {
 			EntryName: e.Name,
 			Field:     "targets",
 			Message:   "at least one target is required for config entries",
-		}
-	}
-
-	// Validate target paths are not empty
-	for os, target := range e.Targets {
-		if strings.TrimSpace(target) == "" {
-			return ValidationError{
-				EntryName: e.Name,
-				Field:     fmt.Sprintf("targets.%s", os),
-				Message:   "target path cannot be empty",
-			}
-		}
-
-		if err := ValidatePath(target); err != nil {
-			return ValidationError{
-				EntryName: e.Name,
-				Field:     fmt.Sprintf("targets.%s", os),
-				Message:   err.Error(),
-			}
-		}
-	}
-
-	return nil
-}
-
-func validateGitFields(e *Entry) error {
-	// Repo is already validated by IsGit() being true
-	if err := ValidatePath(e.Repo); err != nil {
-		return ValidationError{
-			EntryName: e.Name,
-			Field:     "repo",
-			Message:   err.Error(),
-		}
-	}
-
-	// At least one target is required for git entries
-	if len(e.Targets) == 0 {
-		return ValidationError{
-			EntryName: e.Name,
-			Field:     "targets",
-			Message:   "at least one target is required for git entries",
 		}
 	}
 

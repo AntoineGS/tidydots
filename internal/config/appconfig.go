@@ -1,3 +1,4 @@
+// Package config provides configuration management for dot-manager.
 package config
 
 import (
@@ -30,7 +31,7 @@ func LoadAppConfig() (*AppConfig, error) {
 
 	configPath := filepath.Join(home, appConfigDir, appConfigFile)
 
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) //nolint:gosec // path is from user home dir, intentional
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("app config not found at %s - run 'dot-manager init' or create it manually", configPath)
@@ -69,7 +70,7 @@ func SaveAppConfig(cfg *AppConfig) error {
 	}
 
 	configDir := filepath.Join(home, appConfigDir)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 

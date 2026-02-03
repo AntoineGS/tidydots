@@ -55,7 +55,7 @@ func (m *Manager) Backup() error {
 	return nil
 }
 
-func (m *Manager) backupV3() error {
+func (m *Manager) backupV3() error { //nolint:dupl // similar structure to restoreV3, but semantically different
 	apps := m.GetApplications()
 
 	for _, app := range apps {
@@ -115,14 +115,14 @@ func (m *Manager) backupFolderSubEntry(_ string, subEntry config.SubEntry, backu
 	m.logf("Backing up folder %s -> %s", target, backup)
 
 	if !m.DryRun {
-		if err := os.MkdirAll(filepath.Dir(backup), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(backup), 0750); err != nil {
 			return NewPathError("backup", backup, fmt.Errorf("creating parent directory: %w", err))
 		}
 
 		// Copy source folder into backup directory (e.g., /source/nvim -> /backup/nvim)
 		destPath := filepath.Join(backup, filepath.Base(target))
 		if subEntry.Sudo {
-			cmd := exec.Command("sudo", "cp", "-r", target, destPath)
+			cmd := exec.CommandContext(context.Background(), "sudo", "cp", "-r", target, destPath) //nolint:gosec // intentional sudo command
 			return cmd.Run()
 		}
 
@@ -140,7 +140,7 @@ func (m *Manager) backupFilesSubEntry(_ string, subEntry config.SubEntry, backup
 	}
 
 	if !m.DryRun {
-		if err := os.MkdirAll(backup, 0755); err != nil {
+		if err := os.MkdirAll(backup, 0750); err != nil {
 			return NewPathError("backup", backup, fmt.Errorf("creating backup directory: %w", err))
 		}
 	}
@@ -158,7 +158,7 @@ func (m *Manager) backupFilesSubEntry(_ string, subEntry config.SubEntry, backup
 
 		if !m.DryRun {
 			if subEntry.Sudo {
-				cmd := exec.Command("sudo", "cp", srcFile, dstFile)
+				cmd := exec.CommandContext(context.Background(), "sudo", "cp", srcFile, dstFile) //nolint:gosec // intentional sudo command
 				if err := cmd.Run(); err != nil {
 					return NewPathError("backup", srcFile, fmt.Errorf("copying file: %w", err))
 				}

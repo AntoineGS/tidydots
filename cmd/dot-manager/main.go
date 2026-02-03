@@ -1,3 +1,4 @@
+// Package main provides the CLI entry point for dot-manager.
 package main
 
 import (
@@ -105,7 +106,7 @@ Packages are filtered based on their filters (os, hostname, user).`,
 	}
 }
 
-func runInit(cmd *cobra.Command, args []string) error {
+func runInit(_ *cobra.Command, args []string) error {
 	path := args[0]
 
 	// Expand ~ if present
@@ -225,7 +226,7 @@ func createManager() (*manager.Manager, error) {
 	return mgr, nil
 }
 
-func runInteractive(cmd *cobra.Command, args []string) error {
+func runInteractive(_ *cobra.Command, _ []string) error {
 	cfg, plat, configPath, err := loadConfig()
 	if err != nil {
 		return err
@@ -307,7 +308,7 @@ func runBackupWithManager(m manager.Backuper) error {
 	return m.BackupWithContext(ctx)
 }
 
-func runList(cmd *cobra.Command, args []string) error {
+func runList(_ *cobra.Command, _ []string) error {
 	mgr, err := createManager()
 	if err != nil {
 		return err
@@ -403,7 +404,7 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runListPackages(cmd *cobra.Command, args []string) error {
+func runListPackages(_ *cobra.Command, _ []string) error {
 	cfg, plat, _, err := loadConfig()
 	if err != nil {
 		return err

@@ -21,17 +21,31 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 
 	// Create backup structure (simulating cloned dotfiles repo)
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
 	nvimConfig := "-- Neovim config from backup\nvim.opt.number = true\n"
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte(nvimConfig), 0644)
-	os.MkdirAll(filepath.Join(nvimBackup, "lua"), 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "lua", "plugins.lua"), []byte("-- plugins"), 0644)
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte(nvimConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(nvimBackup, "lua"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "lua", "plugins.lua"), []byte("-- plugins"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	bashBackup := filepath.Join(repoDir, "bash")
-	os.MkdirAll(bashBackup, 0755)
+	if err := os.MkdirAll(bashBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
 	bashrcContent := "# Bash config from backup\nexport PATH=$PATH:~/bin\n"
-	os.WriteFile(filepath.Join(bashBackup, ".bashrc"), []byte(bashrcContent), 0644)
-	os.WriteFile(filepath.Join(bashBackup, ".bash_profile"), []byte("source ~/.bashrc"), 0644)
+	if err := os.WriteFile(filepath.Join(bashBackup, ".bashrc"), []byte(bashrcContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bashBackup, ".bash_profile"), []byte("source ~/.bashrc"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create config
 	cfg := &config.Config{
@@ -84,7 +98,7 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 	// Verify: can read files through the symlink
 	initLua := filepath.Join(nvimTarget, "init.lua")
 
-	content, err := os.ReadFile(initLua)
+	content, err := os.ReadFile(initLua) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Cannot read through nvim symlink: %v", err)
 	}
@@ -95,7 +109,7 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 
 	// Verify: nested files are accessible
 	pluginsLua := filepath.Join(nvimTarget, "lua", "plugins.lua")
-	if _, err := os.ReadFile(pluginsLua); err != nil {
+	if _, err := os.ReadFile(pluginsLua); err != nil { //nolint:gosec // test file
 		t.Errorf("Cannot read nested file through symlink: %v", err)
 	}
 
@@ -106,7 +120,7 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 	}
 
 	// Verify: can read .bashrc through symlink
-	content, err = os.ReadFile(bashrcTarget)
+	content, err = os.ReadFile(bashrcTarget) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Cannot read .bashrc through symlink: %v", err)
 	}
@@ -131,19 +145,29 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 	// Setup: User has existing configs
 	homeDir := filepath.Join(tmpDir, "home")
 	repoDir := filepath.Join(tmpDir, "dotfiles-repo")
-	os.MkdirAll(repoDir, 0755)
+	if err := os.MkdirAll(repoDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// User's existing nvim config
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 	originalNvimConfig := "-- My personal nvim config\n"
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte(originalNvimConfig), 0644)
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte(originalNvimConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// User's existing bashrc
 	originalBashrc := "# My personal bashrc\n"
 
-	os.MkdirAll(homeDir, 0755)
-	os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte(originalBashrc), 0644)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".bashrc"), []byte(originalBashrc), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Config with empty backup locations
 	cfg := &config.Config{
@@ -186,7 +210,7 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 		t.Errorf("nvim config should have been adopted to backup")
 	}
 
-	content, _ := os.ReadFile(backupInitLua)
+	content, _ := os.ReadFile(backupInitLua) //nolint:gosec // test file
 	if string(content) != originalNvimConfig {
 		t.Errorf("Adopted nvim content = %q, want %q", string(content), originalNvimConfig)
 	}
@@ -197,7 +221,7 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 	}
 
 	// Verify: can still read the config through symlink
-	content, err = os.ReadFile(filepath.Join(nvimDir, "init.lua"))
+	content, err = os.ReadFile(filepath.Join(nvimDir, "init.lua")) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Cannot read nvim config through symlink: %v", err)
 	}
@@ -229,18 +253,30 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 
 	// Setup: Create user configs
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 	nvimConfig := "vim.g.mapleader = ' '\n"
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte(nvimConfig), 0644)
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte(nvimConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	zshrcContent := "export EDITOR=nvim\n"
 
-	os.MkdirAll(homeDir, 0755)
-	os.WriteFile(filepath.Join(homeDir, ".zshrc"), []byte(zshrcContent), 0644)
+	if err := os.MkdirAll(homeDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".zshrc"), []byte(zshrcContent), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Setup backup directory
-	os.MkdirAll(filepath.Join(repoDir, "nvim"), 0755)
-	os.MkdirAll(filepath.Join(repoDir, "zsh"), 0755)
+	if err := os.MkdirAll(filepath.Join(repoDir, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(repoDir, "zsh"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -286,8 +322,10 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 	}
 
 	// Step 2: Delete original configs (simulate fresh machine)
-	os.RemoveAll(nvimDir)
-	os.Remove(filepath.Join(homeDir, ".zshrc"))
+	_ = os.RemoveAll(nvimDir)
+	if err := os.Remove(filepath.Join(homeDir, ".zshrc")); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a new manager for restore (simulating different config pointing to backed up folder)
 	restoreCfg := &config.Config{
@@ -326,7 +364,7 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 		t.Errorf("nvim should be a symlink after restore")
 	}
 
-	content, err := os.ReadFile(filepath.Join(nvimDir, "init.lua"))
+	content, err := os.ReadFile(filepath.Join(nvimDir, "init.lua")) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Cannot read nvim config after restore: %v", err)
 	}
@@ -340,7 +378,7 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 		t.Errorf(".zshrc should be a symlink after restore")
 	}
 
-	content, err = os.ReadFile(zshrcPath)
+	content, err = os.ReadFile(zshrcPath) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Cannot read .zshrc after restore: %v", err)
 	}
@@ -360,9 +398,13 @@ func TestE2E_RestoreIdempotent(t *testing.T) {
 
 	// Setup backup
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
 	nvimConfig := "-- config\n"
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte(nvimConfig), 0644)
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte(nvimConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -402,7 +444,7 @@ func TestE2E_RestoreIdempotent(t *testing.T) {
 	}
 
 	// Verify content is still accessible
-	content, err := os.ReadFile(filepath.Join(nvimTarget, "init.lua"))
+	content, err := os.ReadFile(filepath.Join(nvimTarget, "init.lua")) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Cannot read config: %v", err)
 	}
@@ -422,9 +464,13 @@ func TestE2E_SymlinkModification(t *testing.T) {
 
 	// Setup
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
 	originalConfig := "-- original\n"
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte(originalConfig), 0644)
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte(originalConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -443,19 +489,19 @@ func TestE2E_SymlinkModification(t *testing.T) {
 
 	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
-	mgr.Restore()
+	_ = mgr.Restore()
 
 	// Modify file through symlink
 	nvimTarget := filepath.Join(homeDir, ".config", "nvim")
 	modifiedConfig := "-- modified through symlink\n"
 
-	err := os.WriteFile(filepath.Join(nvimTarget, "init.lua"), []byte(modifiedConfig), 0644)
+	err := os.WriteFile(filepath.Join(nvimTarget, "init.lua"), []byte(modifiedConfig), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write through symlink: %v", err)
 	}
 
 	// Verify: backup file should be modified
-	content, _ := os.ReadFile(filepath.Join(nvimBackup, "init.lua"))
+	content, _ := os.ReadFile(filepath.Join(nvimBackup, "init.lua")) //nolint:gosec // test file
 	if string(content) != modifiedConfig {
 		t.Errorf("Backup content should be modified, got %q, want %q", string(content), modifiedConfig)
 	}
@@ -464,7 +510,7 @@ func TestE2E_SymlinkModification(t *testing.T) {
 	newFile := filepath.Join(nvimTarget, "new.lua")
 	newContent := "-- new file\n"
 
-	err = os.WriteFile(newFile, []byte(newContent), 0644)
+	err = os.WriteFile(newFile, []byte(newContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create new file through symlink: %v", err)
 	}
@@ -475,7 +521,7 @@ func TestE2E_SymlinkModification(t *testing.T) {
 		t.Errorf("New file should exist in backup")
 	}
 
-	content, _ = os.ReadFile(backupNewFile)
+	content, _ = os.ReadFile(backupNewFile) //nolint:gosec // test file
 	if string(content) != newContent {
 		t.Errorf("New file content = %q, want %q", string(content), newContent)
 	}
@@ -492,16 +538,30 @@ func TestE2E_MixedFolderAndFiles(t *testing.T) {
 	// Setup backups
 	// Folder-based: nvim (entire directory)
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(filepath.Join(nvimBackup, "lua"), 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("init"), 0644)
-	os.WriteFile(filepath.Join(nvimBackup, "lua", "settings.lua"), []byte("settings"), 0644)
+	if err := os.MkdirAll(filepath.Join(nvimBackup, "lua"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("init"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "lua", "settings.lua"), []byte("settings"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// File-based: shell configs (specific files)
 	shellBackup := filepath.Join(repoDir, "shell")
-	os.MkdirAll(shellBackup, 0755)
-	os.WriteFile(filepath.Join(shellBackup, ".bashrc"), []byte("bashrc"), 0644)
-	os.WriteFile(filepath.Join(shellBackup, ".zshrc"), []byte("zshrc"), 0644)
-	os.WriteFile(filepath.Join(shellBackup, ".profile"), []byte("profile"), 0644)
+	if err := os.MkdirAll(shellBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(shellBackup, ".bashrc"), []byte("bashrc"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(shellBackup, ".zshrc"), []byte("zshrc"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(shellBackup, ".profile"), []byte("profile"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -543,7 +603,7 @@ func TestE2E_MixedFolderAndFiles(t *testing.T) {
 	// Verify nested file in folder symlink
 	settingsPath := filepath.Join(nvimTarget, "lua", "settings.lua")
 
-	content, err := os.ReadFile(settingsPath)
+	content, err := os.ReadFile(settingsPath) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Cannot read nested file: %v", err)
 	}
@@ -584,8 +644,12 @@ func TestE2E_DryRunNoChanges(t *testing.T) {
 
 	// Setup backup
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0644)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -631,13 +695,19 @@ func TestE2E_AdoptDryRunPreservesOriginal(t *testing.T) {
 	repoDir := filepath.Join(tmpDir, "repo")
 	homeDir := filepath.Join(tmpDir, "home")
 
-	os.MkdirAll(repoDir, 0755)
+	if err := os.MkdirAll(repoDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// User has existing config
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 	originalConfig := "-- original config\n"
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte(originalConfig), 0644)
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte(originalConfig), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -664,7 +734,7 @@ func TestE2E_AdoptDryRunPreservesOriginal(t *testing.T) {
 	}
 
 	// Verify: original config still exists (not moved)
-	content, err := os.ReadFile(filepath.Join(nvimDir, "init.lua"))
+	content, err := os.ReadFile(filepath.Join(nvimDir, "init.lua")) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Original config should still exist: %v", err)
 	}
@@ -695,13 +765,21 @@ func TestE2E_SkipAlreadySymlinked(t *testing.T) {
 
 	// Setup backup
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0644)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Pre-create the symlink
 	nvimTarget := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(filepath.Dir(nvimTarget), 0755)
-	os.Symlink(nvimBackup, nvimTarget)
+	if err := os.MkdirAll(filepath.Dir(nvimTarget), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(nvimBackup, nvimTarget); err != nil {
+		t.Fatal(err)
+	}
 
 	// Get initial symlink info
 	initialInfo, _ := os.Lstat(nvimTarget)
@@ -759,8 +837,12 @@ func TestE2E_MultipleOSTargets(t *testing.T) {
 
 	// Setup backup
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0644)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -781,7 +863,7 @@ func TestE2E_MultipleOSTargets(t *testing.T) {
 	// Test Linux
 	plat := &platform.Platform{OS: platform.OSLinux}
 	mgr := New(cfg, plat)
-	mgr.Restore()
+	_ = mgr.Restore()
 
 	linuxTarget := filepath.Join(linuxHome, ".config", "nvim")
 	if !isSymlink(linuxTarget) {
@@ -805,12 +887,20 @@ func TestE2E_RootPaths(t *testing.T) {
 
 	// Setup backups
 	userBackup := filepath.Join(repoDir, "user")
-	os.MkdirAll(userBackup, 0755)
-	os.WriteFile(filepath.Join(userBackup, "config"), []byte("user config"), 0644)
+	if err := os.MkdirAll(userBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userBackup, "config"), []byte("user config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	systemBackup := filepath.Join(repoDir, "system")
-	os.MkdirAll(systemBackup, 0755)
-	os.WriteFile(filepath.Join(systemBackup, "system.conf"), []byte("system config"), 0644)
+	if err := os.MkdirAll(systemBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(systemBackup, "system.conf"), []byte("system config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -844,7 +934,7 @@ func TestE2E_RootPaths(t *testing.T) {
 	// In tests, we can only verify non-root entries work correctly
 	// Root entries would fail without actual sudo privileges
 	// For this test, we verify the user-app entry works
-	mgr.Restore()
+	_ = mgr.Restore()
 
 	userTarget := filepath.Join(homeDir, ".config", "app")
 	if !isSymlink(userTarget) {
@@ -873,8 +963,12 @@ func TestE2E_RestoreWithNoTarget(t *testing.T) {
 
 	repoDir := filepath.Join(tmpDir, "repo")
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0644)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -908,7 +1002,9 @@ func TestE2E_BackupWithNoTarget(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	repoDir := filepath.Join(tmpDir, "repo")
-	os.MkdirAll(repoDir, 0755)
+	if err := os.MkdirAll(repoDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -941,7 +1037,9 @@ func TestE2E_BackupNonexistentSource(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	repoDir := filepath.Join(tmpDir, "repo")
-	os.MkdirAll(filepath.Join(repoDir, "nvim"), 0755)
+	if err := os.MkdirAll(filepath.Join(repoDir, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    2,
@@ -979,12 +1077,20 @@ func TestE2E_V3RestoreFromBackup(t *testing.T) {
 
 	// Create backup structure
 	nvimBackup := filepath.Join(repoDir, "nvim", "config")
-	os.MkdirAll(nvimBackup, 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("-- nvim config"), 0644)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("-- nvim config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	nvimDataBackup := filepath.Join(repoDir, "nvim", "data")
-	os.MkdirAll(nvimDataBackup, 0755)
-	os.WriteFile(filepath.Join(nvimDataBackup, "lazy.lua"), []byte("-- lazy"), 0644)
+	if err := os.MkdirAll(nvimDataBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDataBackup, "lazy.lua"), []byte("-- lazy"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create v3 config
 	cfg := &config.Config{
@@ -1046,7 +1152,7 @@ func TestE2E_V3RestoreFromBackup(t *testing.T) {
 	}
 
 	// Verify content is accessible
-	content, _ := os.ReadFile(filepath.Join(configTarget, "init.lua"))
+	content, _ := os.ReadFile(filepath.Join(configTarget, "init.lua")) //nolint:gosec // test file
 	if string(content) != "-- nvim config" {
 		t.Errorf("config content = %q, want %q", string(content), "-- nvim config")
 	}
@@ -1062,11 +1168,17 @@ func TestE2E_V3BackupThenRestore(t *testing.T) {
 
 	// Setup: User has existing config
 	nvimDir := filepath.Join(homeDir, ".config", "nvim")
-	os.MkdirAll(nvimDir, 0755)
-	os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim.g.leader = ' '"), 0644)
+	if err := os.MkdirAll(nvimDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimDir, "init.lua"), []byte("vim.g.leader = ' '"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Setup backup directory
-	os.MkdirAll(filepath.Join(repoDir, "nvim"), 0755)
+	if err := os.MkdirAll(filepath.Join(repoDir, "nvim"), 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := &config.Config{
 		Version:    3,
@@ -1104,7 +1216,7 @@ func TestE2E_V3BackupThenRestore(t *testing.T) {
 	}
 
 	// Step 2: Delete original and restore
-	os.RemoveAll(nvimDir)
+	_ = os.RemoveAll(nvimDir)
 
 	// Update config to point to backed up folder (backup adds base name)
 	restoreCfg := &config.Config{
@@ -1138,7 +1250,7 @@ func TestE2E_V3BackupThenRestore(t *testing.T) {
 		t.Error("nvim should be a symlink after restore")
 	}
 
-	content, err := os.ReadFile(filepath.Join(nvimDir, "init.lua"))
+	content, err := os.ReadFile(filepath.Join(nvimDir, "init.lua")) //nolint:gosec // test file
 	if err != nil {
 		t.Fatalf("Failed to read restored file: %v", err)
 	}
@@ -1155,8 +1267,12 @@ func TestE2E_RestoreCreatesNestedParentDirs(t *testing.T) {
 
 	repoDir := filepath.Join(tmpDir, "repo")
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	os.MkdirAll(nvimBackup, 0755)
-	os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0644)
+	if err := os.MkdirAll(nvimBackup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nvimBackup, "init.lua"), []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Deep nested target path
 	deepTarget := filepath.Join(tmpDir, "home", "user", ".config", "deeply", "nested", "nvim")

@@ -41,16 +41,17 @@ func renderPackagesSection(
 		pkgName := packageManagers[manager]
 
 		// Show input if editing this manager's package
-		if editingPackage && packagesCursor == i {
+		switch {
+		case editingPackage && packagesCursor == i:
 			b.WriteString(fmt.Sprintf("%s%-8s %s\n", prefix, manager+":", packageNameInput.View()))
-		} else if focused && packagesCursor == i {
+		case focused && packagesCursor == i:
 			// Focused on this manager
 			if pkgName != "" {
 				b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s %s", manager+":", pkgName))))
 			} else {
 				b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s (not set)", manager+":"))))
 			}
-		} else {
+		default:
 			// Not focused
 			if pkgName != "" {
 				b.WriteString(fmt.Sprintf("%s%-8s %s\n", prefix, manager+":", pkgName))
@@ -185,10 +186,11 @@ func renderFilterAddUI(
 
 	// Value input
 	valueLabel := "    Value: "
-	if filterAddStep == filterStepValue && editingFilterValue {
+	switch {
+	case filterAddStep == filterStepValue && editingFilterValue:
 		// Actively editing - show the text input
 		b.WriteString(valueLabel + filterValueInput.View() + "\n")
-	} else if filterAddStep == filterStepValue {
+	case filterAddStep == filterStepValue:
 		// Focused but not editing - show highlighted value
 		value := filterValueInput.Value()
 		if value == "" {
@@ -196,7 +198,7 @@ func renderFilterAddUI(
 		}
 
 		b.WriteString(valueLabel + SelectedMenuItemStyle.Render(value) + "\n")
-	} else {
+	default:
 		// Not focused
 		value := filterValueInput.Value()
 		if value == "" {

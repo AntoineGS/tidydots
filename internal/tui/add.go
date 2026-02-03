@@ -1,3 +1,4 @@
+// Package tui provides the terminal user interface.
 package tui
 
 import (
@@ -13,6 +14,8 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateApplicationForm(msg)
 	case FormSubEntry:
 		return m.updateSubEntryForm(msg)
+	case FormNone:
+		fallthrough
 	default:
 		// No active form - should not happen, return to menu
 		m.Screen = ScreenMenu
@@ -28,6 +31,8 @@ func (m Model) viewAddForm() string {
 		return m.viewApplicationForm()
 	case FormSubEntry:
 		return m.viewSubEntryForm()
+	case FormNone:
+		fallthrough
 	default:
 		// No active form - should not happen
 		return BaseStyle.Render("Error: No form active")
@@ -83,22 +88,22 @@ func (m *Model) deleteApplicationOrSubEntry(appIdx, subIdx int) error {
 
 // Stub functions for other phases (to be implemented later)
 
-func (m Model) calcSubEntryDetailHeight(item *SubEntryItem) int {
+func (m Model) calcSubEntryDetailHeight(_ *SubEntryItem) int {
 	// Placeholder - to be implemented in Phase 5
 	return 5
 }
 
-func (m Model) calcApplicationDetailHeight(item *ApplicationItem) int {
+func (m Model) calcApplicationDetailHeight(_ *ApplicationItem) int {
 	// Placeholder - to be implemented in Phase 5
 	return 5
 }
 
-func (m Model) renderApplicationInlineDetail(item *ApplicationItem, width int) string {
+func (m Model) renderApplicationInlineDetail(_ *ApplicationItem, _ int) string {
 	// Placeholder - to be implemented in Phase 5
 	return ""
 }
 
-func (m Model) renderSubEntryInlineDetail(item *SubEntryItem, width int) string {
+func (m Model) renderSubEntryInlineDetail(_ *SubEntryItem, _ int) string {
 	// Placeholder - to be implemented in Phase 5
 	return ""
 }

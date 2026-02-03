@@ -13,13 +13,13 @@ func TestGetPathSuggestions(t *testing.T) {
 	// Create some test directories and files
 	dirs := []string{"config", "cache", "local", ".hidden"}
 	for _, d := range dirs {
-		if err := os.MkdirAll(filepath.Join(tmpDir, d), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(tmpDir, d), 0750); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// Create a file
-	if err := os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 

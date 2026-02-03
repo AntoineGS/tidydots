@@ -28,26 +28,17 @@ func (m *Manager) List() error {
 				continue
 			}
 
-			fmt.Printf("├─ %s [%s]\n", entry.Name, entry.Type)
+			fmt.Printf("├─ %s [config]\n", entry.Name)
 
-			if entry.IsConfig() {
-				var files string
-				if entry.IsFolder() {
-					files = "[folder]"
-				} else {
-					files = strings.Join(entry.Files, ", ")
-				}
-
-				fmt.Printf("     files: %s\n", files)
-				fmt.Printf("     backup: %s\n", m.resolvePath(entry.Backup))
-			} else if entry.IsGit() {
-				fmt.Printf("     repo: %s\n", entry.Repo)
-
-				if entry.Branch != "" {
-					fmt.Printf("     branch: %s\n", entry.Branch)
-				}
+			var files string
+			if entry.IsFolder() {
+				files = "[folder]"
+			} else {
+				files = strings.Join(entry.Files, ", ")
 			}
 
+			fmt.Printf("     files: %s\n", files)
+			fmt.Printf("     backup: %s\n", m.resolvePath(entry.Backup))
 			fmt.Printf("     target: %s\n", target)
 		}
 

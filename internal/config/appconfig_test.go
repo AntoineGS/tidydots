@@ -16,8 +16,10 @@ func TestSaveAppConfig(t *testing.T) {
 
 	// Override HOME for this test
 	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Setenv("HOME", origHome) }()
 
 	cfg := &AppConfig{
 		ConfigDir: "/path/to/configs",
@@ -35,7 +37,10 @@ func TestSaveAppConfig(t *testing.T) {
 	}
 
 	// Verify content
-	data, _ := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) //nolint:gosec // test file path is controlled
+	if err != nil {
+		t.Fatal(err)
+	}
 	content := string(data)
 
 	if !strings.Contains(content, "config_dir: /path/to/configs") {
@@ -52,21 +57,29 @@ func TestLoadAppConfig(t *testing.T) {
 
 	// Override HOME
 	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Setenv("HOME", origHome) }()
 
 	// Create config directory
 	configDir := filepath.Join(tmpDir, appConfigDir)
-	os.MkdirAll(configDir, 0755)
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a configs directory that will be referenced
 	configsRepo := filepath.Join(tmpDir, "my-dotfiles")
-	os.MkdirAll(configsRepo, 0755)
+	if err := os.MkdirAll(configsRepo, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Write app config
 	configContent := "config_dir: " + configsRepo + "\n"
 	configPath := filepath.Join(configDir, appConfigFile)
-	os.WriteFile(configPath, []byte(configContent), 0644)
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	// Load it
 	cfg, err := LoadAppConfig()
@@ -83,21 +96,29 @@ func TestLoadAppConfigWithTilde(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Setenv("HOME", origHome) }()
 
 	// Create config directory
 	configDir := filepath.Join(tmpDir, appConfigDir)
-	os.MkdirAll(configDir, 0755)
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a configs directory
 	configsRepo := filepath.Join(tmpDir, "dotfiles")
-	os.MkdirAll(configsRepo, 0755)
+	if err := os.MkdirAll(configsRepo, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Write app config with tilde
 	configContent := "config_dir: ~/dotfiles\n"
 	configPath := filepath.Join(configDir, appConfigFile)
-	os.WriteFile(configPath, []byte(configContent), 0644)
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg, err := LoadAppConfig()
 	if err != nil {
@@ -114,8 +135,10 @@ func TestLoadAppConfigNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Setenv("HOME", origHome) }()
 
 	_, err := LoadAppConfig()
 	if err == nil {
@@ -131,15 +154,21 @@ func TestLoadAppConfigInvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Setenv("HOME", origHome) }()
 
 	configDir := filepath.Join(tmpDir, appConfigDir)
-	os.MkdirAll(configDir, 0755)
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Write invalid YAML
 	configPath := filepath.Join(configDir, appConfigFile)
-	os.WriteFile(configPath, []byte("invalid: yaml: content:"), 0644)
+	if err := os.WriteFile(configPath, []byte("invalid: yaml: content:"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := LoadAppConfig()
 	if err == nil {
@@ -147,19 +176,26 @@ func TestLoadAppConfigInvalidYAML(t *testing.T) {
 	}
 }
 
+//nolint:dupl // similar test structure is intentional
 func TestLoadAppConfigEmptyConfigDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Setenv("HOME", origHome) }()
 
 	configDir := filepath.Join(tmpDir, appConfigDir)
-	os.MkdirAll(configDir, 0755)
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Write config with empty config_dir
 	configPath := filepath.Join(configDir, appConfigFile)
-	os.WriteFile(configPath, []byte("config_dir: \"\"\n"), 0644)
+	if err := os.WriteFile(configPath, []byte("config_dir: \"\"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := LoadAppConfig()
 	if err == nil {
@@ -171,19 +207,26 @@ func TestLoadAppConfigEmptyConfigDir(t *testing.T) {
 	}
 }
 
+//nolint:dupl // similar test structure is intentional
 func TestLoadAppConfigNonexistentConfigDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	if err := os.Setenv("HOME", tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Setenv("HOME", origHome) }()
 
 	configDir := filepath.Join(tmpDir, appConfigDir)
-	os.MkdirAll(configDir, 0755)
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		t.Fatal(err)
+	}
 
 	// Write config pointing to nonexistent directory
 	configPath := filepath.Join(configDir, appConfigFile)
-	os.WriteFile(configPath, []byte("config_dir: /nonexistent/path\n"), 0644)
+	if err := os.WriteFile(configPath, []byte("config_dir: /nonexistent/path\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := LoadAppConfig()
 	if err == nil {

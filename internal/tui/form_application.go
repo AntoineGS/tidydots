@@ -319,6 +319,8 @@ func (m Model) updateApplicationFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		m.applicationForm.nameInput, cmd = m.applicationForm.nameInput.Update(msg)
 	case appFieldDescription:
 		m.applicationForm.descriptionInput, cmd = m.applicationForm.descriptionInput.Update(msg)
+	case appFieldPackages, appFieldFilters:
+		// List fields don't need text input updates
 	}
 
 	// Clear error when typing
@@ -587,6 +589,8 @@ func (m Model) updateApplicationFiltersList(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 }
 
 // updateApplicationFilterInput handles key events when adding or editing a filter
+//
+//nolint:gocyclo // UI handler with many states
 func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
@@ -668,27 +672,30 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 
 	case "up", "k":
 		// Navigate to previous step
-		if m.applicationForm.filterAddStep == filterStepValue {
+		switch m.applicationForm.filterAddStep {
+		case filterStepValue:
 			m.applicationForm.filterAddStep = filterStepKey
-		} else if m.applicationForm.filterAddStep == filterStepKey {
+		case filterStepKey:
 			m.applicationForm.filterAddStep = filterStepType
 		}
 		return m, nil
 
 	case KeyDown, "j":
 		// Navigate to next step
-		if m.applicationForm.filterAddStep == filterStepType {
+		switch m.applicationForm.filterAddStep {
+		case filterStepType:
 			m.applicationForm.filterAddStep = filterStepKey
-		} else if m.applicationForm.filterAddStep == filterStepKey {
+		case filterStepKey:
 			m.applicationForm.filterAddStep = filterStepValue
 		}
 		return m, nil
 
 	case "left", "h":
 		// Navigate in type or key step
-		if m.applicationForm.filterAddStep == filterStepType {
+		switch m.applicationForm.filterAddStep {
+		case filterStepType:
 			m.applicationForm.filterIsExclude = !m.applicationForm.filterIsExclude
-		} else if m.applicationForm.filterAddStep == filterStepKey {
+		case filterStepKey:
 			if m.applicationForm.filterKeyCursor > 0 {
 				m.applicationForm.filterKeyCursor--
 			}
@@ -697,9 +704,10 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 
 	case "right", "l":
 		// Navigate in type or key step
-		if m.applicationForm.filterAddStep == filterStepType {
+		switch m.applicationForm.filterAddStep {
+		case filterStepType:
 			m.applicationForm.filterIsExclude = !m.applicationForm.filterIsExclude
-		} else if m.applicationForm.filterAddStep == filterStepKey {
+		case filterStepKey:
 			if m.applicationForm.filterKeyCursor < len(filterKeys)-1 {
 				m.applicationForm.filterKeyCursor++
 			}
@@ -708,9 +716,10 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 
 	case KeyTab:
 		// Move to next step
-		if m.applicationForm.filterAddStep == filterStepType {
+		switch m.applicationForm.filterAddStep {
+		case filterStepType:
 			m.applicationForm.filterAddStep = filterStepKey
-		} else if m.applicationForm.filterAddStep == filterStepKey {
+		case filterStepKey:
 			m.applicationForm.filterAddStep = filterStepValue
 			// Auto-start editing when adding
 			if m.applicationForm.addingFilter {
@@ -718,7 +727,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 				m.applicationForm.filterValueInput.Focus()
 				m.applicationForm.filterValueInput.SetCursor(len(m.applicationForm.filterValueInput.Value()))
 			}
-		} else if m.applicationForm.filterAddStep == filterStepValue {
+		case filterStepValue:
 			m.applicationForm.editingFilterValue = true
 			m.applicationForm.filterValueInput.Focus()
 			m.applicationForm.filterValueInput.SetCursor(len(m.applicationForm.filterValueInput.Value()))
@@ -727,9 +736,10 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 
 	case KeyEnter, "e":
 		// Enter edit mode for current step, or advance
-		if m.applicationForm.filterAddStep == filterStepType {
+		switch m.applicationForm.filterAddStep {
+		case filterStepType:
 			m.applicationForm.filterAddStep = filterStepKey
-		} else if m.applicationForm.filterAddStep == filterStepKey {
+		case filterStepKey:
 			m.applicationForm.filterAddStep = filterStepValue
 			// Auto-start editing when adding
 			if m.applicationForm.addingFilter {
@@ -737,7 +747,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 				m.applicationForm.filterValueInput.Focus()
 				m.applicationForm.filterValueInput.SetCursor(len(m.applicationForm.filterValueInput.Value()))
 			}
-		} else if m.applicationForm.filterAddStep == filterStepValue {
+		case filterStepValue:
 			m.applicationForm.editingFilterValue = true
 			m.applicationForm.filterValueInput.Focus()
 			m.applicationForm.filterValueInput.SetCursor(len(m.applicationForm.filterValueInput.Value()))
@@ -855,6 +865,8 @@ func (m Model) renderApplicationFieldValue(fieldType applicationFieldType, place
 		input = m.applicationForm.nameInput
 	case appFieldDescription:
 		input = m.applicationForm.descriptionInput
+	case appFieldPackages, appFieldFilters:
+		return placeholder
 	default:
 		return placeholder
 	}
@@ -1015,6 +1027,8 @@ func (m *Model) updateApplicationFormFocus() {
 		m.applicationForm.nameInput.Focus()
 	case appFieldDescription:
 		m.applicationForm.descriptionInput.Focus()
+	case appFieldPackages, appFieldFilters:
+		// List fields don't use textinput focus
 	}
 }
 
@@ -1036,6 +1050,8 @@ func (m *Model) enterApplicationFieldEditMode() {
 		m.applicationForm.originalValue = m.applicationForm.descriptionInput.Value()
 		m.applicationForm.descriptionInput.Focus()
 		m.applicationForm.descriptionInput.SetCursor(len(m.applicationForm.descriptionInput.Value()))
+	case appFieldPackages, appFieldFilters:
+		// List fields don't use text input editing
 	}
 }
 
@@ -1051,6 +1067,8 @@ func (m *Model) cancelApplicationFieldEdit() {
 		m.applicationForm.nameInput.SetValue(m.applicationForm.originalValue)
 	case appFieldDescription:
 		m.applicationForm.descriptionInput.SetValue(m.applicationForm.originalValue)
+	case appFieldPackages, appFieldFilters:
+		// List fields don't use text input restoration
 	}
 
 	m.applicationForm.editingField = false

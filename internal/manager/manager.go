@@ -97,11 +97,6 @@ func (m *Manager) GetEntries() []config.Entry {
 	return m.Config.GetFilteredConfigEntries(m.FilterCtx)
 }
 
-// GetGitEntries returns all filtered git repository entries from the configuration.
-func (m *Manager) GetGitEntries() []config.Entry {
-	return m.Config.GetFilteredGitEntries(m.FilterCtx)
-}
-
 // GetPackageEntries returns all filtered package entries from the configuration.
 func (m *Manager) GetPackageEntries() []config.Entry {
 	return m.Config.GetFilteredPackageEntries(m.FilterCtx)
@@ -182,7 +177,7 @@ func pathExists(path string) bool {
 }
 
 func copyFile(src, dst string) (err error) {
-	srcFile, openErr := os.Open(src)
+	srcFile, openErr := os.Open(src) //nolint:gosec // file path from config
 	if openErr != nil {
 		return fmt.Errorf("opening source: %w", openErr)
 	}
@@ -198,11 +193,11 @@ func copyFile(src, dst string) (err error) {
 		return fmt.Errorf("stating source: %w", statErr)
 	}
 
-	if mkdirErr := os.MkdirAll(filepath.Dir(dst), 0755); mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(filepath.Dir(dst), 0750); mkdirErr != nil {
 		return fmt.Errorf("creating destination directory: %w", mkdirErr)
 	}
 
-	dstFile, createErr := os.Create(dst)
+	dstFile, createErr := os.Create(dst) //nolint:gosec // path from config
 	if createErr != nil {
 		return fmt.Errorf("creating destination: %w", createErr)
 	}

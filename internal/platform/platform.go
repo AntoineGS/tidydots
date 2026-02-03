@@ -1,6 +1,8 @@
+// Package platform provides OS and distribution detection.
 package platform
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -107,7 +109,7 @@ func detectOS() string {
 }
 
 func (p *Platform) detectPowerShellProfile() {
-	cmd := exec.Command("pwsh", "-NoProfile", "-Command", "echo $PROFILE")
+	cmd := exec.CommandContext(context.Background(), "pwsh", "-NoProfile", "-Command", "echo $PROFILE")
 
 	output, err := cmd.Output()
 	if err != nil {

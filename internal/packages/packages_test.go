@@ -1,6 +1,7 @@
 package packages
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1255,7 +1256,7 @@ func TestManager_InstallGitPackage_Clone(t *testing.T) {
 	cloneDest := filepath.Join(tmpDir, "cloned")
 
 	// Initialize bare repo
-	cmd := exec.Command("git", "init", "--bare", bareRepo)
+	cmd := exec.CommandContext(context.Background(), "git", "init", "--bare", bareRepo) //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create bare repo: %v", err)
 	}
@@ -1304,43 +1305,43 @@ func TestManager_InstallGitPackage_Pull(t *testing.T) {
 	cloneDest := filepath.Join(tmpDir, "cloned")
 
 	// Initialize working repo with a commit
-	cmd := exec.Command("git", "init", workingRepo)
+	cmd := exec.CommandContext(context.Background(), "git", "init", workingRepo) //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create working repo: %v", err)
 	}
 
 	// Configure git user for commit
-	cmd = exec.Command("git", "-C", workingRepo, "config", "user.email", "test@example.com")
+	cmd = exec.CommandContext(context.Background(), "git", "-C", workingRepo, "config", "user.email", "test@example.com") //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to set git email: %v", err)
 	}
-	cmd = exec.Command("git", "-C", workingRepo, "config", "user.name", "Test User")
+	cmd = exec.CommandContext(context.Background(), "git", "-C", workingRepo, "config", "user.name", "Test User") //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to set git name: %v", err)
 	}
 
 	// Create initial commit
 	testFile := filepath.Join(workingRepo, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test content"), 0600); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	cmd = exec.Command("git", "-C", workingRepo, "add", "test.txt")
+	cmd = exec.CommandContext(context.Background(), "git", "-C", workingRepo, "add", "test.txt") //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to add file: %v", err)
 	}
-	cmd = exec.Command("git", "-C", workingRepo, "commit", "-m", "Initial commit")
+	cmd = exec.CommandContext(context.Background(), "git", "-C", workingRepo, "commit", "-m", "Initial commit") //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to commit: %v", err)
 	}
 
 	// Clone to bare repo
-	cmd = exec.Command("git", "clone", "--bare", workingRepo, bareRepo)
+	cmd = exec.CommandContext(context.Background(), "git", "clone", "--bare", workingRepo, bareRepo) //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create bare repo: %v", err)
 	}
 
 	// Clone from bare repo to destination
-	cmd = exec.Command("git", "clone", bareRepo, cloneDest)
+	cmd = exec.CommandContext(context.Background(), "git", "clone", bareRepo, cloneDest) //nolint:gosec // test command
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to clone repo: %v", err)
 	}

@@ -47,10 +47,13 @@ func (m Model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// Set dry-run flag based on operation
-		if m.Operation == OpRestoreDryRun {
+		switch m.Operation {
+		case OpRestoreDryRun:
 			m.DryRun = true
-		} else if m.Operation == OpRestore {
+		case OpRestore:
 			m.DryRun = false
+		case OpAdd, OpList, OpInstallPackages:
+			// Other operations don\'t use dry-run flag
 		}
 		m.Screen = ScreenPathSelect
 
