@@ -472,19 +472,18 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if subIdx >= 0 {
 					// Edit SubEntry
 					m.initEditFormForSubEntry(appIdx, subIdx)
+					m.Screen = ScreenAddForm
 				} else {
 					// Edit Application
-					m.initEditFormForApplication(appIdx)
+					m.initApplicationFormEdit(appIdx)
 				}
-				m.Screen = ScreenAddForm
 				return m, nil
 			}
 		}
 	case "A":
 		// Add new Application (only in List view)
 		if m.Operation == OpList {
-			m.initAddFormForNewApplication()
-			m.Screen = ScreenAddForm
+			m.initApplicationFormNew()
 			return m, nil
 		}
 	case "a":

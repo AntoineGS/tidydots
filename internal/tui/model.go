@@ -639,7 +639,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle AddForm separately (needs text input handling)
 	if m.Screen == ScreenAddForm {
-		return m.updateAddForm(msg)
+		// Route to appropriate form handler based on activeForm
+		switch m.activeForm {
+		case FormApplication:
+			return m.updateApplicationForm(msg)
+		case FormSubEntry:
+			// TODO: will be implemented in next task
+			return m.updateAddForm(msg)
+		default:
+			return m.updateAddForm(msg)
+		}
 	}
 
 	switch msg.String() {
@@ -699,7 +708,16 @@ func (m Model) View() string {
 	case ScreenResults:
 		return m.viewResults()
 	case ScreenAddForm:
-		return m.viewAddForm()
+		// Route to appropriate form view based on activeForm
+		switch m.activeForm {
+		case FormApplication:
+			return m.viewApplicationForm()
+		case FormSubEntry:
+			// TODO: will be implemented in next task
+			return m.viewAddForm()
+		default:
+			return m.viewAddForm()
+		}
 	}
 	return ""
 }
