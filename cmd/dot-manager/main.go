@@ -251,6 +251,10 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		fmt.Println("=== DRY RUN MODE ===")
 	}
 
+	return runRestoreWithManager(mgr)
+}
+
+func runRestoreWithManager(m manager.Restorer) error {
 	// Create context with cancellation support
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -264,7 +268,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
-	return mgr.RestoreWithContext(ctx)
+	return m.RestoreWithContext(ctx)
 }
 
 func runBackup(cmd *cobra.Command, args []string) error {
@@ -281,6 +285,10 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		fmt.Println("=== DRY RUN MODE ===")
 	}
 
+	return runBackupWithManager(mgr)
+}
+
+func runBackupWithManager(m manager.Backuper) error {
 	// Create context with cancellation support
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -294,7 +302,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
-	return mgr.BackupWithContext(ctx)
+	return m.BackupWithContext(ctx)
 }
 
 func runList(cmd *cobra.Command, args []string) error {
@@ -303,7 +311,11 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return mgr.List()
+	return runListWithManager(mgr)
+}
+
+func runListWithManager(m manager.Lister) error {
+	return m.List()
 }
 
 func runInstall(cmd *cobra.Command, args []string) error {

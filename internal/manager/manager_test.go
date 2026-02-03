@@ -440,3 +440,14 @@ func TestLogWarn(t *testing.T) {
 	mgr.logWarn("test warning message")
 	mgr.logWarn("test warning with %s", "arg")
 }
+
+func TestManager_SatisfiesInterface(t *testing.T) {
+	t.Parallel()
+	m := setupTestManager(t)
+
+	// Verify Manager implements DotfileManager
+	var _ DotfileManager = m
+	var _ Restorer = m
+	var _ Backuper = m
+	var _ Lister = m
+}
