@@ -115,7 +115,14 @@ func (m Model) viewConfirm() string {
 		}
 
 		// Summary
-		summary := fmt.Sprintf("You are about to create symlinks for %d path(s):", selected)
+		var summary string
+		if m.Operation == OpRestoreDryRun {
+			summary = fmt.Sprintf("Preview restore for %d selected paths?\n\nNo changes will be made to your filesystem.", selected)
+		} else if m.Operation == OpRestore {
+			summary = fmt.Sprintf("Restore %d selected paths?", selected)
+		} else {
+			summary = fmt.Sprintf("You are about to %s %d path(s):", m.Operation.String(), selected)
+		}
 		b.WriteString(summary)
 		b.WriteString("\n\n")
 
