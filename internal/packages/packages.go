@@ -51,8 +51,10 @@ type Package struct {
 	Name        string                    `yaml:"name"`
 	Description string                    `yaml:"description,omitempty"`
 	Managers    map[PackageManager]string `yaml:"managers,omitempty"`
-	Custom      map[string]string         `yaml:"custom,omitempty"` // OS -> command
-	URL         map[string]URLInstall     `yaml:"url,omitempty"`    // OS -> URL install
+	Custom      map[string]string         `yaml:"custom,omitempty"`     // OS -> command
+	URL         map[string]URLInstall     `yaml:"url,omitempty"`        // OS -> URL install
+	GitBranch   string                    `yaml:"git_branch,omitempty"` // Optional branch for git repos
+	GitTargets  map[string]string         `yaml:"git_targets,omitempty"` // OS -> clone destination path
 	Filters     []config.Filter           `yaml:"filters,omitempty"`
 }
 

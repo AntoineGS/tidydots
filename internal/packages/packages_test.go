@@ -1216,3 +1216,30 @@ func TestInstallAll_DryRun(t *testing.T) {
 		})
 	}
 }
+
+func TestPackage_GitFields(t *testing.T) {
+	pkg := Package{
+		Name:        "my-dotfiles",
+		Description: "My dotfiles repo",
+		Managers: map[PackageManager]string{
+			Git: "https://github.com/user/dotfiles.git",
+		},
+		GitBranch: "main",
+		GitTargets: map[string]string{
+			"linux":   "~/.dotfiles",
+			"windows": "~/dotfiles",
+		},
+	}
+
+	if pkg.Managers[Git] != "https://github.com/user/dotfiles.git" {
+		t.Errorf("Expected git repo URL, got %s", pkg.Managers[Git])
+	}
+
+	if pkg.GitBranch != "main" {
+		t.Errorf("Expected branch 'main', got %s", pkg.GitBranch)
+	}
+
+	if pkg.GitTargets["linux"] != "~/.dotfiles" {
+		t.Errorf("Expected linux target, got %s", pkg.GitTargets["linux"])
+	}
+}
