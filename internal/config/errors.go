@@ -30,7 +30,9 @@ func (e *ValidationErrors) Error() string {
 }
 
 func (e *ValidationErrors) Add(err error) {
-	e.Errors = append(e.Errors, err)
+	if err != nil {
+		e.Errors = append(e.Errors, err)
+	}
 }
 
 func (e *ValidationErrors) HasErrors() bool {
