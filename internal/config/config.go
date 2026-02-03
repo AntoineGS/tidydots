@@ -266,7 +266,10 @@ func (c *Config) GetPackageSpecs() []PackageSpec {
 	return result
 }
 
-func expandPath(path string, envVars map[string]string) string {
+// ExpandPath expands ~ and environment variables in a single path.
+// This should be used when a path is needed for file operations.
+// The path is kept unexpanded in the config to maintain portability.
+func ExpandPath(path string, envVars map[string]string) string {
 	if path == "" {
 		return path
 	}
@@ -293,6 +296,11 @@ func expandPath(path string, envVars map[string]string) string {
 	path = os.ExpandEnv(path)
 
 	return path
+}
+
+// expandPath is a private wrapper that calls ExpandPath for internal use
+func expandPath(path string, envVars map[string]string) string {
+	return ExpandPath(path, envVars)
 }
 
 // IsFolder returns true if this PathSpec manages an entire folder rather than

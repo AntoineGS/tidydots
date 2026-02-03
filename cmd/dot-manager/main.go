@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/AntoineGS/dot-manager/internal/config"
@@ -187,8 +188,9 @@ func loadConfig() (*config.Config, *platform.Platform, string, error) {
 	// If backup_root is empty or ".", use the config directory
 	if cfg.BackupRoot == "" || cfg.BackupRoot == "." {
 		cfg.BackupRoot = cfgDir
-	} else if !filepath.IsAbs(cfg.BackupRoot) {
+	} else if !filepath.IsAbs(cfg.BackupRoot) && !strings.HasPrefix(cfg.BackupRoot, "~") {
 		// Make relative paths relative to the config directory
+		// Note: paths starting with ~ are kept as-is (they'll be expanded during operations)
 		cfg.BackupRoot = filepath.Join(cfgDir, cfg.BackupRoot)
 	}
 
@@ -201,8 +203,8 @@ func loadConfig() (*config.Config, *platform.Platform, string, error) {
 		plat = plat.WithOS(osOverride)
 	}
 
-	// Expand paths with platform-specific environment variables
-	cfg.ExpandPaths(plat.EnvVars)
+	// Paths are kept with ~ in the config for portability
+	// They will be expanded when needed for file operations
 
 	return cfg, plat, configFile, nil
 }

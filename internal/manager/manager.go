@@ -144,12 +144,27 @@ func (m *Manager) logEntryRestore(entry config.Entry, target string, err error) 
 	}
 }
 
+// resolvePath expands ~ and environment variables in paths and resolves relative paths
+// against BackupRoot. This ensures paths work correctly even when stored with ~ in config.
 func (m *Manager) resolvePath(path string) string {
-	if filepath.IsAbs(path) {
-		return path
+	// Expand ~ and env vars in the path
+	expandedPath := config.ExpandPath(path, m.Platform.EnvVars)
+
+	// If it's already absolute after expansion, return it
+	if filepath.IsAbs(expandedPath) {
+		return expandedPath
 	}
 
-	return filepath.Join(m.Config.BackupRoot, path)
+	// Otherwise, resolve relative to BackupRoot (also expand BackupRoot)
+	expandedBackupRoot := config.ExpandPath(m.Config.BackupRoot, m.Platform.EnvVars)
+	return filepath.Join(expandedBackupRoot, expandedPath)
+}
+
+// expandTarget expands ~ and environment variables in a target path.
+// Target paths are typically absolute paths like ~/.config/nvim that need
+// expansion before use in file operations.
+func (m *Manager) expandTarget(target string) string {
+	return config.ExpandPath(target, m.Platform.EnvVars)
 }
 
 func isSymlink(path string) bool {

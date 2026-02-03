@@ -100,7 +100,8 @@ func (m *Model) refreshApplicationStates() {
 // detectSubEntryState determines the state of a sub-entry item
 func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 	// Similar to detectPathState but for SubEntry
-	targetPath := item.Target
+	// Expand ~ in target path for file operations
+	targetPath := config.ExpandPath(item.Target, m.Platform.EnvVars)
 
 	if item.SubEntry.IsGit() {
 		// Git entry logic (same as before)
@@ -817,7 +818,8 @@ func (m Model) viewListTable() string {
 				if subItem.SubEntry.IsGit() {
 					sourcePath = truncateStr(subItem.SubEntry.Repo)
 				} else {
-					sourcePath = truncateStr(m.resolvePath(subItem.SubEntry.Backup))
+					// Show backup path as-is (e.g., "./nvim") without resolving
+					sourcePath = truncateStr(subItem.SubEntry.Backup)
 				}
 
 				if len(sourcePath) > maxSourceWidth {
@@ -938,7 +940,8 @@ func (m Model) viewListTable() string {
 					if subItem.SubEntry.IsGit() {
 						sourcePath = truncateStr(subItem.SubEntry.Repo)
 					} else {
-						sourcePath = truncateStr(m.resolvePath(subItem.SubEntry.Backup))
+						// Show backup path as-is (e.g., "./nvim") without resolving
+						sourcePath = truncateStr(subItem.SubEntry.Backup)
 					}
 
 					// Target path

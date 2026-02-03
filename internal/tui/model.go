@@ -683,7 +683,8 @@ type PackageInstallMsg struct {
 
 // detectPathState determines the state of a path item
 func (m *Model) detectPathState(item *PathItem) PathState {
-	targetPath := item.Target
+	// Expand ~ in target path for file operations
+	targetPath := config.ExpandPath(item.Target, m.Platform.EnvVars)
 
 	// For git entries
 	if item.EntryType == EntryTypeGit {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/AntoineGS/dot-manager/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -97,11 +98,14 @@ func (m Model) viewMenu() string {
 }
 
 func (m Model) resolvePath(path string) string {
+	// Resolve relative paths against BackupRoot
+	resolvedPath := path
 	if len(path) > 0 && path[0] == '.' {
-		return m.Config.BackupRoot + path[1:]
+		resolvedPath = m.Config.BackupRoot + path[1:]
 	}
 
-	return path
+	// Expand ~ for file operations
+	return config.ExpandPath(resolvedPath, m.Platform.EnvVars)
 }
 
 func mutedText(s string) string {

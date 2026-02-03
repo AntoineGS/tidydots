@@ -55,10 +55,13 @@ func (m *Manager) Restore() error {
 			continue
 		}
 
-		if err := m.restoreEntry(entry, target); err != nil {
-			m.logEntryRestore(entry, target, err)
+		// Expand ~ and env vars in target path for file operations
+		expandedTarget := m.expandTarget(target)
+
+		if err := m.restoreEntry(entry, expandedTarget); err != nil {
+			m.logEntryRestore(entry, expandedTarget, err)
 		} else {
-			m.logEntryRestore(entry, target, nil)
+			m.logEntryRestore(entry, expandedTarget, nil)
 		}
 	}
 
@@ -82,7 +85,10 @@ func (m *Manager) Restore() error {
 			continue
 		}
 
-		if err := m.restoreGitEntry(entry, target); err != nil {
+		// Expand ~ and env vars in target path for file operations
+		expandedTarget := m.expandTarget(target)
+
+		if err := m.restoreGitEntry(entry, expandedTarget); err != nil {
 			m.logger.Error("git restore failed",
 				slog.String("entry", entry.Name),
 				slog.String("repo", entry.Repo),
@@ -433,12 +439,15 @@ func (m *Manager) restoreV3() error {
 				continue
 			}
 
+			// Expand ~ and env vars in target path for file operations
+			expandedTarget := m.expandTarget(target)
+
 			if subEntry.IsConfig() {
-				if err := m.restoreSubEntry(app.Name, subEntry, target); err != nil {
+				if err := m.restoreSubEntry(app.Name, subEntry, expandedTarget); err != nil {
 					m.logf("Error restoring %s/%s: %v", app.Name, subEntry.Name, err)
 				}
 			} else if subEntry.IsGit() {
-				if err := m.restoreGitSubEntry(app.Name, subEntry, target); err != nil {
+				if err := m.restoreGitSubEntry(app.Name, subEntry, expandedTarget); err != nil {
 					m.logf("Error restoring git %s/%s: %v", app.Name, subEntry.Name, err)
 				}
 			}

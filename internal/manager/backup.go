@@ -44,7 +44,10 @@ func (m *Manager) Backup() error {
 			continue
 		}
 
-		if err := m.backupEntry(entry, target); err != nil {
+		// Expand ~ and env vars in target path for file operations
+		expandedTarget := m.expandTarget(target)
+
+		if err := m.backupEntry(entry, expandedTarget); err != nil {
 			m.logf("Error backing up %s: %v", entry.Name, err)
 		}
 	}
@@ -80,7 +83,10 @@ func (m *Manager) backupV3() error {
 				continue
 			}
 
-			if err := m.backupSubEntry(app.Name, subEntry, target); err != nil {
+			// Expand ~ and env vars in target path for file operations
+			expandedTarget := m.expandTarget(target)
+
+			if err := m.backupSubEntry(app.Name, subEntry, expandedTarget); err != nil {
 				m.logf("Error backing up %s/%s: %v", app.Name, subEntry.Name, err)
 			}
 		}

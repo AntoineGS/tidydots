@@ -129,7 +129,8 @@ func (m Model) viewPathSelect() string {
 		// Show target on selected line
 		if isSelected {
 			targetLine := fmt.Sprintf("      %s → %s",
-				PathBackupStyle.Render(truncatePath(m.resolvePath(item.Entry.Backup), 30)),
+				// Show backup path as-is (e.g., "./nvim") without resolving
+				PathBackupStyle.Render(truncatePath(item.Entry.Backup, 30)),
 				PathTargetStyle.Render(truncatePath(item.Target, 30)),
 			)
 			b.WriteString(targetLine)

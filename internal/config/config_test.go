@@ -1293,6 +1293,71 @@ func TestExpandPathsV3(t *testing.T) {
 	}
 }
 
+func TestExpandPath(t *testing.T) {
+	t.Parallel()
+
+	home, _ := os.UserHomeDir()
+
+	tests := []struct {
+		name     string
+		path     string
+		envVars  map[string]string
+		expected string
+	}{
+		{
+			name:     "tilde path",
+			path:     "~/.config/nvim",
+			envVars:  nil,
+			expected: filepath.Join(home, ".config/nvim"),
+		},
+		{
+			name:     "tilde only",
+			path:     "~",
+			envVars:  nil,
+			expected: home,
+		},
+		{
+			name:     "absolute path",
+			path:     "/usr/local/bin",
+			envVars:  nil,
+			expected: "/usr/local/bin",
+		},
+		{
+			name:     "relative path",
+			path:     "./config",
+			envVars:  nil,
+			expected: "./config",
+		},
+		{
+			name:    "env var expansion",
+			path:    "$HOME/.config",
+			envVars: nil,
+			expected: filepath.Join(home, ".config"),
+		},
+		{
+			name:    "custom env var",
+			path:    "$MYVAR/config",
+			envVars: map[string]string{"MYVAR": "/custom/path"},
+			expected: "/custom/path/config",
+		},
+		{
+			name:     "empty path",
+			path:     "",
+			envVars:  nil,
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ExpandPath(tt.path, tt.envVars)
+			if result != tt.expected {
+				t.Errorf("ExpandPath(%q) = %q, want %q", tt.path, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestGetAllSubEntries(t *testing.T) {
 	t.Parallel()
 
