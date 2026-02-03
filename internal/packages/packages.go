@@ -347,7 +347,7 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 // It returns a slice of InstallResult, one for each package, indicating
 // the success or failure of each installation.
 func (m *Manager) InstallAll(packages []Package) []InstallResult {
-	var results []InstallResult
+	results := make([]InstallResult, 0, len(packages))
 	for _, pkg := range packages {
 		results = append(results, m.Install(pkg))
 	}
@@ -358,7 +358,7 @@ func (m *Manager) InstallAll(packages []Package) []InstallResult {
 // It evaluates each package's Filters against the context (OS, distro,
 // hostname, user) and returns only those that match.
 func FilterPackages(packages []Package, ctx *config.FilterContext) []Package {
-	var result []Package
+	result := make([]Package, 0, len(packages))
 	for _, pkg := range packages {
 		if config.MatchesFilters(pkg.Filters, ctx) {
 			result = append(result, pkg)
@@ -392,7 +392,7 @@ func (m *Manager) CanInstall(pkg Package) bool {
 // installed on this system. It filters the configured packages to only those
 // with at least one available installation method.
 func (m *Manager) GetInstallablePackages() []Package {
-	var result []Package
+	result := make([]Package, 0, len(m.Config.Packages))
 	for _, pkg := range m.Config.Packages {
 		if m.CanInstall(pkg) {
 			result = append(result, pkg)
@@ -489,7 +489,7 @@ func FromEntry(e config.Entry) *Package {
 // It filters the entries to only those with package configurations and
 // converts each to a Package struct.
 func FromEntries(entries []config.Entry) []Package {
-	var result []Package
+	result := make([]Package, 0, len(entries))
 	for _, e := range entries {
 		if pkg := FromEntry(e); pkg != nil {
 			result = append(result, *pkg)

@@ -102,7 +102,7 @@ func (c *Config) ExpandPaths(envVars map[string]string) {
 
 // GetConfigEntries returns entries that are config type (have backup)
 func (c *Config) GetConfigEntries() []Entry {
-	var result []Entry
+	result := make([]Entry, 0, len(c.Entries))
 	for _, e := range c.Entries {
 		if e.IsConfig() {
 			result = append(result, e)
@@ -113,7 +113,7 @@ func (c *Config) GetConfigEntries() []Entry {
 
 // GetFilteredConfigEntries returns config entries filtered by filter context
 func (c *Config) GetFilteredConfigEntries(ctx *FilterContext) []Entry {
-	var result []Entry
+	result := make([]Entry, 0, len(c.Entries))
 	for _, e := range c.Entries {
 		if e.IsConfig() && MatchesFilters(e.Filters, ctx) {
 			result = append(result, e)
@@ -124,7 +124,7 @@ func (c *Config) GetFilteredConfigEntries(ctx *FilterContext) []Entry {
 
 // GetGitEntries returns entries that are git type (have repo)
 func (c *Config) GetGitEntries() []Entry {
-	var result []Entry
+	result := make([]Entry, 0, len(c.Entries))
 	for _, e := range c.Entries {
 		if e.IsGit() {
 			result = append(result, e)
@@ -135,7 +135,7 @@ func (c *Config) GetGitEntries() []Entry {
 
 // GetFilteredGitEntries returns git entries filtered by filter context
 func (c *Config) GetFilteredGitEntries(ctx *FilterContext) []Entry {
-	var result []Entry
+	result := make([]Entry, 0, len(c.Entries))
 	for _, e := range c.Entries {
 		if e.IsGit() && MatchesFilters(e.Filters, ctx) {
 			result = append(result, e)
@@ -146,7 +146,7 @@ func (c *Config) GetFilteredGitEntries(ctx *FilterContext) []Entry {
 
 // GetPackageEntries returns entries that have package configuration
 func (c *Config) GetPackageEntries() []Entry {
-	var result []Entry
+	result := make([]Entry, 0, len(c.Entries))
 	for _, e := range c.Entries {
 		if e.HasPackage() {
 			result = append(result, e)
@@ -157,7 +157,7 @@ func (c *Config) GetPackageEntries() []Entry {
 
 // GetFilteredPackageEntries returns package entries filtered by filter context
 func (c *Config) GetFilteredPackageEntries(ctx *FilterContext) []Entry {
-	var result []Entry
+	result := make([]Entry, 0, len(c.Entries))
 	for _, e := range c.Entries {
 		if e.HasPackage() && MatchesFilters(e.Filters, ctx) {
 			result = append(result, e)
@@ -168,7 +168,7 @@ func (c *Config) GetFilteredPackageEntries(ctx *FilterContext) []Entry {
 
 // GetFilteredApplications returns applications filtered by filter context (v3)
 func (c *Config) GetFilteredApplications(ctx *FilterContext) []Application {
-	var result []Application
+	result := make([]Application, 0, len(c.Applications))
 	for _, app := range c.Applications {
 		if MatchesFilters(app.Filters, ctx) {
 			result = append(result, app)
@@ -179,8 +179,10 @@ func (c *Config) GetFilteredApplications(ctx *FilterContext) []Application {
 
 // GetAllSubEntries returns all sub-entries from all applications filtered by context (v3)
 func (c *Config) GetAllSubEntries(ctx *FilterContext) []SubEntry {
-	var result []SubEntry
 	apps := c.GetFilteredApplications(ctx)
+	// Estimate capacity based on average entries per app
+	estimatedCap := len(apps) * 5
+	result := make([]SubEntry, 0, estimatedCap)
 	for _, app := range apps {
 		result = append(result, app.Entries...)
 	}
@@ -189,8 +191,10 @@ func (c *Config) GetAllSubEntries(ctx *FilterContext) []SubEntry {
 
 // GetAllConfigSubEntries returns only config type sub-entries from filtered applications (v3)
 func (c *Config) GetAllConfigSubEntries(ctx *FilterContext) []SubEntry {
-	var result []SubEntry
 	apps := c.GetFilteredApplications(ctx)
+	// Estimate capacity based on average entries per app
+	estimatedCap := len(apps) * 3
+	result := make([]SubEntry, 0, estimatedCap)
 	for _, app := range apps {
 		for _, entry := range app.Entries {
 			if entry.IsConfig() {
@@ -203,8 +207,10 @@ func (c *Config) GetAllConfigSubEntries(ctx *FilterContext) []SubEntry {
 
 // GetAllGitSubEntries returns only git type sub-entries from filtered applications (v3)
 func (c *Config) GetAllGitSubEntries(ctx *FilterContext) []SubEntry {
-	var result []SubEntry
 	apps := c.GetFilteredApplications(ctx)
+	// Estimate capacity based on average entries per app
+	estimatedCap := len(apps) * 2
+	result := make([]SubEntry, 0, estimatedCap)
 	for _, app := range apps {
 		for _, entry := range app.Entries {
 			if entry.IsGit() {

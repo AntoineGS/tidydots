@@ -180,7 +180,7 @@ var KnownPackageManagers = []string{
 // DetectAvailableManagers returns a list of package managers available on the system
 // by checking which managers from KnownPackageManagers are present in the PATH.
 func DetectAvailableManagers() []string {
-	var available []string
+	available := make([]string, 0, len(KnownPackageManagers))
 	for _, mgr := range KnownPackageManagers {
 		if IsCommandAvailable(mgr) {
 			available = append(available, mgr)
