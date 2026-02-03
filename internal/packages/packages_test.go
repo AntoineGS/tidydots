@@ -1290,6 +1290,7 @@ func TestManager_InstallGitPackage_Clone(t *testing.T) {
 				Targets: map[string]string{
 					platform.OSLinux: cloneDest,
 				},
+				Sudo: false,
 			},
 		},
 	}
@@ -1377,6 +1378,7 @@ func TestManager_InstallGitPackage_Pull(t *testing.T) {
 				Targets: map[string]string{
 					platform.OSLinux: cloneDest,
 				},
+				Sudo: false,
 			},
 		},
 	}
@@ -1409,6 +1411,7 @@ func TestManager_InstallGitPackage_DryRun(t *testing.T) {
 				Targets: map[string]string{
 					platform.OSLinux: cloneDest,
 				},
+				Sudo: false,
 			},
 		},
 	}
