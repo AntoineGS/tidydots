@@ -963,11 +963,15 @@ func (m Model) viewListTable() string {
 							targetPath)
 						line = SelectedListItemStyle.Render(line)
 					} else {
+						// Status badge using existing renderStateBadge function
+						statusBadge := renderStateBadge(subItem.State)
+
 						// Apply individual column styles for visual distinction
-						line = fmt.Sprintf("%s  %s %s  %s  %s  %s",
+						line = fmt.Sprintf("%s  %s %s  %s  %s  %s  %s",
 							cursor,
 							treePrefix,
 							paddedName,
+							statusBadge,
 							MutedTextStyle.Render(paddedType),
 							PathBackupStyle.Render(paddedSource),
 							PathTargetStyle.Render(targetPath))
