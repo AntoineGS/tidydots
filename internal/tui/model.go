@@ -41,6 +41,8 @@ type Operation int
 const (
 	// OpRestore is the restore operation
 	OpRestore Operation = iota
+	// OpRestoreDryRun is the restore dry-run operation
+	OpRestoreDryRun
 	// OpAdd is the add entry operation
 	OpAdd
 	// OpList is the list entries operation
@@ -53,6 +55,8 @@ func (o Operation) String() string {
 	switch o {
 	case OpRestore:
 		return "Restore"
+	case OpRestoreDryRun:
+		return "Restore (Dry Run)"
 	case OpAdd:
 		return "Add"
 	case OpList:

@@ -122,6 +122,7 @@ func TestOperationString(t *testing.T) {
 		op   Operation
 	}{
 		{"Restore", OpRestore},
+		{"Restore (Dry Run)", OpRestoreDryRun},
 		{"Add", OpAdd},
 		{"List", OpList},
 		{"Install Packages", OpInstallPackages},
