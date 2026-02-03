@@ -26,17 +26,17 @@ go test ./internal/manager/...
 
 - **cmd/dot-manager/main.go** - Cobra CLI entry point defining all commands (init, restore, backup, list, install, list-packages)
 - **internal/config/** - Two-level YAML configuration: app config (`~/.config/dot-manager/config.yaml`) and repo config (`dot-manager.yaml`)
-- **internal/config/entry.go** - Unified Entry type supporting config (symlinks) and git (repo clones)
+- **internal/config/entry.go** - Entry type for config (symlinks) management
 - **internal/config/filter.go** - Filter system with include/exclude conditions for os, distro, hostname, user
 - **internal/manager/** - Core operations (backup, restore, adopt, list) with platform-aware path selection
 - **internal/platform/** - OS/distro detection (Linux/Windows), hostname/user detection
 - **internal/tui/** - Bubble Tea-based interactive terminal UI with Lipgloss styling
-- **internal/packages/** - Multi-package-manager support (pacman, yay, paru, apt, dnf, brew, winget, scoop, choco)
+- **internal/packages/** - Multi-package-manager support (pacman, yay, paru, apt, dnf, brew, winget, scoop, choco, git)
 
 ### Key Patterns
 
 - **Unified entries**: Single `entries` array with `sudo: true` flag for entries requiring elevated privileges
-- **Entry types**: Config entries (have `backup`) manage symlinks; Git entries (have `repo`) clone repositories
+- **Entry types**: Config entries (have `backup`) manage symlinks
 - **Filter-based selection**: Entries filtered by os, distro, hostname, user with regex support
 - **Symlink-based restoration**: Configs are symlinked from the dotfiles repo rather than copied
 - **Dry-run mode**: All operations support `-n` flag for safe preview
@@ -63,14 +63,6 @@ applications:
           linux: "~/.config/nvim"
           windows: "~/AppData/Local/nvim"
 
-    repos:
-      # Git entry (repository clone)
-      - name: "nvim-plugins"
-        repo: "https://github.com/user/plugins.git"
-        branch: "main"
-        targets:
-          linux: "~/.local/share/nvim/site/pack/plugins/start/myplugins"
-
     packages:
       # Package entry
       - name: "neovim"
@@ -78,6 +70,14 @@ applications:
           pacman: "neovim"
           apt: "neovim"
           brew: "neovim"
+
+      # Git package entry
+      - name: "nvim-plugins"
+        managers:
+          git: "https://github.com/user/plugins.git"
+        git_branch: "main"
+        git_targets:
+          linux: "~/.local/share/nvim/site/pack/plugins/start/myplugins"
 
     filters:
       - include:
@@ -95,6 +95,25 @@ applications:
       - include:
           distro: "arch"
 ```
+
+### Git as a Package Manager
+
+Git repositories can be installed as packages using the git package manager:
+
+```yaml
+packages:
+  - name: "dotfiles"
+    managers:
+      git: "https://github.com/user/dotfiles.git"
+    git_branch: "main"  # Optional, defaults to default branch
+    git_targets:
+      linux: "~/.dotfiles"
+      windows: "~/dotfiles"
+```
+
+**Behavior:**
+- If target directory exists with `.git/`: runs `git pull` to update
+- If target doesn't exist: clones repository with optional branch
 
 **Migration from v2**
 
