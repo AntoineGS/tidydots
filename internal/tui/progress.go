@@ -912,6 +912,9 @@ func (m Model) viewListTable() string {
 						treePrefix = "└─"
 					}
 
+					// Calculate plain status text with padding (match app-level format at line 866)
+					statusPlainText := " " + padRight(" "+subItem.State.String()+" ", 9)
+
 					// Cursor or spacing
 					cursor := RenderCursor(isSelected)
 
@@ -950,10 +953,11 @@ func (m Model) viewListTable() string {
 					var line string
 					if isSelected {
 						// Apply selection style to entire row
-						line = fmt.Sprintf("%s  %s %s  %s  %s  %s ",
+						line = fmt.Sprintf("%s  %s %s  %s  %s  %s  %s ",
 							cursor,
 							treePrefix,
 							paddedName,
+							statusPlainText,
 							paddedType,
 							paddedSource,
 							targetPath)
