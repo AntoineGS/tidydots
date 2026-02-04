@@ -829,6 +829,23 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+	case "tab", " ":
+		// Toggle selection and advance cursor (only in List view)
+		if m.Operation == OpList && !m.searching && !m.confirmingDeleteApp && !m.confirmingDeleteSubEntry && !m.showingDetail {
+			appIdx, subIdx := m.getApplicationAtCursorFromTable()
+			if appIdx >= 0 {
+				if subIdx >= 0 {
+					// Toggle sub-entry selection
+					m.toggleSubEntrySelection(appIdx, subIdx)
+				} else {
+					// Toggle application selection
+					m.toggleAppSelection(appIdx)
+				}
+				// Move to next row
+				m.moveToNextExpandedNode()
+			}
+			return m, nil
+		}
 	}
 
 	return m, nil

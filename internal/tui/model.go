@@ -841,3 +841,17 @@ func (m *Model) getSelectionCounts() (appCount int, subEntryCount int) {
 
 	return appCount, subEntryCount
 }
+
+// moveToNextExpandedNode moves the cursor to the next expanded node in the table.
+// It wraps around to the beginning if it reaches the end.
+func (m *Model) moveToNextExpandedNode() {
+	if len(m.tableRows) == 0 {
+		return
+	}
+
+	// Move to next row
+	m.tableCursor++
+	if m.tableCursor >= len(m.tableRows) {
+		m.tableCursor = 0
+	}
+}
