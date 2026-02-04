@@ -364,19 +364,35 @@ func (m *Model) renderTable() string {
 					Bold(true).
 					Padding(0, 1)
 			case m.tableCursor:
-				// Selected row styling
+				// Cursor row styling (always takes priority)
 				return lipgloss.NewStyle().
 					Foreground(textColor).
 					Background(primaryColor).
 					Bold(true).
 					Padding(0, 1)
 			default:
-				// Regular cell styling - check if needs attention
-				baseStyle := lipgloss.NewStyle().Padding(0, 1)
-
-				// Get the table row data
+				// Check if this row is selected (multi-select)
 				if row >= 0 && row < len(m.tableRows) {
 					tr := m.tableRows[row]
+					appIdx := tr.AppIndex
+					subIdx := tr.SubIndex
+
+					isSelected := false
+					if subIdx < 0 {
+						// Application row
+						isSelected = m.isAppSelected(appIdx)
+					} else {
+						// Sub-entry row
+						isSelected = m.isSubEntrySelected(appIdx, subIdx)
+					}
+
+					if isSelected {
+						// Selected row styling (lighter purple)
+						return SelectedRowStyle
+					}
+
+					// Regular cell styling - check if needs attention
+					baseStyle := lipgloss.NewStyle().Padding(0, 1)
 
 					// Column 1 is status, column 2 is info (regardless of backup column)
 					if col == 1 && tr.StatusAttention {
@@ -385,9 +401,11 @@ func (m *Model) renderTable() string {
 					if col == 2 && tr.InfoAttention {
 						return baseStyle.Foreground(errorColor)
 					}
+
+					return baseStyle
 				}
 
-				return baseStyle
+				return lipgloss.NewStyle().Padding(0, 1)
 			}
 		})
 
