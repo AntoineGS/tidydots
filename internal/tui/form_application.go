@@ -697,7 +697,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "left", "h":
+	case KeyLeft, "h":
 		// Navigate in type or key step
 		switch m.applicationForm.filterAddStep {
 		case filterStepType:
@@ -709,7 +709,7 @@ func (m Model) updateApplicationFilterInput(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		return m, nil
 
-	case "right", "l":
+	case KeyRight, "l":
 		// Navigate in type or key step
 		switch m.applicationForm.filterAddStep {
 		case filterStepType:

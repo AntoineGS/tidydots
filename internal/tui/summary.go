@@ -184,17 +184,68 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 // updateSummary handles keyboard input for the summary screen.
 // Supports y/enter to confirm, r/i/d for double-press, n/esc to cancel.
 func (m Model) updateSummary(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// TODO: Implement summary screen navigation (Task 10)
 	switch msg.String() {
-	case "n", KeyEsc:
+	case "y", "Y", KeyEnter:
+		// Confirm - execute the batch operation
+		// TODO: Wire up to actual execution in Task 16
+		m.Screen = ScreenResults
+		m.Operation = OpList
+		m.summaryDoublePress = ""
+		// Clear selections after operation
+		m.clearSelections()
+		return m, nil
+
+	case "n", "N", KeyEsc:
 		// Cancel - return to manage view
 		m.Screen = ScreenResults
 		m.Operation = OpList
 		m.summaryDoublePress = ""
 		return m, nil
+
+	case "r":
+		// Double-press restore trigger (will be wired in Task 11)
+		// For now, just track the key press
+		if m.summaryDoublePress == "r" {
+			// Second press - would trigger restore
+			m.summaryDoublePress = ""
+		} else {
+			m.summaryDoublePress = "r"
+		}
+		return m, nil
+
+	case "i":
+		// Double-press install trigger (will be wired in Task 11)
+		if m.summaryDoublePress == "i" {
+			// Second press - would trigger install
+			m.summaryDoublePress = ""
+		} else {
+			m.summaryDoublePress = "i"
+		}
+		return m, nil
+
+	case "d":
+		// Double-press delete trigger (will be wired in Task 11)
+		if m.summaryDoublePress == "d" {
+			// Second press - would trigger delete
+			m.summaryDoublePress = ""
+		} else {
+			m.summaryDoublePress = "d"
+		}
+		return m, nil
+
 	case "q":
 		// Quit the application
 		return m, tea.Quit
+
+	case "up", "k", "down", "j":
+		// Navigation placeholders for future hierarchical navigation
+		// For now, summary is static (no cursor navigation needed)
+		return m, nil
+
+	case "left", "h", "right", "l":
+		// Expand/collapse placeholders for future hierarchical navigation
+		// For now, summary shows everything expanded
+		return m, nil
 	}
 
 	return m, nil
