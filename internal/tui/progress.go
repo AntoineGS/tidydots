@@ -983,6 +983,14 @@ func (m Model) viewListTable() string {
 		b.WriteString("\n")
 	}
 
+	// Multi-select banner (show when selections exist)
+	if m.multiSelectActive {
+		appCount, subCount := m.getSelectionCounts()
+		bannerText := fmt.Sprintf("  %d app(s), %d item(s) selected", appCount, subCount)
+		b.WriteString(MultiSelectBannerStyle.Render(bannerText))
+		b.WriteString("\n")
+	}
+
 	b.WriteString("\n")
 
 	// Initialize table if not already initialized

@@ -189,6 +189,15 @@ var (
 				Foreground(lipgloss.Color("#000")).
 				Background(accentColor).
 				Bold(true)
+
+	// MultiSelectBannerStyle is the style for the multi-select banner showing selection counts.
+	MultiSelectBannerStyle = lipgloss.NewStyle().
+				Foreground(textColor).
+				Background(primaryColor).
+				Bold(true).
+				Padding(0, 2).
+				MarginTop(1).
+				MarginBottom(1)
 )
 
 // RenderHelp renders help text with key bindings, wrapping to 80 characters.
