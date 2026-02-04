@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/AntoineGS/dot-manager/internal/config"
 	"github.com/charmbracelet/bubbles/progress"
@@ -180,15 +181,16 @@ type initBatchInstallMsg struct {
 }
 
 // executeBatchDelete executes delete operations for all selected items.
-// Returns a command that processes deletions in reverse order.
+// Returns a command that processes deletions in reverse order to avoid index shifting.
 //
 //nolint:unused // Will be used in Task 16
 func (m Model) executeBatchDelete() tea.Cmd {
-	// Collect all items to delete
+	// Collect all items to delete with their config indices
 	type deleteItem struct {
-		appIdx int
-		subIdx int // -1 for app deletion
-		name   string
+		configAppIdx int // Index in m.Config.Applications (for actual deletion)
+		subIdx       int // Index in app.Entries, -1 for app deletion
+		name         string
+		sortKey      int // For sorting (higher appIdx should be deleted first)
 	}
 
 	var items []deleteItem
@@ -196,11 +198,17 @@ func (m Model) executeBatchDelete() tea.Cmd {
 	// Add selected apps (entire app deletion)
 	for appIdx := range m.selectedApps {
 		if appIdx >= 0 && appIdx < len(m.Applications) {
-			items = append(items, deleteItem{
-				appIdx: appIdx,
-				subIdx: -1,
-				name:   m.Applications[appIdx].Application.Name,
-			})
+			app := m.Applications[appIdx]
+			// Find the config index
+			configIdx := m.findConfigApplicationIndex(app.Application.Name)
+			if configIdx >= 0 {
+				items = append(items, deleteItem{
+					configAppIdx: configIdx,
+					subIdx:       -1,
+					name:         app.Application.Name,
+					sortKey:      configIdx * 1000, // App deletions get higher priority per app
+				})
+			}
 		}
 	}
 
@@ -218,13 +226,40 @@ func (m Model) executeBatchDelete() tea.Cmd {
 
 		if appIdx >= 0 && appIdx < len(m.Applications) &&
 			subIdx >= 0 && subIdx < len(m.Applications[appIdx].SubItems) {
-			items = append(items, deleteItem{
-				appIdx: appIdx,
-				subIdx: subIdx,
-				name:   m.Applications[appIdx].Application.Name + "/" + m.Applications[appIdx].SubItems[subIdx].SubEntry.Name,
-			})
+			app := m.Applications[appIdx]
+			subEntry := app.SubItems[subIdx]
+
+			// Find the config index for the app
+			configAppIdx := m.findConfigApplicationIndex(app.Application.Name)
+			if configAppIdx < 0 {
+				continue
+			}
+
+			// Find the config index for the sub-entry
+			configSubIdx := -1
+			for i, entry := range m.Config.Applications[configAppIdx].Entries {
+				if entry.Name == subEntry.SubEntry.Name {
+					configSubIdx = i
+					break
+				}
+			}
+
+			if configSubIdx >= 0 {
+				items = append(items, deleteItem{
+					configAppIdx: configAppIdx,
+					subIdx:       configSubIdx,
+					name:         app.Application.Name + "/" + subEntry.SubEntry.Name,
+					sortKey:      configAppIdx*1000 + configSubIdx, // Sub-entries sorted within app
+				})
+			}
 		}
 	}
+
+	// Sort items in reverse order (highest index first) to avoid index shifting
+	// Use stable sort to maintain order within same app
+	sort.SliceStable(items, func(i, j int) bool {
+		return items[i].sortKey > items[j].sortKey
+	})
 
 	// Execute deletions
 	return func() tea.Msg {
@@ -232,17 +267,31 @@ func (m Model) executeBatchDelete() tea.Cmd {
 		successCount := 0
 		failCount := 0
 
-		// Process deletions in reverse order to avoid index shifting
-		// (This will be implemented in Task 17)
-		for i := len(items) - 1; i >= 0; i-- {
-			item := items[i]
+		// Track which apps have been deleted (by config index) to avoid double deletion
+		deletedApps := make(map[int]bool)
 
-			// Placeholder - actual deletion will be implemented in Task 17
+		for _, item := range items {
+			// Skip if app was already deleted
+			if deletedApps[item.configAppIdx] && item.subIdx < 0 {
+				continue
+			}
+
 			var err error
 			if item.subIdx >= 0 {
-				err = m.deleteSubEntry(item.appIdx, item.subIdx)
+				// Delete sub-entry only if app hasn't been deleted
+				if !deletedApps[item.configAppIdx] {
+					err = m.deleteSubEntry(item.configAppIdx, item.subIdx)
+					// Check if this was the last sub-entry (app gets deleted automatically)
+					if err == nil && len(m.Config.Applications) <= item.configAppIdx {
+						deletedApps[item.configAppIdx] = true
+					}
+				}
 			} else {
-				err = m.deleteApplication(item.appIdx)
+				// Delete entire app
+				err = m.deleteApplication(item.configAppIdx)
+				if err == nil {
+					deletedApps[item.configAppIdx] = true
+				}
 			}
 
 			success := err == nil
@@ -255,11 +304,11 @@ func (m Model) executeBatchDelete() tea.Cmd {
 				failCount++
 			}
 
-			results = append([]ResultItem{{
+			results = append(results, ResultItem{
 				Name:    item.name,
 				Success: success,
 				Message: message,
-			}}, results...) // Prepend to maintain original order
+			})
 		}
 
 		return BatchCompleteMsg{
