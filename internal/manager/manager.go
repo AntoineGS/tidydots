@@ -37,6 +37,7 @@ type Manager struct {
 	logger    *slog.Logger
 	DryRun    bool
 	Verbose   bool
+	NoMerge   bool
 }
 
 // New creates a new Manager instance with the given configuration and platform information.
