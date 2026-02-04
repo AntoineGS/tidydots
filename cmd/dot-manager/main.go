@@ -24,6 +24,8 @@ var (
 	dryRun      bool
 	verbose     bool
 	interactive bool
+	noMerge     bool
+	forceDelete bool
 )
 
 func main() {
@@ -66,6 +68,8 @@ The repo should contain a dot-manager.yaml file with your path definitions.`,
 		RunE:  runRestore,
 	}
 	restoreCmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Run in interactive mode")
+	restoreCmd.Flags().BoolVar(&noMerge, "no-merge", false, "Disable merge mode, return error if target exists")
+	restoreCmd.Flags().BoolVar(&forceDelete, "force", false, "When combined with --no-merge, delete existing files without prompting")
 
 	backupCmd := &cobra.Command{
 		Use:   "backup",
@@ -222,6 +226,8 @@ func createManager() (*manager.Manager, error) {
 	mgr := manager.New(cfg, plat)
 	mgr.DryRun = dryRun
 	mgr.Verbose = verbose
+	mgr.NoMerge = noMerge
+	mgr.ForceDelete = forceDelete
 
 	return mgr, nil
 }
