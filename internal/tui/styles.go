@@ -198,6 +198,13 @@ var (
 				Padding(0, 2).
 				MarginTop(1).
 				MarginBottom(1)
+
+	// SelectedRowStyle is the style for rows that are selected in multi-select mode.
+	// Uses a lighter purple background to differentiate from cursor highlight.
+	SelectedRowStyle = lipgloss.NewStyle().
+				Foreground(textColor).
+				Background(lipgloss.Color("#9F7AEA")). // Lighter purple
+				Padding(0, 1)
 )
 
 // RenderHelp renders help text with key bindings, wrapping to 80 characters.
