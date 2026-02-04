@@ -76,9 +76,12 @@ func TestNewModel(t *testing.T) {
 		}
 	}
 
-	// Should start at menu screen
-	if model.Screen != ScreenMenu {
-		t.Errorf("Expected ScreenMenu, got %v", model.Screen)
+	// Should start at manage view (ScreenResults with OpList)
+	if model.Screen != ScreenResults {
+		t.Errorf("Expected ScreenResults, got %v", model.Screen)
+	}
+	if model.Operation != OpList {
+		t.Errorf("Expected OpList, got %v", model.Operation)
 	}
 }
 
