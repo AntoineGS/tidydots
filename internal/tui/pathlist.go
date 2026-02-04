@@ -17,7 +17,7 @@ func (m Model) updatePathSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.scrollOffset = m.pathCursor
 			}
 		}
-	case "down", "j":
+	case KeyDown, "j":
 		if m.pathCursor < len(m.Paths)-1 {
 			m.pathCursor++
 			// Scroll down if needed

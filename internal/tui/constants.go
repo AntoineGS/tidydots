@@ -12,6 +12,7 @@ const (
 	KeyBackspace = "backspace"
 	KeyDelete    = "delete"
 	KeyLeft      = "left"
+	KeyRight     = "right"
 )
 
 // UI element constants
