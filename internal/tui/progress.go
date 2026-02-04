@@ -1106,22 +1106,38 @@ func (m Model) viewListTable() string {
 			"q", "menu",
 		))
 	default:
-		// Build help text based on cursor position
-		helpItems := []string{
-			"/", "search",
-			"A", "add app",
-			"a", "add entry",
-			"e", "edit",
-			"d", "delete",
-			"r", "restore",
+		// Build help text based on cursor position and multi-select mode
+		var helpItems []string
+
+		if m.multiSelectActive {
+			// Multi-select mode help text
+			helpItems = []string{
+				"tab", "toggle",
+				"esc", "clear",
+				"r", "batch restore",
+				"i", "batch install",
+				"d", "batch delete",
+				"q", "menu",
+			}
+		} else {
+			// Normal mode help text
+			helpItems = []string{
+				"/", "search",
+				"A", "add app",
+				"a", "add entry",
+				"e", "edit",
+				"d", "delete",
+				"r", "restore",
+			}
+
+			// Only show "i install" when on level 1 (application), not on level 2 (sub-entry)
+			if subIdx < 0 {
+				helpItems = append(helpItems, "i", "install")
+			}
+
+			helpItems = append(helpItems, "q", "menu")
 		}
 
-		// Only show "i install" when on level 1 (application), not on level 2 (sub-entry)
-		if subIdx < 0 {
-			helpItems = append(helpItems, "i", "install")
-		}
-
-		helpItems = append(helpItems, "q", "menu")
 		b.WriteString(RenderHelpWithWidth(m.width, helpItems...))
 	}
 
