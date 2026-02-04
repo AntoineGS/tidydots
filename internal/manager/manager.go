@@ -30,14 +30,15 @@ const (
 // Manager handles dotfile operations including backup, restore, and listing of configuration entries.
 // It maintains references to the configuration, platform information, and operational settings.
 type Manager struct {
-	ctx       context.Context
-	Config    *config.Config
-	Platform  *platform.Platform
-	FilterCtx *config.FilterContext
-	logger    *slog.Logger
-	DryRun    bool
-	Verbose   bool
-	NoMerge   bool
+	ctx         context.Context
+	Config      *config.Config
+	Platform    *platform.Platform
+	FilterCtx   *config.FilterContext
+	logger      *slog.Logger
+	DryRun      bool
+	Verbose     bool
+	NoMerge     bool
+	ForceDelete bool
 }
 
 // New creates a new Manager instance with the given configuration and platform information.
