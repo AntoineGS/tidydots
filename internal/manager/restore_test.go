@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/AntoineGS/dot-manager/internal/config"
@@ -1581,5 +1582,143 @@ func TestRestoreFiles_RecreatesChangedSymlink(t *testing.T) {
 	}
 	if link != correctFile {
 		t.Errorf("Symlink should point to %s, got %s", correctFile, link)
+	}
+}
+
+func TestRestoreFolder_MergesExistingContent(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup with existing content
+	backupDir := filepath.Join(tmpDir, "backup")
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupDir, "config.json"), []byte("backup config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create target with additional content (to be merged)
+	targetDir := filepath.Join(tmpDir, "target")
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "local.json"), []byte("local config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "cache.json"), []byte("cache data"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{BackupRoot: tmpDir}
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	entry := config.Entry{Name: "test"}
+
+	err := mgr.RestoreFolder(entry, backupDir, targetDir)
+	if err != nil {
+		t.Fatalf("RestoreFolder() error = %v", err)
+	}
+
+	// Target should be a symlink now
+	if !isSymlink(targetDir) {
+		t.Error("target should be a symlink")
+	}
+
+	// Backup should contain merged files
+	mergedFile1 := filepath.Join(backupDir, "local.json")
+	if !pathExists(mergedFile1) {
+		t.Error("local.json should be merged into backup")
+	}
+
+	mergedFile2 := filepath.Join(backupDir, "cache.json")
+	if !pathExists(mergedFile2) {
+		t.Error("cache.json should be merged into backup")
+	}
+
+	// Original backup file should still exist
+	originalFile := filepath.Join(backupDir, "config.json")
+	if !pathExists(originalFile) {
+		t.Error("original backup file should still exist")
+	}
+}
+
+func TestRestoreFolder_ConflictsRenamed(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	// Create backup with existing content
+	backupDir := filepath.Join(tmpDir, "backup")
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupDir, "config.json"), []byte("backup config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create target with conflicting file (same name as in backup)
+	targetDir := filepath.Join(tmpDir, "target")
+	if err := os.MkdirAll(targetDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "config.json"), []byte("target config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{BackupRoot: tmpDir}
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+	mgr.Verbose = true
+
+	entry := config.Entry{Name: "test"}
+
+	err := mgr.RestoreFolder(entry, backupDir, targetDir)
+	if err != nil {
+		t.Fatalf("RestoreFolder() error = %v", err)
+	}
+
+	// Target should be a symlink now
+	if !isSymlink(targetDir) {
+		t.Error("target should be a symlink")
+	}
+
+	// Original backup file should still exist with original content
+	originalFile := filepath.Join(backupDir, "config.json")
+	if !pathExists(originalFile) {
+		t.Error("original backup file should still exist")
+	}
+
+	content, err := os.ReadFile(originalFile) //nolint:gosec // test file
+	if err != nil {
+		t.Fatalf("Failed to read backup file: %v", err)
+	}
+	if string(content) != "backup config" {
+		t.Errorf("backup file should have original content, got %q", string(content))
+	}
+
+	// Conflict file should be created with renamed name
+	// Look for a file matching the pattern config_target_*.json
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		t.Fatalf("Failed to read backup dir: %v", err)
+	}
+
+	conflictFound := false
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "config_target_") && strings.HasSuffix(entry.Name(), ".json") {
+			conflictFound = true
+			conflictFile := filepath.Join(backupDir, entry.Name())
+			conflictContent, _ := os.ReadFile(conflictFile) //nolint:gosec // test file
+			if string(conflictContent) != "target config" {
+				t.Errorf("conflict file should have target content, got %q", string(conflictContent))
+			}
+			break
+		}
+	}
+
+	if !conflictFound {
+		t.Error("conflict file (config_target_*.json) should be created")
 	}
 }
