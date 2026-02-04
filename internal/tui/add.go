@@ -19,8 +19,9 @@ func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case FormNone:
 		fallthrough
 	default:
-		// No active form - should not happen, return to menu
-		m.Screen = ScreenMenu
+		// No active form - should not happen, return to manage view
+		m.Screen = ScreenResults
+		m.Operation = OpList
 		return m, nil
 	}
 }

@@ -609,11 +609,8 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.showingDetail = false
 			return m, nil
 		case "q":
-			// q closes popup and goes back to menu
-			m.showingDetail = false
-			m.Screen = ScreenMenu
-
-			return m, nil
+			// q quits the application
+			return m, tea.Quit
 		}
 
 		return m, nil
@@ -673,11 +670,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "q":
-		if m.Operation == OpList {
-			m.Screen = ScreenMenu
-			return m, nil
-		}
-
+		// Quit the application
 		return m, tea.Quit
 	case "up", "k":
 		if m.Operation == OpList {

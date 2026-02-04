@@ -367,7 +367,8 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	searchInput.CharLimit = 100
 
 	m := Model{
-		Screen:        ScreenMenu,
+		Screen:        ScreenResults, // Start directly in Manage view
+		Operation:     OpList,        // Set operation to List (Manage)
 		Config:        cfg,
 		Platform:      plat,
 		FilterCtx:     filterCtx,
@@ -384,6 +385,9 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 
 	// Detect initial path states
 	m.refreshPathStates()
+
+	// Initialize applications for hierarchical view
+	m.initApplicationItems()
 
 	return m
 }
@@ -531,18 +535,13 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case "q":
-		// Let the List view handle q (goes back to menu, not quit)
+		// Let the List view handle q for sub-screens
 		if m.Screen == ScreenResults && m.Operation == OpList {
 			return m.updateResults(msg)
 		}
 
-		if m.Screen == ScreenResults || m.Screen == ScreenMenu {
-			return m, tea.Quit
-		}
-		// Go back to menu
-		m.Screen = ScreenMenu
-
-		return m, nil
+		// Quit the application
+		return m, tea.Quit
 
 	case KeyEsc:
 		// ESC is only for canceling operations, not navigation
