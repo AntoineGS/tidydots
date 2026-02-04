@@ -117,63 +117,66 @@ func (m *Manager) RestoreFolder(entry config.Entry, source, target string) error
 	// Handle merge case: both source and target exist
 	if pathExists(source) && pathExists(target) && !isSymlink(target) {
 		if m.NoMerge {
-			// List files and return error
-			var fileList []string
-			err := filepath.WalkDir(target, func(path string, d fs.DirEntry, walkErr error) error {
-				if walkErr != nil {
-					return walkErr
+			if !m.ForceDelete {
+				// List files and return error
+				var fileList []string
+				err := filepath.WalkDir(target, func(path string, d fs.DirEntry, walkErr error) error {
+					if walkErr != nil {
+						return walkErr
+					}
+					if !d.IsDir() {
+						relPath, _ := filepath.Rel(target, path)
+						fileList = append(fileList, relPath)
+					}
+					return nil
+				})
+				if err != nil {
+					return NewPathError("restore", target, fmt.Errorf("listing files: %w", err))
 				}
-				if !d.IsDir() {
-					relPath, _ := filepath.Rel(target, path)
-					fileList = append(fileList, relPath)
-				}
-				return nil
-			})
-			if err != nil {
-				return NewPathError("restore", target, fmt.Errorf("listing files: %w", err))
+				return NewPathError("restore", target, fmt.Errorf(
+					"target exists with %d file(s): %s. Use merge mode or --force to proceed",
+					len(fileList),
+					strings.Join(fileList, ", ")))
 			}
-			return NewPathError("restore", target, fmt.Errorf(
-				"target exists with %d file(s): %s. Use merge mode to combine with backup",
-				len(fileList),
-				strings.Join(fileList, ", ")))
-		}
+			// ForceDelete is true, skip to removal logic below
+		} else {
+			// Merge target into backup
+			m.logger.Info("merging existing content into backup",
+				slog.String("target", target),
+				slog.String("backup", source))
 
-		// Merge target into backup
-		m.logger.Info("merging existing content into backup",
-			slog.String("target", target),
-			slog.String("backup", source))
-
-		if !m.DryRun {
-			summary := NewMergeSummary(entry.Name)
-			if err := MergeFolder(source, target, entry.Sudo, summary); err != nil {
-				return NewPathError("restore", target, fmt.Errorf("merging folder: %w", err))
-			}
-
-			// Log merge summary
-			if summary.HasOperations() {
-				m.logger.Info("merge complete",
-					slog.Int("merged", len(summary.MergedFiles)),
-					slog.Int("conflicts", len(summary.ConflictFiles)),
-					slog.Int("failed", len(summary.FailedFiles)))
-
-				for _, conflict := range summary.ConflictFiles {
-					m.logger.Warn("conflict resolved by renaming",
-						slog.String("file", conflict.OriginalName),
-						slog.String("renamed_to", conflict.RenamedTo))
+			if !m.DryRun {
+				summary := NewMergeSummary(entry.Name)
+				if err := MergeFolder(source, target, entry.Sudo, summary); err != nil {
+					return NewPathError("restore", target, fmt.Errorf("merging folder: %w", err))
 				}
 
-				for _, failed := range summary.FailedFiles {
-					m.logger.Error("merge failed for file",
-						slog.String("file", failed.FileName),
-						slog.String("error", failed.Error))
-				}
-			}
+				// Log merge summary
+				if summary.HasOperations() {
+					m.logger.Info("merge complete",
+						slog.Int("merged", len(summary.MergedFiles)),
+						slog.Int("conflicts", len(summary.ConflictFiles)),
+						slog.Int("failed", len(summary.FailedFiles)))
 
-			// Remove empty directories after merge
-			if err := removeEmptyDirs(target); err != nil {
-				m.logger.Warn("failed to clean up empty directories",
-					slog.String("target", target),
-					slog.String("error", err.Error()))
+					for _, conflict := range summary.ConflictFiles {
+						m.logger.Warn("conflict resolved by renaming",
+							slog.String("file", conflict.OriginalName),
+							slog.String("renamed_to", conflict.RenamedTo))
+					}
+
+					for _, failed := range summary.FailedFiles {
+						m.logger.Error("merge failed for file",
+							slog.String("file", failed.FileName),
+							slog.String("error", failed.Error))
+					}
+				}
+
+				// Remove empty directories after merge
+				if err := removeEmptyDirs(target); err != nil {
+					m.logger.Warn("failed to clean up empty directories",
+						slog.String("target", target),
+						slog.String("error", err.Error()))
+				}
 			}
 		}
 	}
@@ -316,33 +319,36 @@ func (m *Manager) RestoreFiles(entry config.Entry, source, target string) error 
 		// Handle merge case: both source and target file exist
 		if pathExists(srcFile) && pathExists(dstFile) && !isSymlink(dstFile) {
 			if m.NoMerge {
-				return NewPathError("restore", dstFile, fmt.Errorf(
-					"target file exists. Use merge mode to combine with backup"))
-			}
-
-			// Merge target file into backup
-			m.logger.Info("merging existing file into backup",
-				slog.String("target", dstFile),
-				slog.String("backup", srcFile))
-
-			if !m.DryRun {
-				summary := NewMergeSummary(entry.Name)
-				if err := mergeFile(dstFile, source, file, entry.Sudo, summary); err != nil {
-					return NewPathError("restore", dstFile, fmt.Errorf("merging file: %w", err))
+				if !m.ForceDelete {
+					return NewPathError("restore", dstFile, fmt.Errorf(
+						"target file exists. Use merge mode or --force to proceed"))
 				}
+				// ForceDelete is true, skip to removal logic below
+			} else {
+				// Merge target file into backup
+				m.logger.Info("merging existing file into backup",
+					slog.String("target", dstFile),
+					slog.String("backup", srcFile))
 
-				// Log merge summary
-				if summary.HasOperations() {
-					for _, conflict := range summary.ConflictFiles {
-						m.logger.Warn("conflict resolved by renaming",
-							slog.String("file", conflict.OriginalName),
-							slog.String("renamed_to", conflict.RenamedTo))
+				if !m.DryRun {
+					summary := NewMergeSummary(entry.Name)
+					if err := mergeFile(dstFile, source, file, entry.Sudo, summary); err != nil {
+						return NewPathError("restore", dstFile, fmt.Errorf("merging file: %w", err))
 					}
 
-					for _, failed := range summary.FailedFiles {
-						m.logger.Error("merge failed for file",
-							slog.String("file", failed.FileName),
-							slog.String("error", failed.Error))
+					// Log merge summary
+					if summary.HasOperations() {
+						for _, conflict := range summary.ConflictFiles {
+							m.logger.Warn("conflict resolved by renaming",
+								slog.String("file", conflict.OriginalName),
+								slog.String("renamed_to", conflict.RenamedTo))
+						}
+
+						for _, failed := range summary.FailedFiles {
+							m.logger.Error("merge failed for file",
+								slog.String("file", failed.FileName),
+								slog.String("error", failed.Error))
+						}
 					}
 				}
 			}
@@ -496,63 +502,66 @@ func (m *Manager) restoreFolderSubEntry(_ string, subEntry config.SubEntry, sour
 	// Handle merge case: both source and target exist
 	if pathExists(source) && pathExists(target) && !isSymlink(target) {
 		if m.NoMerge {
-			// List files and return error
-			var fileList []string
-			err := filepath.WalkDir(target, func(path string, d fs.DirEntry, walkErr error) error {
-				if walkErr != nil {
-					return walkErr
+			if !m.ForceDelete {
+				// List files and return error
+				var fileList []string
+				err := filepath.WalkDir(target, func(path string, d fs.DirEntry, walkErr error) error {
+					if walkErr != nil {
+						return walkErr
+					}
+					if !d.IsDir() {
+						relPath, _ := filepath.Rel(target, path)
+						fileList = append(fileList, relPath)
+					}
+					return nil
+				})
+				if err != nil {
+					return NewPathError("restore", target, fmt.Errorf("listing files: %w", err))
 				}
-				if !d.IsDir() {
-					relPath, _ := filepath.Rel(target, path)
-					fileList = append(fileList, relPath)
-				}
-				return nil
-			})
-			if err != nil {
-				return NewPathError("restore", target, fmt.Errorf("listing files: %w", err))
+				return NewPathError("restore", target, fmt.Errorf(
+					"target exists with %d file(s): %s. Use merge mode or --force to proceed",
+					len(fileList),
+					strings.Join(fileList, ", ")))
 			}
-			return NewPathError("restore", target, fmt.Errorf(
-				"target exists with %d file(s): %s. Use merge mode to combine with backup",
-				len(fileList),
-				strings.Join(fileList, ", ")))
-		}
+			// ForceDelete is true, skip to removal logic below
+		} else {
+			// Merge target into backup
+			m.logger.Info("merging existing content into backup",
+				slog.String("target", target),
+				slog.String("backup", source))
 
-		// Merge target into backup
-		m.logger.Info("merging existing content into backup",
-			slog.String("target", target),
-			slog.String("backup", source))
-
-		if !m.DryRun {
-			summary := NewMergeSummary(subEntry.Name)
-			if err := MergeFolder(source, target, subEntry.Sudo, summary); err != nil {
-				return NewPathError("restore", target, fmt.Errorf("merging folder: %w", err))
-			}
-
-			// Log merge summary
-			if summary.HasOperations() {
-				m.logger.Info("merge complete",
-					slog.Int("merged", len(summary.MergedFiles)),
-					slog.Int("conflicts", len(summary.ConflictFiles)),
-					slog.Int("failed", len(summary.FailedFiles)))
-
-				for _, conflict := range summary.ConflictFiles {
-					m.logger.Warn("conflict resolved by renaming",
-						slog.String("file", conflict.OriginalName),
-						slog.String("renamed_to", conflict.RenamedTo))
+			if !m.DryRun {
+				summary := NewMergeSummary(subEntry.Name)
+				if err := MergeFolder(source, target, subEntry.Sudo, summary); err != nil {
+					return NewPathError("restore", target, fmt.Errorf("merging folder: %w", err))
 				}
 
-				for _, failed := range summary.FailedFiles {
-					m.logger.Error("merge failed for file",
-						slog.String("file", failed.FileName),
-						slog.String("error", failed.Error))
-				}
-			}
+				// Log merge summary
+				if summary.HasOperations() {
+					m.logger.Info("merge complete",
+						slog.Int("merged", len(summary.MergedFiles)),
+						slog.Int("conflicts", len(summary.ConflictFiles)),
+						slog.Int("failed", len(summary.FailedFiles)))
 
-			// Remove empty directories after merge
-			if err := removeEmptyDirs(target); err != nil {
-				m.logger.Warn("failed to clean up empty directories",
-					slog.String("target", target),
-					slog.String("error", err.Error()))
+					for _, conflict := range summary.ConflictFiles {
+						m.logger.Warn("conflict resolved by renaming",
+							slog.String("file", conflict.OriginalName),
+							slog.String("renamed_to", conflict.RenamedTo))
+					}
+
+					for _, failed := range summary.FailedFiles {
+						m.logger.Error("merge failed for file",
+							slog.String("file", failed.FileName),
+							slog.String("error", failed.Error))
+					}
+				}
+
+				// Remove empty directories after merge
+				if err := removeEmptyDirs(target); err != nil {
+					m.logger.Warn("failed to clean up empty directories",
+						slog.String("target", target),
+						slog.String("error", err.Error()))
+				}
 			}
 		}
 	}
@@ -685,33 +694,36 @@ func (m *Manager) restoreFilesSubEntry(_ string, subEntry config.SubEntry, sourc
 		// Handle merge case: both source and target file exist
 		if pathExists(srcFile) && pathExists(dstFile) && !isSymlink(dstFile) {
 			if m.NoMerge {
-				return NewPathError("restore", dstFile, fmt.Errorf(
-					"target file exists. Use merge mode to combine with backup"))
-			}
-
-			// Merge target file into backup
-			m.logger.Info("merging existing file into backup",
-				slog.String("target", dstFile),
-				slog.String("backup", srcFile))
-
-			if !m.DryRun {
-				summary := NewMergeSummary(subEntry.Name)
-				if err := mergeFile(dstFile, source, file, subEntry.Sudo, summary); err != nil {
-					return NewPathError("restore", dstFile, fmt.Errorf("merging file: %w", err))
+				if !m.ForceDelete {
+					return NewPathError("restore", dstFile, fmt.Errorf(
+						"target file exists. Use merge mode or --force to proceed"))
 				}
+				// ForceDelete is true, skip to removal logic below
+			} else {
+				// Merge target file into backup
+				m.logger.Info("merging existing file into backup",
+					slog.String("target", dstFile),
+					slog.String("backup", srcFile))
 
-				// Log merge summary
-				if summary.HasOperations() {
-					for _, conflict := range summary.ConflictFiles {
-						m.logger.Warn("conflict resolved by renaming",
-							slog.String("file", conflict.OriginalName),
-							slog.String("renamed_to", conflict.RenamedTo))
+				if !m.DryRun {
+					summary := NewMergeSummary(subEntry.Name)
+					if err := mergeFile(dstFile, source, file, subEntry.Sudo, summary); err != nil {
+						return NewPathError("restore", dstFile, fmt.Errorf("merging file: %w", err))
 					}
 
-					for _, failed := range summary.FailedFiles {
-						m.logger.Error("merge failed for file",
-							slog.String("file", failed.FileName),
-							slog.String("error", failed.Error))
+					// Log merge summary
+					if summary.HasOperations() {
+						for _, conflict := range summary.ConflictFiles {
+							m.logger.Warn("conflict resolved by renaming",
+								slog.String("file", conflict.OriginalName),
+								slog.String("renamed_to", conflict.RenamedTo))
+						}
+
+						for _, failed := range summary.FailedFiles {
+							m.logger.Error("merge failed for file",
+								slog.String("file", failed.FileName),
+								slog.String("error", failed.Error))
+						}
 					}
 				}
 			}
