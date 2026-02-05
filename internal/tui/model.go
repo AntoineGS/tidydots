@@ -214,6 +214,8 @@ type Model struct {
 	searching                bool
 	confirmingDeleteSubEntry bool
 	confirmingDeleteApp      bool
+	confirmingFilterToggle   bool // true when showing filter toggle confirmation
+	filterToggleHiddenCount  int  // count of selections that would be hidden
 	showingDetail            bool
 
 	// Filter state

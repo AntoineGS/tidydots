@@ -626,6 +626,26 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Handle filter toggle confirmation
+	if m.Operation == OpList && m.confirmingFilterToggle {
+		switch msg.String() {
+		case "y", "Y", KeyEnter:
+			// Confirm - toggle filter and clear hidden selections
+			m.confirmingFilterToggle = false
+			m.filterToggleHiddenCount = 0
+			m.filterEnabled = true
+			m.clearHiddenSelections()
+			m.rebuildTable()
+			return m, nil
+		case "n", "N", KeyEsc:
+			// Cancel - keep filter off
+			m.confirmingFilterToggle = false
+			m.filterToggleHiddenCount = 0
+			return m, nil
+		}
+		return m, nil
+	}
+
 	// Handle delete confirmation
 	if m.Operation == OpList && (m.confirmingDeleteApp || m.confirmingDeleteSubEntry) {
 		switch msg.String() {
@@ -731,6 +751,25 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.sortColumn = SortColumnPath
 				m.sortAscending = true
 			}
+			m.rebuildTable()
+			return m, nil
+		}
+	case "f":
+		// Toggle filter
+		if m.Operation == OpList && !m.searching && !m.confirmingDeleteApp && !m.confirmingDeleteSubEntry && !m.showingDetail {
+			// If toggling filter ON (false -> true), check if selections would be hidden
+			if !m.filterEnabled && m.multiSelectActive {
+				hiddenCount := m.countHiddenSelections()
+				if hiddenCount > 0 {
+					// Show confirmation dialog - set a new state flag
+					m.confirmingFilterToggle = true
+					m.filterToggleHiddenCount = hiddenCount
+					return m, nil
+				}
+			}
+
+			// Toggle filter (no confirmation needed or toggling OFF)
+			m.filterEnabled = !m.filterEnabled
 			m.rebuildTable()
 			return m, nil
 		}
