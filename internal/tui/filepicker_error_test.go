@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )

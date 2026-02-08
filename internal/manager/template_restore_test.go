@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/platform"
-	"github.com/AntoineGS/dot-manager/internal/state"
-	tmpl "github.com/AntoineGS/dot-manager/internal/template"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/state"
+	tmpl "github.com/AntoineGS/tidydots/internal/template"
 )
 
 const expectedHostnameRender = "Host=testhost"
@@ -37,7 +37,7 @@ func setupTemplateTest(t *testing.T) (string, string, *Manager, *state.Store) {
 
 	mgr := New(cfg, plat)
 
-	dbPath := filepath.Join(backupRoot, ".dot-manager.db")
+	dbPath := filepath.Join(backupRoot, ".tidydots.db")
 	store, err := state.Open(dbPath)
 	if err != nil {
 		t.Fatalf("failed to open state store: %v", err)

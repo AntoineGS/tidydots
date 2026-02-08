@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
 func setupTestManager(t *testing.T) *Manager {

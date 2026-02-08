@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	tmpl "github.com/AntoineGS/dot-manager/internal/template"
+	"github.com/AntoineGS/tidydots/internal/config"
+	tmpl "github.com/AntoineGS/tidydots/internal/template"
 )
 
 // RestoreFolderWithTemplates handles folders that contain .tmpl files.

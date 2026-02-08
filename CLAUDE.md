@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Build
-go build ./cmd/dot-manager
+go build ./cmd/tidydots
 
 # Run tests
 go test ./...
@@ -42,12 +42,12 @@ See [TESTING.md](TESTING.md) for comprehensive testing documentation including:
 
 ## Architecture
 
-**dot-manager** is a cross-platform dotfile management tool written in Go. It manages configuration files through symlinks, clones git repositories, and handles package installation across multiple package managers.
+**tidydots** is a cross-platform dotfile management tool written in Go. It manages configuration files through symlinks, clones git repositories, and handles package installation across multiple package managers.
 
 ### Core Components
 
-- **cmd/dot-manager/main.go** - Cobra CLI entry point defining all commands (init, restore, backup, list, install, list-packages)
-- **internal/config/** - Two-level YAML configuration: app config (`~/.config/dot-manager/config.yaml`) and repo config (`dot-manager.yaml`)
+- **cmd/tidydots/main.go** - Cobra CLI entry point defining all commands (init, restore, backup, list, install, list-packages)
+- **internal/config/** - Two-level YAML configuration: app config (`~/.config/tidydots/config.yaml`) and repo config (`tidydots.yaml`)
 - **internal/config/entry.go** - Entry type for config (symlinks) management
 - **internal/config/when.go** - Template-based `when` expression evaluation for conditional inclusion
 - **internal/manager/** - Core operations (backup, restore, adopt, list) with platform-aware path selection
@@ -66,7 +66,7 @@ See [TESTING.md](TESTING.md) for comprehensive testing documentation including:
 - **Dry-run mode**: All operations support `-n` flag for safe preview
 - **Table-driven tests**: Tests use `t.TempDir()` for filesystem isolation
 
-### Configuration Format (dot-manager.yaml)
+### Configuration Format (tidydots.yaml)
 
 **Version 3 (Current)**
 
@@ -157,7 +157,7 @@ packages:
 
 ### Template System (`internal/template/`, `internal/state/`)
 
-dot-manager supports Go `text/template` processing for both file contents and config paths, with platform-aware context data.
+tidydots supports Go `text/template` processing for both file contents and config paths, with platform-aware context data.
 
 **Template Context Variables**
 Templates have access to a `TemplateContext` struct:
@@ -181,7 +181,7 @@ Templates have access to a `TemplateContext` struct:
 4. Non-template files in the same directory get normal symlinks
 
 **3-Way Merge with SQLite State**
-- Pure render output is stored in `.dot-manager.db` (SQLite, in backup root)
+- Pure render output is stored in `.tidydots.db` (SQLite, in backup root)
 - On re-render, a 3-way merge preserves user edits to the rendered file:
   - `base` = previous pure render from DB
   - `theirs` = current `.tmpl.rendered` on disk (may have user edits)
@@ -193,7 +193,7 @@ Templates have access to a `TemplateContext` struct:
 ```
 *.tmpl.rendered
 *.tmpl.conflict
-.dot-manager.db
+.tidydots.db
 ```
 
 **Path Templating**

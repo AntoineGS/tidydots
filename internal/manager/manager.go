@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/platform"
-	"github.com/AntoineGS/dot-manager/internal/state"
-	tmpl "github.com/AntoineGS/dot-manager/internal/template"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/state"
+	tmpl "github.com/AntoineGS/tidydots/internal/template"
 )
 
 // File permissions constants
@@ -69,7 +69,7 @@ func New(cfg *config.Config, plat *platform.Platform) *Manager {
 // The database is placed in the backup root directory.
 func (m *Manager) InitStateStore() error {
 	backupRoot := config.ExpandPath(m.Config.BackupRoot, m.Platform.EnvVars)
-	dbPath := filepath.Join(backupRoot, ".dot-manager.db")
+	dbPath := filepath.Join(backupRoot, ".tidydots.db")
 
 	store, err := state.Open(dbPath)
 	if err != nil {

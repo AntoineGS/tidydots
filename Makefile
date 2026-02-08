@@ -13,7 +13,7 @@ help:
 
 # Build the application
 build:
-	go build -o bin/dot-manager ./cmd/dot-manager
+	go build -o bin/tidydots ./cmd/tidydots
 
 # Run tests
 test:
@@ -48,4 +48,4 @@ clean:
 
 # Install the application
 install:
-	go install ./cmd/dot-manager
+	go install ./cmd/tidydots

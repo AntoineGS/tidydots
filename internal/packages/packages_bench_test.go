@@ -3,7 +3,7 @@ package packages
 import (
 	"testing"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
+	"github.com/AntoineGS/tidydots/internal/config"
 )
 
 // benchRenderer implements config.PathRenderer for benchmarking.

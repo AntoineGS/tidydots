@@ -1,4 +1,4 @@
-# dot-manager
+# tidydots
 
 A cross-platform dotfile management tool written in Go. Manage configuration files through symlinks, clone git repositories, and install packages across multiple package managers.
 
@@ -18,15 +18,15 @@ A cross-platform dotfile management tool written in Go. Manage configuration fil
 ## Installation
 
 ```bash
-go install github.com/antoinegs/dot-manager/cmd/dot-manager@latest
+go install github.com/antoinegs/tidydots/cmd/tidydots@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/antoinegs/dot-manager.git
-cd dot-manager
-go build ./cmd/dot-manager
+git clone https://github.com/antoinegs/tidydots.git
+cd tidydots
+go build ./cmd/tidydots
 ```
 
 ## Quick Start
@@ -34,10 +34,10 @@ go build ./cmd/dot-manager
 1. **Initialize** with your dotfiles repository:
 
    ```bash
-   dot-manager init /path/to/your/dotfiles
+   tidydots init /path/to/your/dotfiles
    ```
 
-2. **Create a configuration file** (`dot-manager.yaml`) in your dotfiles repo:
+2. **Create a configuration file** (`tidydots.yaml`) in your dotfiles repo:
 
    ```yaml
    version: 3
@@ -88,14 +88,14 @@ go build ./cmd/dot-manager
 3. **Restore your configs**:
 
    ```bash
-   dot-manager restore
+   tidydots restore
    ```
 
 ## Configuration
 
 ### App Config
 
-Located at `~/.config/dot-manager/config.yaml`, stores the path to your dotfiles repository:
+Located at `~/.config/tidydots/config.yaml`, stores the path to your dotfiles repository:
 
 ```yaml
 config_dir: "/path/to/your/dotfiles"
@@ -103,7 +103,7 @@ config_dir: "/path/to/your/dotfiles"
 
 ### Repository Config
 
-Located in your dotfiles repo as `dot-manager.yaml`:
+Located in your dotfiles repo as `tidydots.yaml`:
 
 ```yaml
 version: 3
@@ -260,13 +260,13 @@ package:
 
 | Command | Description |
 |---------|-------------|
-| `dot-manager` | Launch interactive TUI |
-| `dot-manager init <path>` | Initialize app configuration |
-| `dot-manager restore` | Restore configs by creating symlinks |
-| `dot-manager backup` | Backup configs from target locations |
-| `dot-manager list` | List all configured entries |
-| `dot-manager install [packages...]` | Install packages |
-| `dot-manager list-packages` | Display configured packages |
+| `tidydots` | Launch interactive TUI |
+| `tidydots init <path>` | Initialize app configuration |
+| `tidydots restore` | Restore configs by creating symlinks |
+| `tidydots backup` | Backup configs from target locations |
+| `tidydots list` | List all configured entries |
+| `tidydots install [packages...]` | Install packages |
+| `tidydots list-packages` | Display configured packages |
 
 ### Global Flags
 
@@ -282,28 +282,28 @@ package:
 
 ```bash
 # Preview restore without making changes
-dot-manager restore -n
+tidydots restore -n
 
 # Interactive restore
-dot-manager restore -i
+tidydots restore -i
 
 # Backup all configs
-dot-manager backup
+tidydots backup
 
 # Install all packages
-dot-manager install
+tidydots install
 
 # Install specific packages
-dot-manager install neovim ripgrep fzf
+tidydots install neovim ripgrep fzf
 
 # List all entries
-dot-manager list
+tidydots list
 
 # List available packages
-dot-manager list-packages
+tidydots list-packages
 
 # Override OS for cross-platform testing
-dot-manager list -o windows
+tidydots list -o windows
 ```
 
 ## Supported Package Managers
@@ -355,7 +355,7 @@ On `my-desktop`, the shader lines are included. On other machines, they're omitt
 ```
 *.tmpl.rendered
 *.tmpl.conflict
-.dot-manager.db
+.tidydots.db
 ```
 
 **Flags:**

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/packages"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/packages"
 )
 
 func TestRunInit(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	tmpl "github.com/AntoineGS/dot-manager/internal/template"
+	"github.com/AntoineGS/tidydots/internal/config"
+	tmpl "github.com/AntoineGS/tidydots/internal/template"
 )
 
 // RestoreWithContext restores configurations with context support

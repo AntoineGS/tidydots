@@ -4,7 +4,7 @@ package tui
 import (
 	"fmt"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
+	"github.com/AntoineGS/tidydots/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

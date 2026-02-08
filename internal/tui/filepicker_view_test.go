@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
 // TestRenderFilePicker_Header tests that the header shows directory path

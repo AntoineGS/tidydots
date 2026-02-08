@@ -1,6 +1,6 @@
 # Testing Guide
 
-This document describes the testing strategy and practices for dot-manager.
+This document describes the testing strategy and practices for tidydots.
 
 ## Test Types
 
@@ -231,4 +231,4 @@ go tool cover -html=coverage.out
 CI runs:
 1. All tests (`go test ./...`)
 2. Linting (`golangci-lint run`)
-3. Build verification (`go build ./cmd/dot-manager`)
+3. Build verification (`go build ./cmd/tidydots`)

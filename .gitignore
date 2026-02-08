@@ -1,7 +1,7 @@
 # Binary
-dot-manager
-!dot-manager/
-dot-manager.exe
+tidydots
+!tidydots/
+tidydots.exe
 
 # IDE
 .idea/

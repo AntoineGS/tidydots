@@ -1,4 +1,4 @@
-module github.com/AntoineGS/dot-manager
+module github.com/AntoineGS/tidydots
 
 go 1.25.5
 

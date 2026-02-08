@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/AntoineGS/dot-manager/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
 // Context holds platform-aware data available to all templates.

@@ -10,7 +10,7 @@ const testTemplate = "test.tmpl"
 
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
-	dbPath := filepath.Join(t.TempDir(), ".dot-manager.db")
+	dbPath := filepath.Join(t.TempDir(), ".tidydots.db")
 	store, err := Open(dbPath)
 	if err != nil {
 		t.Fatalf("failed to open store: %v", err)
@@ -20,7 +20,7 @@ func newTestStore(t *testing.T) *Store {
 }
 
 func TestOpen_CreatesDBAndSchema(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "subdir", ".dot-manager.db")
+	dbPath := filepath.Join(t.TempDir(), "subdir", ".tidydots.db")
 	store, err := Open(dbPath)
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
@@ -39,7 +39,7 @@ func TestOpen_CreatesDBAndSchema(t *testing.T) {
 }
 
 func TestOpen_Idempotent(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), ".dot-manager.db")
+	dbPath := filepath.Join(t.TempDir(), ".tidydots.db")
 
 	// Open twice - should not error
 	store1, err := Open(dbPath)
@@ -267,7 +267,7 @@ func TestRemoveTemplate_DoesNotAffectOthers(t *testing.T) {
 }
 
 func TestSchemaMigration_Version0To1(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), ".dot-manager.db")
+	dbPath := filepath.Join(t.TempDir(), ".tidydots.db")
 
 	// Open creates schema from scratch (version 0 -> 1)
 	store, err := Open(dbPath)

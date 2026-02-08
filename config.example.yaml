@@ -1,5 +1,5 @@
-# dot-manager configuration example
-# Place this file as 'dot-manager.yaml' in the root of your configurations repository
+# tidydots configuration example
+# Place this file as 'tidydots.yaml' in the root of your configurations repository
 
 version: 1
 

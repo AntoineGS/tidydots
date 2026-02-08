@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
+	"github.com/AntoineGS/tidydots/internal/config"
 )
 
 func TestApplicationForm_Validation(t *testing.T) {

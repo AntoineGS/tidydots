@@ -103,7 +103,7 @@ issues:
         - funlen        # Test functions can be long
 
     # Allow globals in main.go
-    - path: cmd/dot-manager/main\.go
+    - path: cmd/tidydots/main\.go
       linters:
         - gochecknoglobals
 

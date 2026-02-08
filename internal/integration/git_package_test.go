@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/AntoineGS/dot-manager/internal/packages"
-	"github.com/AntoineGS/dot-manager/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/packages"
+	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
 func TestGitPackageEndToEnd(t *testing.T) {

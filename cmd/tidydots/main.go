@@ -1,4 +1,4 @@
-// Package main provides the CLI entry point for dot-manager.
+// Package main provides the CLI entry point for tidydots.
 package main
 
 import (
@@ -10,12 +10,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/manager"
-	"github.com/AntoineGS/dot-manager/internal/packages"
-	"github.com/AntoineGS/dot-manager/internal/platform"
-	tmpl "github.com/AntoineGS/dot-manager/internal/template"
-	"github.com/AntoineGS/dot-manager/internal/tui"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/manager"
+	"github.com/AntoineGS/tidydots/internal/packages"
+	"github.com/AntoineGS/tidydots/internal/platform"
+	tmpl "github.com/AntoineGS/tidydots/internal/template"
+	"github.com/AntoineGS/tidydots/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -32,17 +32,17 @@ var (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "dot-manager",
+		Use:   "tidydots",
 		Short: "Manage dotfiles and configurations across platforms",
-		Long: `dot-manager is a cross-platform tool for managing dotfiles and configurations.
+		Long: `tidydots is a cross-platform tool for managing dotfiles and configurations.
 It supports backup and restore operations using symlinks, with support for
 both Windows and Linux systems.
 
 Configuration is stored in two places:
-  ~/.config/dot-manager/config.yaml  - Points to your configurations repo
-  <repo>/dot-manager.yaml            - Defines paths to manage
+  ~/.config/tidydots/config.yaml  - Points to your configurations repo
+  <repo>/tidydots.yaml            - Defines paths to manage
 
-Run 'dot-manager init <path>' to set up the app configuration.
+Run 'tidydots init <path>' to set up the app configuration.
 Run without arguments to start the interactive TUI.`,
 		RunE: runInteractive,
 	}
@@ -57,8 +57,8 @@ Run without arguments to start the interactive TUI.`,
 		Short: "Initialize app configuration",
 		Long: `Initialize the app configuration by setting the path to your configurations repository.
 
-This creates ~/.config/dot-manager/config.yaml with the path to your repo.
-The repo should contain a dot-manager.yaml file with your path definitions.`,
+This creates ~/.config/tidydots/config.yaml with the path to your repo.
+The repo should contain a tidydots.yaml file with your path definitions.`,
 		Args: cobra.ExactArgs(1),
 		RunE: runInit,
 	}
@@ -140,11 +140,11 @@ func runInit(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("not a directory: %s", absPath)
 	}
 
-	// Check for dot-manager.yaml in the repo
-	repoConfig := filepath.Join(absPath, "dot-manager.yaml")
+	// Check for tidydots.yaml in the repo
+	repoConfig := filepath.Join(absPath, "tidydots.yaml")
 	if _, err := os.Stat(repoConfig); os.IsNotExist(err) {
-		fmt.Printf("Warning: %s not found in %s\n", "dot-manager.yaml", absPath)
-		fmt.Println("You'll need to create it before using dot-manager.")
+		fmt.Printf("Warning: %s not found in %s\n", "tidydots.yaml", absPath)
+		fmt.Println("You'll need to create it before using tidydots.")
 	}
 
 	// Save app config
@@ -187,7 +187,7 @@ func loadConfig() (*config.Config, *platform.Platform, string, error) {
 		return nil, nil, "", err
 	}
 
-	configFile := filepath.Join(cfgDir, "dot-manager.yaml")
+	configFile := filepath.Join(cfgDir, "tidydots.yaml")
 	cfg, err := config.Load(configFile)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("loading config from %s: %w", configFile, err)
@@ -352,7 +352,7 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	// Get filtered package entries
 	packageEntries := cfg.GetFilteredPackages(engine)
 	if len(packageEntries) == 0 {
-		return fmt.Errorf("no matching packages configured in dot-manager.yaml")
+		return fmt.Errorf("no matching packages configured in tidydots.yaml")
 	}
 
 	// Create package manager
@@ -424,7 +424,7 @@ func runListPackages(_ *cobra.Command, _ []string) error {
 	// Get filtered package entries
 	packageEntries := cfg.GetFilteredPackages(engine)
 	if len(packageEntries) == 0 {
-		fmt.Println("No matching packages configured in dot-manager.yaml")
+		fmt.Println("No matching packages configured in tidydots.yaml")
 		return nil
 	}
 

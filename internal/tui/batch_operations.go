@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
+	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 )

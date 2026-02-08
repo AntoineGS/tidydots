@@ -59,4 +59,4 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Build
-        run: go build -v ./cmd/dot-manager
+        run: go build -v ./cmd/tidydots

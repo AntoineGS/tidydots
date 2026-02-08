@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/manager"
-	"github.com/AntoineGS/dot-manager/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/manager"
+	"github.com/AntoineGS/tidydots/internal/platform"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

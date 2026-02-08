@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AntoineGS/dot-manager/internal/config"
-	"github.com/AntoineGS/dot-manager/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
 	"gopkg.in/yaml.v3"
 )
 
@@ -460,7 +460,7 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 	}
 
 	// Create temp directory to avoid TOCTOU race on the file path
-	tmpDir, err := os.MkdirTemp("", "dot-manager-*")
+	tmpDir, err := os.MkdirTemp("", "tidydots-*")
 	if err != nil {
 		return false, fmt.Sprintf("Failed to create temp directory: %v", err)
 	}

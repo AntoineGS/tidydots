@@ -47,7 +47,7 @@ func TestSaveAppConfig(t *testing.T) {
 		t.Errorf("Config file should contain config_dir, got: %s", content)
 	}
 
-	if !strings.Contains(content, "# dot-manager app configuration") {
+	if !strings.Contains(content, "# tidydots app configuration") {
 		t.Error("Config file should have header comment")
 	}
 }
@@ -246,7 +246,7 @@ func TestGetRepoConfigPath(t *testing.T) {
 	}
 
 	got := cfg.GetRepoConfigPath()
-	want := "/home/user/dotfiles/dot-manager.yaml"
+	want := "/home/user/dotfiles/tidydots.yaml"
 
 	if got != want {
 		t.Errorf("GetRepoConfigPath() = %q, want %q", got, want)
@@ -258,7 +258,7 @@ func TestAppConfigPath(t *testing.T) {
 	path := AppConfigPath()
 
 	home, _ := os.UserHomeDir()
-	expected := filepath.Join(home, ".config/dot-manager/config.yaml")
+	expected := filepath.Join(home, ".config/tidydots/config.yaml")
 
 	if path != expected {
 		t.Errorf("AppConfigPath() = %q, want %q", path, expected)

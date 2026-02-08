@@ -1,4 +1,4 @@
-// Package config provides configuration management for dot-manager.
+// Package config provides configuration management for tidydots.
 package config
 
 import (
@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// AppConfig is the minimal configuration stored in ~/.config/dot-manager/
+// AppConfig is the minimal configuration stored in ~/.config/tidydots/
 // It only contains the path to the configurations repository
 type AppConfig struct {
 	// ConfigDir is the path to the configurations repository
@@ -17,12 +17,12 @@ type AppConfig struct {
 }
 
 const (
-	appConfigDir   = ".config/dot-manager"
+	appConfigDir   = ".config/tidydots"
 	appConfigFile  = "config.yaml"
-	repoConfigFile = "dot-manager.yaml"
+	repoConfigFile = "tidydots.yaml"
 )
 
-// LoadAppConfig loads the app configuration from ~/.config/dot-manager/config.yaml
+// LoadAppConfig loads the app configuration from ~/.config/tidydots/config.yaml
 func LoadAppConfig() (*AppConfig, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -34,7 +34,7 @@ func LoadAppConfig() (*AppConfig, error) {
 	data, err := os.ReadFile(configPath) //nolint:gosec // path is from user home dir, intentional
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("app config not found at %s - run 'dot-manager init' or create it manually", configPath)
+			return nil, fmt.Errorf("app config not found at %s - run 'tidydots init' or create it manually", configPath)
 		}
 
 		return nil, fmt.Errorf("reading app config: %w", err)
@@ -60,7 +60,7 @@ func LoadAppConfig() (*AppConfig, error) {
 	return &cfg, nil
 }
 
-// SaveAppConfig saves the app configuration to ~/.config/dot-manager/config.yaml
+// SaveAppConfig saves the app configuration to ~/.config/tidydots/config.yaml
 func SaveAppConfig(cfg *AppConfig) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -80,7 +80,7 @@ func SaveAppConfig(cfg *AppConfig) error {
 	}
 
 	// Add a header comment
-	content := fmt.Sprintf("# dot-manager app configuration\n# This file only stores the path to your configurations repository\n\n%s", string(data))
+	content := fmt.Sprintf("# tidydots app configuration\n# This file only stores the path to your configurations repository\n\n%s", string(data))
 
 	// Use 0600 permissions to restrict access to owner only
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
@@ -90,7 +90,7 @@ func SaveAppConfig(cfg *AppConfig) error {
 	return nil
 }
 
-// GetRepoConfigPath returns the path to the repository's dot-manager.yaml
+// GetRepoConfigPath returns the path to the repository's tidydots.yaml
 func (a *AppConfig) GetRepoConfigPath() string {
 	return filepath.Join(a.ConfigDir, repoConfigFile)
 }
