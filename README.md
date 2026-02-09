@@ -1,19 +1,21 @@
 # tidydots
 
-A cross-platform dotfile management tool written in Go. Manage configuration files through symlinks, clone git repositories, and install packages across multiple package managers.
+A cross-platform dotfile management tool written in Go. Manage configuration
+files through symlinks, render templates for machine-specific configs, install
+packages, and clone git repositories --- all from a single YAML file.
+
+> For comprehensive documentation, visit **[tidydots.io](https://tidydots.io)**.
 
 ## Features
 
-- **Symlink-based restoration** - Configs are symlinked from your dotfiles repo, so edits sync immediately
-- **Git repository cloning** - Clone repositories to specific locations
-- **Cross-platform** - Works on Linux and Windows with OS-specific path targets
-- **Flexible filtering** - Filter entries by OS, distro, hostname, or user with regex support
-- **Interactive TUI** - Bubble Tea-based terminal UI for guided operations
-- **Package management** - Install packages across pacman, yay, paru, apt, dnf, brew, winget, scoop, choco
-- **Template rendering** - Conditional file content based on OS, distro, hostname, or user with Go templates
-- **Smart adoption** - Automatically backs up existing configs before symlinking
-- **Dry-run mode** - Preview all operations before making changes
-- **Root/sudo support** - Separate entries for system-level files with `root: true`
+- **Symlink-based config management** --- edits sync instantly, no copying
+- **Cross-platform** --- Linux and Windows with OS-specific target paths
+- **Template rendering** --- Go templates for machine-specific configuration
+- **Multi-package-manager support** --- pacman, yay, paru, apt, dnf, brew, winget, scoop, choco
+- **Interactive TUI** --- Bubble Tea terminal interface for visual management
+- **Git repository management** --- clone and update repos as packages
+- **Smart adopt workflow** --- migrates existing configs automatically
+- **Dry-run mode** --- preview every operation before it runs
 
 ## Installation
 
@@ -37,345 +39,46 @@ go build ./cmd/tidydots
    tidydots init /path/to/your/dotfiles
    ```
 
-2. **Create a configuration file** (`tidydots.yaml`) in your dotfiles repo:
+2. **Create** a `tidydots.yaml` in your dotfiles repo:
 
    ```yaml
    version: 3
-   backup_root: "."
 
    applications:
-     # Neovim application with config and package
-     - name: "neovim"
-       description: "Neovim text editor"
-
-       configs:
+     - name: "nvim"
+       entries:
          - name: "nvim-config"
            backup: "./nvim"
            targets:
              linux: "~/.config/nvim"
              windows: "~/AppData/Local/nvim"
-
-       packages:
-         - name: "neovim"
-           managers:
-             pacman: "neovim"
-             apt: "neovim"
-
-       filters:
-         - include:
-             os: "linux"
-
-     # Zsh configuration
-     - name: "zsh"
-       description: "Z shell configuration"
-
-       configs:
-         - name: "zshrc"
-           files: [".zshrc", ".zshenv"]
-           backup: "./zsh"
-           targets:
-             linux: "~"
-
-       packages:
-         - name: "oh-my-zsh"
-           managers:
-             git:
-               url: "https://github.com/ohmyzsh/ohmyzsh.git"
-               targets:
-                 linux: "~/.oh-my-zsh"
+       package:
+         managers:
+           pacman: "neovim"
+           apt: "neovim"
    ```
 
-3. **Restore your configs**:
+3. **Restore** your configs:
 
    ```bash
    tidydots restore
    ```
 
-## Configuration
+See the [Quick Start guide](https://tidydots.io/getting-started/quick-start/)
+for a full walkthrough, or explore the
+[configuration reference](https://tidydots.io/configuration/overview/) for all
+available options.
 
-### App Config
+## Documentation
 
-Located at `~/.config/tidydots/config.yaml`, stores the path to your dotfiles repository:
+The full documentation is available at **[tidydots.io](https://tidydots.io)**
+and covers:
 
-```yaml
-config_dir: "/path/to/your/dotfiles"
-```
-
-### Repository Config
-
-Located in your dotfiles repo as `tidydots.yaml`:
-
-```yaml
-version: 3
-backup_root: "."
-
-# Package manager settings
-default_manager: "pacman"
-manager_priority: ["yay", "paru", "pacman"]
-
-applications:
-  # Application with config
-  - name: "app-name"
-    description: "Optional description"
-
-    configs:
-      - name: "config-name"
-        files: []              # Empty = entire folder
-        backup: "./backup/path"
-        targets:
-          linux: "~/.config/app"
-          windows: "~/AppData/Local/app"
-
-    packages:
-      - name: "tool"
-        managers:
-          pacman: "tool"
-          apt: "tool-package"
-
-      - name: "git-repo"
-        managers:
-          git:
-            url: "https://github.com/user/repo.git"
-            branch: "main"         # Optional
-            targets:
-              linux: "~/path/to/clone"
-            sudo: false
-
-    filters:
-      - include:
-          os: "linux"
-
-  # System-level application (requires sudo)
-  - name: "pacman-hooks"
-    sudo: true
-
-    configs:
-      - name: "hooks"
-        files: ["my-hook.hook"]
-        backup: "./Linux/pacman"
-        targets:
-          linux: "/usr/share/libalpm/hooks"
-
-    filters:
-      - include:
-          distro: "arch"
-```
-
-### Configuration Structure
-
-**Applications** group related configs and packages together:
-- Each application can have multiple configs
-- Each application can have multiple packages
-- Filters can be applied at the application level
-
-### Application Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Application name |
-| `description` | string | Optional description |
-| `sudo` | bool | Requires root/sudo for all configs |
-| `configs` | []Config | Configuration entries |
-| `packages` | []Package | Package definitions |
-| `filters` | []Filter | Conditional filters |
-
-### Config Entry Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Config entry name |
-| `files` | []string | Specific files (empty = entire folder) |
-| `backup` | string | Path in dotfiles repo |
-| `targets` | map | OS-specific target paths |
-| `sudo` | bool | Requires root/sudo |
-
-### Filtering
-
-Applications can be filtered based on OS, distro, hostname, or user. Filters use regex matching.
-
-```yaml
-applications:
-  # Only on Arch Linux
-  - name: "pacman-config"
-    configs:
-      - name: "pacman-conf"
-        backup: "./pacman"
-        targets:
-          linux: "~/.config/pacman"
-    filters:
-      - include:
-          distro: "arch"
-
-  # On any system except work laptop
-  - name: "personal-config"
-    configs:
-      - name: "personal"
-        backup: "./personal"
-        targets:
-          linux: "~/.config/personal"
-    filters:
-      - exclude:
-          hostname: "work-laptop"
-
-  # Multiple conditions (AND within a filter, OR between filters)
-  - name: "dev-tools"
-    configs:
-      - name: "dev-config"
-        backup: "./dev"
-        targets:
-          linux: "~/.config/dev"
-    filters:
-      # Either: (linux AND arch) OR (linux AND user is dev)
-      - include:
-          os: "linux"
-          distro: "arch"
-      - include:
-          os: "linux"
-          user: "dev"
-```
-
-Filter attributes:
-- `os` - Operating system (linux, windows)
-- `distro` - Linux distribution ID (arch, ubuntu, fedora, debian, etc.)
-- `hostname` - Machine hostname
-- `user` - Current username
-
-### Package Configuration
-
-```yaml
-package:
-  managers:           # Package manager -> package name
-    pacman: "pkg"
-    apt: "pkg"
-    brew: "pkg"
-  custom:             # OS -> shell command
-    linux: "install.sh"
-  url:                # OS -> URL download
-    linux:
-      url: "https://example.com/file"
-      command: "sudo install {file} /usr/local/bin/"
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `tidydots` | Launch interactive TUI |
-| `tidydots init <path>` | Initialize app configuration |
-| `tidydots restore` | Restore configs by creating symlinks |
-| `tidydots backup` | Backup configs from target locations |
-| `tidydots list` | List all configured entries |
-| `tidydots install [packages...]` | Install packages |
-| `tidydots list-packages` | Display configured packages |
-
-### Global Flags
-
-| Flag | Description |
-|------|-------------|
-| `-d, --dir` | Override configurations directory |
-| `-o, --os` | Override OS detection (linux/windows) |
-| `-n, --dry-run` | Preview without making changes |
-| `-v, --verbose` | Enable verbose output |
-| `-i, --interactive` | Use interactive TUI mode |
-
-## Examples
-
-```bash
-# Preview restore without making changes
-tidydots restore -n
-
-# Interactive restore
-tidydots restore -i
-
-# Backup all configs
-tidydots backup
-
-# Install all packages
-tidydots install
-
-# Install specific packages
-tidydots install neovim ripgrep fzf
-
-# List all entries
-tidydots list
-
-# List available packages
-tidydots list-packages
-
-# Override OS for cross-platform testing
-tidydots list -o windows
-```
-
-## Supported Package Managers
-
-| Platform | Managers |
-|----------|----------|
-| Arch Linux | yay, paru, pacman |
-| Debian/Ubuntu | apt |
-| Fedora/RHEL | dnf |
-| macOS | brew |
-| Windows | winget, scoop, choco |
-
-## How It Works
-
-### Templating
-
-Files with a `.tmpl` extension are rendered as Go templates during restore. This allows conditional content based on the current machine.
-
-**Template context variables:**
-- `.OS` - Operating system (`"linux"` or `"windows"`)
-- `.Distro` - Linux distribution ID (e.g., `"arch"`, `"ubuntu"`)
-- `.Hostname` - Machine hostname
-- `.User` - Current username
-- `.Env` - Environment variables map (e.g., `{{ index .Env "HOME" }}`)
-
-All [sprout](https://github.com/go-sprout/sprout) template functions are available (string manipulation, math, collections, etc.).
-
-**Example:** A `config.tmpl` file with host-specific content:
-
-```
-font-size = 11
-background-opacity = 0.8
-{{ if eq .Hostname "my-desktop" -}}
-custom-shader = shaders/fancy.glsl
-custom-shader-animation = always
-{{- end }}
-```
-
-On `my-desktop`, the shader lines are included. On other machines, they're omitted.
-
-**How it works:**
-1. `config.tmpl` is rendered to `config.tmpl.rendered` (sibling file in backup dir)
-2. A symlink is created: `~/.config/app/config` -> `config.tmpl.rendered`
-3. Non-template files in the same folder get normal symlinks
-4. If you edit the rendered file directly, a 3-way merge preserves your changes on re-render
-
-**Gitignore:** Add these patterns to your dotfiles repo's `.gitignore`:
-
-```
-*.tmpl.rendered
-*.tmpl.conflict
-.tidydots.db
-```
-
-**Flags:**
-- `--force-render` - Skip 3-way merge and always overwrite rendered files
-
-### Restore Process
-
-For **config entries**:
-1. If backup exists and target doesn't: create symlink
-2. If backup doesn't exist but target does: **adopt** (move target to backup, then symlink)
-3. If already symlinked: skip
-
-For **git entries**:
-1. If target doesn't exist: clone repository
-2. If target exists and is a git repo: skip (already cloned)
-3. If target exists but not a git repo: skip with warning
-
-### Backup Process
-
-Copies files from target locations to the backup directory. Skips files that are already symlinks to avoid duplicating restored configs.
+- [Getting Started](https://tidydots.io/getting-started/quick-start/) --- installation, quick start, and core concepts
+- [Configuration](https://tidydots.io/configuration/overview/) --- applications, configs, packages, and templates
+- [Guides](https://tidydots.io/guides/multi-machine-setups/) --- multi-machine setups, package management, system configs
+- [CLI Reference](https://tidydots.io/cli/reference/) --- all commands and flags
+- [Troubleshooting](https://tidydots.io/troubleshooting/) --- common issues and solutions
 
 ## License
 
