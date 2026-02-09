@@ -32,6 +32,32 @@ go test ./...
 
 **IMPORTANT:** After implementing any feature change, bug fix, or refactoring, ALWAYS run `golangci-lint run` to ensure code quality and catch potential issues before committing.
 
+## Documentation
+
+User-facing documentation lives in `docs/` as a MkDocs site (Material for MkDocs). The site is deployed to [tidydots.io](https://tidydots.io) via GitHub Actions on push to main.
+
+**IMPORTANT:** After ANY code change that affects user-facing behavior (new features, changed flags, config format changes, bug fixes that change behavior, CLI output changes, TUI changes), you MUST update the corresponding documentation in `docs/`. This includes:
+
+- **New/changed CLI flags or commands** → update `docs/cli/reference.md`
+- **Config format changes** → update `docs/configuration/` pages (applications, configs, packages, templates)
+- **New features or changed behavior** → update relevant guide in `docs/guides/`
+- **Template system changes** → update `docs/configuration/templates.md`
+- **TUI changes** → update `docs/guides/interactive-tui.md`
+- **Installation changes** → update `docs/getting-started/installation.md`
+
+Documentation structure:
+```
+docs/
+├── index.md                          # Landing page
+├── getting-started/                  # Installation, quick start, concepts
+├── configuration/                    # Config reference (overview, apps, configs, packages, templates)
+├── guides/                           # Task-oriented guides (multi-machine, packages, git, sudo, TUI)
+├── cli/reference.md                  # CLI command reference
+└── troubleshooting.md                # Common issues and solutions
+```
+
+**Configuration format reminder:** The correct v3 field names are `entries` (not `configs`/`packages`), `package` singular at app level (not `packages`), and `when` (not `filters`). Always use these in documentation examples.
+
 ## Testing
 
 See [TESTING.md](TESTING.md) for comprehensive testing documentation including:
