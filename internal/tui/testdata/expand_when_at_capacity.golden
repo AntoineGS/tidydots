@@ -1,46 +1,46 @@
 
     filter: on (showing 36 of 36 apps)
-  ┌───────────────────────────┬───────────────────────────┬───────────────────────────┬──────────────────────────┬─────────────────────────────────┐
-  │ name ↑                    │ status                    │ info                      │ backup                   │ path                            │
-  ├───────────────────────────┼───────────────────────────┼───────────────────────────┼──────────────────────────┼─────────────────────────────────┤
-  │ ▶ app-01                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▼ app-02                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │   ├─ settings             │ Missing                   │ folder                    │ ./nvim/settings          │ ~/.config/nvim/lua/settings.lua │
-  │   ├─ init.lua             │ Adopt                     │ folder                    │ ./nvim/init              │ ~/.config/nvim/init.lua         │
-  │   ├─ mappings             │ Adopt                     │ folder                    │ ./nvim/mappings          │ ~/.config/nvim/lua/mappings.lua │
-  │   └─ plugins              │ Adopt                     │ folder                    │ ./nvim/plugins           │ ~/.config/nvim/lua/plugins      │
-  │ ▶ app-03                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-04                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-05                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-06                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-07                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-08                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-09                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-10                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-11                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-12                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-13                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-14                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-15                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-16                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-17                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-18                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-19                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-20                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-21                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-22                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-23                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-24                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-25                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-26                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-27                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-28                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-29                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-30                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-31                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ▶ app-32                  │ Unknown                   │ 4 entries                 │                          │                                 │
-  │ ↓ 4 more below            │                           │                           │                          │                                 │
-  └───────────────────────────┴───────────────────────────┴───────────────────────────┴──────────────────────────┴─────────────────────────────────┘
+  ┌────────────────────┬────────────────────┬───────────────────┬───────────────────┬──────────────────────────────────────────────────────────────┐
+  │ name ↑             │ status             │ info              │ backup            │ path                                                         │
+  ├────────────────────┼────────────────────┼───────────────────┼───────────────────┼──────────────────────────────────────────────────────────────┤
+  │ ▶ app-01           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▼ app-02           │ Unknown            │ 4 entries         │                   │                                                              │
+  │   ├─ settings      │ Missing            │ folder            │ ./nvim/settings   │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/settings.lua │
+  │   ├─ init.lua      │ Missing            │ folder            │ ./nvim/init       │ /tmp/tidydots-test-nonexistent/.config/nvim/init.lua         │
+  │   ├─ mappings      │ Missing            │ folder            │ ./nvim/mappings   │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/mappings.lua │
+  │   └─ plugins       │ Missing            │ folder            │ ./nvim/plugins    │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/plugins      │
+  │ ▶ app-03           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-04           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-05           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-06           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-07           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-08           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-09           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-10           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-11           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-12           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-13           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-14           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-15           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-16           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-17           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-18           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-19           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-20           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-21           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-22           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-23           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-24           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-25           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-26           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-27           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-28           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-29           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-30           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-31           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ▶ app-32           │ Unknown            │ 4 entries         │                   │                                                              │
+  │ ↓ 4 more below     │                    │                   │                   │                                                              │
+  └────────────────────┴────────────────────┴───────────────────┴───────────────────┴──────────────────────────────────────────────────────────────┘
 
 
   / search  Add app  add entry  edit  delete  restore  install  quit

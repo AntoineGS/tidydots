@@ -442,30 +442,30 @@ func setupAppExpanded(m *Model) {
 	m.width = 100
 	m.height = 30
 
-	// Create 3 apps, middle one has multiple sub-entries
+	// Use non-existent paths so status is deterministic ("Missing") across all environments
 	m.Config.Applications = []config.Application{
 		{
 			Name:        "bash",
 			Description: "Bash shell",
 			Entries: []config.SubEntry{
-				{Name: "bashrc", Backup: "./bash", Targets: map[string]string{"linux": "~/.bashrc"}},
+				{Name: "bashrc", Backup: "./bash", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.bashrc"}},
 			},
 		},
 		{
 			Name:        nvimAppName,
 			Description: "Neovim text editor",
 			Entries: []config.SubEntry{
-				{Name: "init.lua", Backup: "./nvim/init", Targets: map[string]string{"linux": "~/.config/nvim/init.lua"}},
-				{Name: "plugins", Backup: "./nvim/plugins", Targets: map[string]string{"linux": "~/.config/nvim/lua/plugins"}},
-				{Name: "mappings", Backup: "./nvim/mappings", Targets: map[string]string{"linux": "~/.config/nvim/lua/mappings.lua"}},
-				{Name: "settings", Backup: "./nvim/settings", Targets: map[string]string{"linux": "~/.config/nvim/lua/settings.lua"}},
+				{Name: "init.lua", Backup: "./nvim/init", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.config/nvim/init.lua"}},
+				{Name: "plugins", Backup: "./nvim/plugins", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.config/nvim/lua/plugins"}},
+				{Name: "mappings", Backup: "./nvim/mappings", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.config/nvim/lua/mappings.lua"}},
+				{Name: "settings", Backup: "./nvim/settings", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.config/nvim/lua/settings.lua"}},
 			},
 		},
 		{
 			Name:        "zsh",
 			Description: "Z shell",
 			Entries: []config.SubEntry{
-				{Name: "zshrc", Backup: "./zsh", Targets: map[string]string{"linux": "~/.zshrc"}},
+				{Name: "zshrc", Backup: "./zsh", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.zshrc"}},
 			},
 		},
 	}
@@ -483,16 +483,17 @@ func setupExpandWhenAtCapacity(m *Model) {
 	m.width = 150
 	m.height = 48
 
+	// Use non-existent paths so status is deterministic ("Missing") across all environments
 	apps := make([]config.Application, 36)
 	for i := 0; i < 36; i++ {
 		apps[i] = config.Application{
 			Name:        fmt.Sprintf("app-%02d", i+1),
 			Description: fmt.Sprintf("Application %d", i+1),
 			Entries: []config.SubEntry{
-				{Name: "init.lua", Backup: "./nvim/init", Targets: map[string]string{"linux": "~/.config/nvim/init.lua"}},
-				{Name: "plugins", Backup: "./nvim/plugins", Targets: map[string]string{"linux": "~/.config/nvim/lua/plugins"}},
-				{Name: "mappings", Backup: "./nvim/mappings", Targets: map[string]string{"linux": "~/.config/nvim/lua/mappings.lua"}},
-				{Name: "settings", Backup: "./nvim/settings", Targets: map[string]string{"linux": "~/.config/nvim/lua/settings.lua"}},
+				{Name: "init.lua", Backup: "./nvim/init", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.config/nvim/init.lua"}},
+				{Name: "plugins", Backup: "./nvim/plugins", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.config/nvim/lua/plugins"}},
+				{Name: "mappings", Backup: "./nvim/mappings", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.config/nvim/lua/mappings.lua"}},
+				{Name: "settings", Backup: "./nvim/settings", Targets: map[string]string{"linux": "/tmp/tidydots-test-nonexistent/.config/nvim/lua/settings.lua"}},
 			},
 		}
 	}
