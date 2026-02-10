@@ -30,6 +30,7 @@ type Platform struct {
 	Hostname   string
 	User       string
 	HasDisplay bool
+	IsWSL      bool
 }
 
 // Detect detects the current platform characteristics including OS type,
@@ -42,6 +43,7 @@ func Detect() *Platform {
 		EnvVars:  make(map[string]string),
 	}
 
+	p.IsWSL = detectWSL()
 	p.HasDisplay = detectDisplay(p.OS)
 
 	if p.OS == OSLinux {
@@ -151,6 +153,17 @@ func (p *Platform) detectPowerShellProfile() {
 		p.EnvVars["PWSH_PROFILE_FILE"] = filepath.Base(profile)
 		p.EnvVars["PWSH_PROFILE_PATH"] = filepath.Dir(profile)
 	}
+}
+
+// detectWSL checks if running inside Windows Subsystem for Linux.
+func detectWSL() bool {
+	data, err := os.ReadFile("/proc/version")
+	if err != nil {
+		return false
+	}
+
+	lower := strings.ToLower(string(data))
+	return strings.Contains(lower, "microsoft") || strings.Contains(lower, "wsl")
 }
 
 // IsArchLinux returns true if the detected distribution is Arch Linux.

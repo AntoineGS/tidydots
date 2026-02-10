@@ -184,6 +184,8 @@ Templates have access to a `TemplateContext` struct:
 - `.Distro` - Linux distribution ID (e.g., `"arch"`, `"ubuntu"`)
 - `.Hostname` - Machine hostname
 - `.User` - Current username
+- `.HasDisplay` - Whether a display server is available (X11/Wayland/Windows)
+- `.IsWSL` - Whether running inside Windows Subsystem for Linux (WSL1/WSL2)
 - `.Env` - Map of environment variables (e.g., `{{ index .Env "HOME" }}`)
 
 **Template Functions**: All [sprout](https://github.com/go-sprout/sprout) functions are available (string manipulation, math, collections, etc.)

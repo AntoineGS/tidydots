@@ -15,6 +15,7 @@ type Context struct {
 	Hostname   string
 	User       string
 	HasDisplay bool
+	IsWSL      bool
 	Env        map[string]string
 }
 
@@ -41,6 +42,7 @@ func NewContextFromPlatform(p *platform.Platform) *Context {
 		Hostname:   p.Hostname,
 		User:       p.User,
 		HasDisplay: p.HasDisplay,
+		IsWSL:      p.IsWSL,
 		Env:        env,
 	}
 }

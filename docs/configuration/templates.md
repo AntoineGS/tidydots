@@ -26,6 +26,7 @@ Templates have access to the following context struct:
 | `.Hostname` | string | Machine hostname | `"desktop"`, `"work-laptop"` |
 | `.User` | string | Current username | `"alice"` |
 | `.HasDisplay` | bool | Whether a display server is available | `true` (X11/Wayland/Windows), `false` (headless) |
+| `.IsWSL` | bool | Whether running inside Windows Subsystem for Linux | `true` (WSL1/WSL2), `false` (native) |
 | `.Env` | map[string]string | All environment variables | See below |
 
 ### Accessing Environment Variables
@@ -120,6 +121,30 @@ applications:
 ```
 
 On Linux, `.HasDisplay` is `true` when `DISPLAY` (X11) or `WAYLAND_DISPLAY` (Wayland) is set. On Windows, it is always `true`.
+
+**WSL-aware conditional:**
+
+```
+{{ if .IsWSL }}
+# WSL-specific settings (e.g., use Windows browser)
+export BROWSER="wslview"
+{{ else }}
+export BROWSER="firefox"
+{{ end }}
+```
+
+This is also useful in `when` expressions to exclude applications that don't work in WSL:
+
+```yaml
+applications:
+  - name: "alacritty"
+    when: '{{ and .HasDisplay (not .IsWSL) }}'
+
+  - name: "wsl-utilities"
+    when: '{{ .IsWSL }}'
+```
+
+`.IsWSL` is detected by checking `/proc/version` for the `microsoft` or `WSL` identifier, which works on both WSL1 and WSL2.
 
 ## How Template Restore Works
 
