@@ -118,6 +118,9 @@ func getApplicationStatus(app ApplicationItem) string {
 	}
 
 	if app.PkgInstalled == nil {
+		if app.PkgMethod != "" && app.PkgMethod != TypeNone {
+			return StatusLoading
+		}
 		return StatusUnknown
 	}
 
@@ -144,7 +147,7 @@ func getTypeInfo(subItem SubEntryItem) string {
 
 // needsAttention returns true if the status text indicates something needs attention
 func needsAttention(status string) bool {
-	return status != StatusInstalled && status != StatusUnknown && status != StateLinked.String()
+	return status != StatusInstalled && status != StatusUnknown && status != StatusLoading && status != StateLinked.String()
 }
 
 // stateSeverity returns a numeric severity for a PathState.
@@ -157,7 +160,7 @@ func stateSeverity(s PathState) int {
 		return 2 // Amber — template source changed
 	case StateModified:
 		return 1 // Blue — user edits detected
-	case StateLinked:
+	case StateLoading, StateLinked:
 		return 0 // No attention
 	}
 

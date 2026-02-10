@@ -54,12 +54,6 @@ func NewModelWithManager(cfg *config.Config, plat *platform.Platform, mgr *manag
 	m.Manager = mgr
 	m.ConfigPath = configPath
 
-	// Re-detect application states now that the Manager is available.
-	// NewModel() runs state detection before Manager is assigned, so features
-	// like outdated template detection (which require the state store) are missed.
-	m.refreshApplicationStates()
-	m.initTableModel()
-
 	return m
 }
 

@@ -5,10 +5,10 @@
   ├────────────────────┼────────────────────┼───────────────────┼───────────────────┼──────────────────────────────────────────────────────────────┤
   │ ▶ app-01           │ Unknown            │ 4 entries         │                   │                                                              │
   │ ▼ app-02           │ Unknown            │ 4 entries         │                   │                                                              │
-  │   ├─ settings      │ Missing            │ folder            │ ./nvim/settings   │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/settings.lua │
-  │   ├─ init.lua      │ Missing            │ folder            │ ./nvim/init       │ /tmp/tidydots-test-nonexistent/.config/nvim/init.lua         │
-  │   ├─ mappings      │ Missing            │ folder            │ ./nvim/mappings   │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/mappings.lua │
-  │   └─ plugins       │ Missing            │ folder            │ ./nvim/plugins    │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/plugins      │
+  │   ├─ settings      │ Loading...         │ folder            │ ./nvim/settings   │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/settings.lua │
+  │   ├─ init.lua      │ Loading...         │ folder            │ ./nvim/init       │ /tmp/tidydots-test-nonexistent/.config/nvim/init.lua         │
+  │   ├─ mappings      │ Loading...         │ folder            │ ./nvim/mappings   │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/mappings.lua │
+  │   └─ plugins       │ Loading...         │ folder            │ ./nvim/plugins    │ /tmp/tidydots-test-nonexistent/.config/nvim/lua/plugins      │
   │ ▶ app-03           │ Unknown            │ 4 entries         │                   │                                                              │
   │ ▶ app-04           │ Unknown            │ 4 entries         │                   │                                                              │
   │ ▶ app-05           │ Unknown            │ 4 entries         │                   │                                                              │

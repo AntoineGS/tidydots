@@ -5,13 +5,39 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/packages"
+	"github.com/AntoineGS/tidydots/internal/platform"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 )
+
+// pkgCheckResult holds the result of a single package install check.
+type pkgCheckResult struct {
+	appIndex  int
+	installed bool
+}
+
+// pkgCheckCompleteMsg is sent when all package install checks are done.
+type pkgCheckCompleteMsg struct {
+	results []pkgCheckResult
+}
+
+// stateCheckResult holds the result of a single sub-entry state check.
+type stateCheckResult struct {
+	appIndex int
+	subIndex int
+	state    PathState
+}
+
+// stateCheckCompleteMsg is sent when all state checks are done.
+type stateCheckCompleteMsg struct {
+	results []stateCheckResult
+}
 
 // sortTableRows sorts the table rows based on the current sort column and direction.
 // It preserves the application order from the existing tableRows and only sorts sub-entries.
@@ -171,15 +197,9 @@ func (m *Model) initApplicationItems() {
 			IsFiltered:  isFiltered,
 		}
 
-		// Add package info
+		// Add package info (install check deferred to async)
 		if app.HasPackage() {
-			method := getPackageInstallMethodFromPackage(app.Package, m.Platform.OS)
-			appItem.PkgMethod = method
-
-			if method != "none" {
-				installed := isPackageInstalledFromPackage(app.Package, method, app.Name)
-				appItem.PkgInstalled = &installed
-			}
+			appItem.PkgMethod = getPackageInstallMethodFromPackage(app.Package, m.Platform.OS)
 		}
 
 		m.Applications = append(m.Applications, appItem)
@@ -189,9 +209,6 @@ func (m *Model) initApplicationItems() {
 	sort.Slice(m.Applications, func(i, j int) bool {
 		return m.Applications[i].Application.Name < m.Applications[j].Application.Name
 	})
-
-	// Detect states for all sub-items
-	m.refreshApplicationStates()
 
 	// Initialize table model with the loaded applications
 	m.initTableModel()
@@ -544,8 +561,8 @@ func cellAttentionStyle(tr TableRow, col int) lipgloss.Style {
 		}
 	}
 
-	// Mute "Unknown" status and "0 entries" info text
-	if col == 1 && tr.Data[1] == StatusUnknown {
+	// Mute "Unknown", "Loading..." status and "0 entries" info text
+	if col == 1 && (tr.Data[1] == StatusUnknown || tr.Data[1] == StatusLoading) {
 		return baseStyle.Foreground(mutedColor)
 	}
 	if col == 2 && tr.Data[2] == "0 entries" {
@@ -1626,4 +1643,101 @@ func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
 	}
 
 	return packages.BuildCommand(*converted, pkg.Method, m.Platform.OS)
+}
+
+// checkPackageStatesCmd returns a tea.Cmd that checks all package install statuses in parallel.
+func (m Model) checkPackageStatesCmd() tea.Cmd {
+	type pkgWork struct {
+		appIndex int
+		pkg      *config.EntryPackage
+		method   string
+		name     string
+	}
+
+	var work []pkgWork
+	for i, app := range m.Applications {
+		if app.PkgMethod != "" && app.PkgMethod != TypeNone {
+			work = append(work, pkgWork{i, app.Application.Package, app.PkgMethod, app.Application.Name})
+		}
+	}
+
+	return func() tea.Msg {
+		results := make([]pkgCheckResult, len(work))
+		var wg sync.WaitGroup
+		for idx, w := range work {
+			wg.Add(1)
+			go func(idx int, w pkgWork) {
+				defer wg.Done()
+				installed := isPackageInstalledFromPackage(w.pkg, w.method, w.name)
+				results[idx] = pkgCheckResult{appIndex: w.appIndex, installed: installed}
+			}(idx, w)
+		}
+		wg.Wait()
+		return pkgCheckCompleteMsg{results: results}
+	}
+}
+
+// checkSubEntryStatesCmd returns a tea.Cmd that checks all sub-entry states in parallel.
+func (m Model) checkSubEntryStatesCmd() tea.Cmd {
+	type stateWork struct {
+		appIndex int
+		subIndex int
+		subItem  SubEntryItem
+	}
+
+	var work []stateWork
+	for i, app := range m.Applications {
+		for j, sub := range app.SubItems {
+			work = append(work, stateWork{i, j, sub})
+		}
+	}
+
+	plat := m.Platform
+	cfg := m.Config
+	mgr := m.Manager
+
+	return func() tea.Msg {
+		results := make([]stateCheckResult, len(work))
+		var wg sync.WaitGroup
+		for idx, w := range work {
+			wg.Add(1)
+			go func(idx int, w stateWork) {
+				defer wg.Done()
+				state := detectSubEntryStateStatic(w.subItem, plat, cfg, mgr)
+				results[idx] = stateCheckResult{appIndex: w.appIndex, subIndex: w.subIndex, state: state}
+			}(idx, w)
+		}
+		wg.Wait()
+		return stateCheckCompleteMsg{results: results}
+	}
+}
+
+// detectSubEntryStateStatic determines the state of a sub-entry item without using Model receiver.
+// This is safe to call from goroutines since it takes explicit dependencies.
+func detectSubEntryStateStatic(item SubEntryItem, plat *platform.Platform, cfg *config.Config, mgr *manager.Manager) PathState {
+	targetPath := config.ExpandPath(item.Target, plat.EnvVars)
+	backupPath := resolvePathStatic(item.SubEntry.Backup, cfg, plat.EnvVars)
+
+	st := detectConfigState(backupPath, targetPath, item.SubEntry.IsFolder(), item.SubEntry.Files)
+
+	if st == StateLinked && item.SubEntry.IsConfig() && item.SubEntry.IsFolder() && mgr != nil {
+		if mgr.HasOutdatedTemplates(backupPath) {
+			return StateOutdated
+		}
+		if mgr.HasModifiedRenderedFiles(backupPath) {
+			return StateModified
+		}
+	}
+
+	return st
+}
+
+// resolvePathStatic resolves relative paths and expands ~ without using Model receiver.
+func resolvePathStatic(path string, cfg *config.Config, envVars map[string]string) string {
+	resolvedPath := path
+	if len(path) > 0 && path[0] == '.' {
+		resolvedPath = cfg.BackupRoot + path[1:]
+	}
+
+	return config.ExpandPath(resolvedPath, envVars)
 }

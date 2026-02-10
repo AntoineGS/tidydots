@@ -47,6 +47,7 @@ const (
 	StatusOutdated  = "Outdated"
 	StatusModified  = "Modified"
 	StatusUnknown   = "Unknown"
+	StatusLoading   = "Loading..."
 )
 
 // Sort column constants

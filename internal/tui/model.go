@@ -68,8 +68,10 @@ type PathState int
 
 // Path states for restore operations.
 const (
+	// StateLoading indicates state is still being detected
+	StateLoading PathState = iota
 	// StateReady indicates backup exists and is ready to restore
-	StateReady PathState = iota // Backup exists, ready to restore
+	StateReady // Backup exists, ready to restore
 	// StateAdopt indicates no backup but target exists (will adopt)
 	StateAdopt // No backup but target exists (will adopt)
 	// StateMissing indicates neither backup nor target exists
@@ -84,6 +86,8 @@ const (
 
 func (s PathState) String() string {
 	switch s {
+	case StateLoading:
+		return "Loading..."
 	case StateReady:
 		return "Ready"
 	case StateAdopt:
@@ -352,15 +356,9 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 				EntryType: entryType,
 			}
 
-			// Add package info if entry has a package
+			// Add package info if entry has a package (install check deferred to async)
 			if entry.HasPackage() {
-				method := getPackageInstallMethodFromPackage(entry.Package, plat.OS)
-				item.PkgMethod = method
-
-				if method != TypeNone {
-					installed := isPackageInstalledFromPackage(entry.Package, method, entry.Name)
-					item.PkgInstalled = &installed
-				}
+				item.PkgMethod = getPackageInstallMethodFromPackage(entry.Package, plat.OS)
 			}
 
 			items = append(items, item)
@@ -377,7 +375,7 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	pkgItems := make([]PackageItem, 0)
 
 	for _, item := range items {
-		if item.PkgInstalled != nil {
+		if item.PkgMethod != "" && item.PkgMethod != TypeNone {
 			pkgItems = append(pkgItems, PackageItem{
 				Entry:    item.Entry,
 				Method:   item.PkgMethod,
@@ -411,9 +409,6 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 		selectedSubEntries: make(map[string]bool),
 		multiSelectActive:  false,
 	}
-
-	// Detect initial path states
-	m.refreshPathStates()
 
 	// Initialize applications for hierarchical view
 	m.initApplicationItems()
@@ -488,13 +483,22 @@ func detectAvailableManagers() []string {
 // Init initializes the TUI model and returns any initial commands to run.
 // This is part of the Bubble Tea model interface.
 func (m Model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(
+		m.checkPackageStatesCmd(),
+		m.checkSubEntryStatesCmd(),
+	)
 }
 
 // Update processes messages and updates the model state accordingly.
 // This is part of the Bubble Tea model interface.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case pkgCheckCompleteMsg:
+		return m.handlePkgCheckComplete(msg)
+
+	case stateCheckCompleteMsg:
+		return m.handleStateCheckComplete(msg)
+
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 
@@ -807,35 +811,27 @@ func detectConfigState(backupPath, targetPath string, isFolder bool, files []str
 	return StateMissing
 }
 
-// detectPathState determines the state of a path item
-func (m *Model) detectPathState(item *PathItem) PathState {
-	// Expand ~ in target path for file operations
-	targetPath := config.ExpandPath(item.Target, m.Platform.EnvVars)
-
-	// For git entries
-	if item.EntryType == EntryTypeGit {
-		if pathExists(targetPath) {
-			gitDir := filepath.Join(targetPath, ".git")
-			if pathExists(gitDir) {
-				return StateLinked // Already cloned
-			}
-
-			return StateAdopt // Target exists but not a git repo
+// handlePkgCheckComplete processes the results of async package install checks.
+func (m Model) handlePkgCheckComplete(msg pkgCheckCompleteMsg) (tea.Model, tea.Cmd) {
+	for _, r := range msg.results {
+		if r.appIndex < len(m.Applications) {
+			installed := r.installed
+			m.Applications[r.appIndex].PkgInstalled = &installed
 		}
-
-		return StateReady // Ready to clone
 	}
-
-	backupPath := m.resolvePath(item.Entry.Backup)
-
-	return detectConfigState(backupPath, targetPath, item.Entry.IsFolder(), item.Entry.Files)
+	m.initTableModel()
+	return m, nil
 }
 
-// refreshPathStates updates the state of all path items
-func (m *Model) refreshPathStates() {
-	for i := range m.Paths {
-		m.Paths[i].State = m.detectPathState(&m.Paths[i])
+// handleStateCheckComplete processes the results of async sub-entry state checks.
+func (m Model) handleStateCheckComplete(msg stateCheckCompleteMsg) (tea.Model, tea.Cmd) {
+	for _, r := range msg.results {
+		if r.appIndex < len(m.Applications) && r.subIndex < len(m.Applications[r.appIndex].SubItems) {
+			m.Applications[r.appIndex].SubItems[r.subIndex].State = r.state
+		}
 	}
+	m.initTableModel()
+	return m, nil
 }
 
 func pathExists(path string) bool {

@@ -11,11 +11,11 @@
   │ ▶ app-06             │ Unknown              │ 1 entry             │                          │
   │ ▶ app-07             │ Unknown              │ 1 entry             │                          │
   │ ▼ app-08             │ Unknown              │ 5 entries           │                          │
-  │   ├─ entry-5         │ Missing              │ folder              │ ~/.config/app-08/entry-5 │
-  │   ├─ entry-1         │ Missing              │ folder              │ ~/.config/app-08/entry-1 │
-  │   ├─ entry-2         │ Missing              │ folder              │ ~/.config/app-08/entry-2 │
-  │   ├─ entry-3         │ Missing              │ folder              │ ~/.config/app-08/entry-3 │
-  │   └─ entry-4         │ Missing              │ folder              │ ~/.config/app-08/entry-4 │
+  │   ├─ entry-5         │ Loading...           │ folder              │ ~/.config/app-08/entry-5 │
+  │   ├─ entry-1         │ Loading...           │ folder              │ ~/.config/app-08/entry-1 │
+  │   ├─ entry-2         │ Loading...           │ folder              │ ~/.config/app-08/entry-2 │
+  │   ├─ entry-3         │ Loading...           │ folder              │ ~/.config/app-08/entry-3 │
+  │   └─ entry-4         │ Loading...           │ folder              │ ~/.config/app-08/entry-4 │
   │ ▶ app-09             │ Unknown              │ 1 entry             │                          │
   │ ▶ app-10             │ Unknown              │ 1 entry             │                          │
   │ ▶ app-11             │ Unknown              │ 1 entry             │                          │
