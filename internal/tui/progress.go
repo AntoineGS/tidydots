@@ -1,13 +1,13 @@
 package tui
 
 import (
-	"context"
 	"fmt"
 	"os/exec"
 	"sort"
 	"strings"
 
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/packages"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
@@ -1620,97 +1620,10 @@ func (m Model) installNextPackage() tea.Cmd {
 }
 
 func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
-	if pkg.Entry.Package == nil {
+	converted := packages.FromEntry(pkg.Entry)
+	if converted == nil {
 		return nil
 	}
 
-	// Handle git package manager specially
-	if pkg.Method == "git" {
-		if gitPkg, ok := pkg.Entry.Package.GetGitPackage(); ok {
-			target := gitPkg.Targets[m.Platform.OS]
-			if target == "" {
-				return nil
-			}
-
-			// Build git clone command with optional branch and sudo support
-			args := []string{"clone"}
-			if gitPkg.Branch != "" {
-				args = append(args, "-b", gitPkg.Branch)
-			}
-			args = append(args, gitPkg.URL, target)
-
-			if gitPkg.Sudo {
-				// Prepend sudo to git command
-				args = append([]string{"git"}, args...)
-				return exec.CommandContext(context.Background(), "sudo", args...) //nolint:gosec // intentional command
-			}
-
-			return exec.CommandContext(context.Background(), "git", args...) //nolint:gosec // intentional command
-		}
-	}
-
-	// Try package managers first
-	if pkgName, ok := pkg.Entry.Package.GetManagerString(pkg.Method); ok {
-		switch pkg.Method {
-		case "pacman":
-			return exec.CommandContext(context.Background(), "sudo", "pacman", "-S", "--noconfirm", pkgName) //nolint:gosec // intentional command
-		case "yay":
-			return exec.CommandContext(context.Background(), "yay", "-S", "--noconfirm", pkgName) //nolint:gosec // intentional command
-		case "paru":
-			return exec.CommandContext(context.Background(), "paru", "-S", "--noconfirm", pkgName) //nolint:gosec // intentional command
-		case "apt":
-			return exec.CommandContext(context.Background(), "sudo", "apt-get", "install", "-y", pkgName) //nolint:gosec // intentional command
-		case "dnf":
-			return exec.CommandContext(context.Background(), "sudo", "dnf", "install", "-y", pkgName) //nolint:gosec // intentional command
-		case "brew":
-			return exec.CommandContext(context.Background(), "brew", "install", pkgName) //nolint:gosec // intentional command
-		case "winget":
-			return exec.CommandContext(context.Background(), "winget", "install", "--accept-package-agreements", "--accept-source-agreements", pkgName) //nolint:gosec // intentional command
-		case "scoop":
-			return exec.CommandContext(context.Background(), "scoop", "install", pkgName) //nolint:gosec // intentional command
-		case "choco":
-			return exec.CommandContext(context.Background(), "choco", "install", "-y", pkgName) //nolint:gosec // intentional command
-		}
-	}
-
-	// Try custom command
-	if pkg.Method == "custom" {
-		if customCmd, ok := pkg.Entry.Package.Custom[m.Platform.OS]; ok {
-			if m.Platform.OS == "windows" {
-				return exec.CommandContext(context.Background(), "powershell", "-Command", customCmd) //nolint:gosec // intentional command
-			}
-
-			return exec.CommandContext(context.Background(), "sh", "-c", customCmd) //nolint:gosec // intentional command
-		}
-	}
-
-	// Try URL install - wrap download + install in a single shell command
-	if pkg.Method == "url" {
-		if urlSpec, ok := pkg.Entry.Package.URL[m.Platform.OS]; ok {
-			if m.Platform.OS == "windows" {
-				// PowerShell: download to temp, run install command
-				script := fmt.Sprintf(`
-					$tmpFile = [System.IO.Path]::GetTempFileName()
-					Invoke-WebRequest -Uri '%s' -OutFile $tmpFile
-					$command = '%s' -replace '\{file\}', $tmpFile
-					Invoke-Expression $command
-					Remove-Item $tmpFile -ErrorAction SilentlyContinue
-				`, urlSpec.URL, urlSpec.Command)
-
-				return exec.CommandContext(context.Background(), "powershell", "-Command", script) //nolint:gosec // intentional command
-			}
-			// Unix: download to temp, chmod, run install command, cleanup
-			script := fmt.Sprintf(`
-				tmpfile=$(mktemp)
-				trap "rm -f $tmpfile" EXIT
-				curl -fsSL -o "$tmpfile" '%s' && \
-				chmod +x "$tmpfile" && \
-				%s
-			`, urlSpec.URL, strings.ReplaceAll(urlSpec.Command, "{file}", "$tmpfile"))
-
-			return exec.CommandContext(context.Background(), "sh", "-c", script) //nolint:gosec // intentional command
-		}
-	}
-
-	return nil
+	return packages.BuildCommand(*converted, pkg.Method, m.Platform.OS)
 }

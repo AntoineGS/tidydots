@@ -1798,3 +1798,240 @@ func TestManager_InstallGitPackage_WithSudo(t *testing.T) {
 		t.Errorf("Expected 'sudo' in command, got: %s", result.Message)
 	}
 }
+
+func TestBuildCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		pkg      Package
+		method   string
+		osType   string
+		wantNil  bool
+		wantArgs []string
+	}{
+		{
+			name: "pacman",
+			pkg: Package{
+				Name:     "vim",
+				Managers: map[PackageManager]ManagerValue{Pacman: {PackageName: "vim"}},
+			},
+			method:   "pacman",
+			osType:   "linux",
+			wantArgs: []string{"sudo", "pacman", "-S", "--noconfirm", "vim"},
+		},
+		{
+			name: "yay",
+			pkg: Package{
+				Name:     "aur-pkg",
+				Managers: map[PackageManager]ManagerValue{Yay: {PackageName: "aur-pkg"}},
+			},
+			method:   "yay",
+			osType:   "linux",
+			wantArgs: []string{"yay", "-S", "--noconfirm", "aur-pkg"},
+		},
+		{
+			name: "apt",
+			pkg: Package{
+				Name:     "curl",
+				Managers: map[PackageManager]ManagerValue{Apt: {PackageName: "curl"}},
+			},
+			method:   "apt",
+			osType:   "linux",
+			wantArgs: []string{"sudo", "apt-get", "install", "-y", "curl"},
+		},
+		{
+			name: "winget",
+			pkg: Package{
+				Name:     "Publisher.App",
+				Managers: map[PackageManager]ManagerValue{Winget: {PackageName: "Publisher.App"}},
+			},
+			method:   "winget",
+			osType:   "windows",
+			wantArgs: []string{"winget", "install", "--accept-package-agreements", "--accept-source-agreements", "Publisher.App"},
+		},
+		{
+			name: "installer linux",
+			pkg: Package{
+				Name: "rustup",
+				Managers: map[PackageManager]ManagerValue{
+					Installer: {Installer: &InstallerConfig{
+						Command: map[string]string{
+							"linux": "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh",
+						},
+						Binary: "rustup",
+					}},
+				},
+			},
+			method:   "installer",
+			osType:   "linux",
+			wantArgs: []string{"sh", "-c", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"},
+		},
+		{
+			name: "installer windows",
+			pkg: Package{
+				Name: "rustup",
+				Managers: map[PackageManager]ManagerValue{
+					Installer: {Installer: &InstallerConfig{
+						Command: map[string]string{
+							"windows": "iwr https://win.rustup.rs | iex",
+						},
+					}},
+				},
+			},
+			method:   "installer",
+			osType:   "windows",
+			wantArgs: []string{"powershell", "-Command", "iwr https://win.rustup.rs | iex"},
+		},
+		{
+			name: "installer no command for OS",
+			pkg: Package{
+				Name: "tool",
+				Managers: map[PackageManager]ManagerValue{
+					Installer: {Installer: &InstallerConfig{
+						Command: map[string]string{"windows": "install.bat"},
+					}},
+				},
+			},
+			method:  "installer",
+			osType:  "linux",
+			wantNil: true,
+		},
+		{
+			name: "git clone without sudo",
+			pkg: Package{
+				Name: "dotfiles",
+				Managers: map[PackageManager]ManagerValue{
+					Git: {Git: &GitConfig{
+						URL:     "https://github.com/user/dotfiles.git",
+						Branch:  "main",
+						Targets: map[string]string{"linux": "/home/user/.dotfiles"},
+					}},
+				},
+			},
+			method:   "git",
+			osType:   "linux",
+			wantArgs: []string{"git", "clone", "-b", "main", "https://github.com/user/dotfiles.git", "/home/user/.dotfiles"},
+		},
+		{
+			name: "git clone with sudo",
+			pkg: Package{
+				Name: "sys-repo",
+				Managers: map[PackageManager]ManagerValue{
+					Git: {Git: &GitConfig{
+						URL:     "https://github.com/user/repo.git",
+						Targets: map[string]string{"linux": "/opt/repo"},
+						Sudo:    true,
+					}},
+				},
+			},
+			method:   "git",
+			osType:   "linux",
+			wantArgs: []string{"sudo", "git", "clone", "https://github.com/user/repo.git", "/opt/repo"},
+		},
+		{
+			name: "git no target for OS",
+			pkg: Package{
+				Name: "repo",
+				Managers: map[PackageManager]ManagerValue{
+					Git: {Git: &GitConfig{
+						URL:     "https://github.com/user/repo.git",
+						Targets: map[string]string{"windows": "C:\\repo"},
+					}},
+				},
+			},
+			method:  "git",
+			osType:  "linux",
+			wantNil: true,
+		},
+		{
+			name: "custom linux",
+			pkg: Package{
+				Name:   "custom-tool",
+				Custom: map[string]string{"linux": "make install"},
+			},
+			method:   "custom",
+			osType:   "linux",
+			wantArgs: []string{"sh", "-c", "make install"},
+		},
+		{
+			name: "custom windows",
+			pkg: Package{
+				Name:   "custom-tool",
+				Custom: map[string]string{"windows": "msbuild /t:install"},
+			},
+			method:   "custom",
+			osType:   "windows",
+			wantArgs: []string{"powershell", "-Command", "msbuild /t:install"},
+		},
+		{
+			name: "url linux",
+			pkg: Package{
+				Name: "url-tool",
+				URL: map[string]URLInstall{
+					"linux": {URL: "https://example.com/tool", Command: "chmod +x {file} && {file}"},
+				},
+			},
+			method: "url",
+			osType: "linux",
+		},
+		{
+			name: "unknown method",
+			pkg: Package{
+				Name: "pkg",
+			},
+			method:  "unknown",
+			osType:  "linux",
+			wantNil: true,
+		},
+		{
+			name:    "empty method",
+			pkg:     Package{Name: "pkg"},
+			method:  "",
+			osType:  "linux",
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := BuildCommand(tt.pkg, tt.method, tt.osType)
+
+			if tt.wantNil {
+				if cmd != nil {
+					t.Errorf("BuildCommand() = %v, want nil", cmd.Args)
+				}
+				return
+			}
+
+			if cmd == nil {
+				t.Fatal("BuildCommand() = nil, want non-nil")
+			}
+
+			// For url method, just verify it's a shell command (args vary with temp paths)
+			if tt.method == "url" {
+				if tt.osType == "windows" {
+					if cmd.Args[0] != "powershell" {
+						t.Errorf("expected powershell, got %s", cmd.Args[0])
+					}
+				} else {
+					if cmd.Args[0] != "sh" {
+						t.Errorf("expected sh, got %s", cmd.Args[0])
+					}
+				}
+				return
+			}
+
+			if len(cmd.Args) != len(tt.wantArgs) {
+				t.Errorf("BuildCommand() args length = %d, want %d\n  got:  %v\n  want: %v",
+					len(cmd.Args), len(tt.wantArgs), cmd.Args, tt.wantArgs)
+				return
+			}
+
+			for i, arg := range cmd.Args {
+				if arg != tt.wantArgs[i] {
+					t.Errorf("BuildCommand() arg[%d] = %q, want %q\n  got:  %v\n  want: %v",
+						i, arg, tt.wantArgs[i], cmd.Args, tt.wantArgs)
+				}
+			}
+		})
+	}
+}

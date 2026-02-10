@@ -53,6 +53,14 @@ const (
 	Installer PackageManager = "installer"
 )
 
+// Install method identifiers for non-manager methods.
+const (
+	// MethodCustom identifies a custom shell command install method
+	MethodCustom = "custom"
+	// MethodURL identifies a URL-based download and install method
+	MethodURL = "url"
+)
+
 // GitConfig represents git-specific package configuration.
 // It contains the repository URL, optional branch, and OS-specific clone destinations.
 type GitConfig struct {
@@ -334,7 +342,7 @@ func (m *Manager) Install(pkg Package) InstallResult {
 
 	// Try custom command
 	if cmd, ok := pkg.Custom[m.OS]; ok {
-		result.Method = "custom"
+		result.Method = MethodCustom
 		success, msg := m.runCustomCommand(cmd)
 		result.Success = success
 		result.Message = msg
@@ -344,7 +352,7 @@ func (m *Manager) Install(pkg Package) InstallResult {
 
 	// Try URL install
 	if urlInstall, ok := pkg.URL[m.OS]; ok {
-		result.Method = "url"
+		result.Method = MethodURL
 		success, msg := m.installFromURL(urlInstall)
 		result.Success = success
 		result.Message = msg
@@ -389,6 +397,93 @@ func expandArgs(args []string, pkgName string) []string {
 	}
 
 	return result
+}
+
+// BuildCommand creates an *exec.Cmd for installing a package using the given method.
+// It is a pure command builder — the caller controls execution, stdio wiring, and dry-run logic.
+// Returns nil if no command can be built for the given method.
+func BuildCommand(pkg Package, method, osType string) *exec.Cmd {
+	pm := PackageManager(method)
+
+	// Package managers (pacman, yay, apt, etc.)
+	if mc, ok := managerCmds[pm]; ok {
+		if val, exists := pkg.Managers[pm]; exists {
+			args := expandArgs(mc.install, val.PackageName)
+			return exec.CommandContext(context.Background(), args[0], args[1:]...) //nolint:gosec // args from trusted lookup table
+		}
+	}
+
+	switch method {
+	case string(Git):
+		gitVal, ok := pkg.Managers[Git]
+		if !ok || !gitVal.IsGit() {
+			return nil
+		}
+		target := gitVal.Git.Targets[osType]
+		if target == "" {
+			return nil
+		}
+		args := []string{"clone"}
+		if gitVal.Git.Branch != "" {
+			args = append(args, "-b", gitVal.Git.Branch)
+		}
+		args = append(args, gitVal.Git.URL, target)
+		if gitVal.Git.Sudo {
+			args = append([]string{"git"}, args...)
+			return exec.CommandContext(context.Background(), "sudo", args...) //nolint:gosec // intentional command from user config
+		}
+		return exec.CommandContext(context.Background(), "git", args...) //nolint:gosec // intentional command from user config
+
+	case string(Installer):
+		installerVal, ok := pkg.Managers[Installer]
+		if !ok || !installerVal.IsInstaller() {
+			return nil
+		}
+		command, hasCmd := installerVal.Installer.Command[osType]
+		if !hasCmd {
+			return nil
+		}
+		if osType == platform.OSWindows {
+			return exec.CommandContext(context.Background(), "powershell", "-Command", command) //nolint:gosec // intentional install command from user config
+		}
+		return exec.CommandContext(context.Background(), "sh", "-c", command) //nolint:gosec // intentional install command from user config
+
+	case MethodCustom:
+		command, ok := pkg.Custom[osType]
+		if !ok {
+			return nil
+		}
+		if osType == platform.OSWindows {
+			return exec.CommandContext(context.Background(), "powershell", "-Command", command) //nolint:gosec // intentional command from user config
+		}
+		return exec.CommandContext(context.Background(), "sh", "-c", command) //nolint:gosec // intentional command from user config
+
+	case MethodURL:
+		urlInstall, ok := pkg.URL[osType]
+		if !ok {
+			return nil
+		}
+		if osType == platform.OSWindows {
+			script := fmt.Sprintf(`
+				$tmpFile = [System.IO.Path]::GetTempFileName()
+				Invoke-WebRequest -Uri '%s' -OutFile $tmpFile
+				$command = '%s' -replace '\{file\}', $tmpFile
+				Invoke-Expression $command
+				Remove-Item $tmpFile -ErrorAction SilentlyContinue
+			`, urlInstall.URL, urlInstall.Command)
+			return exec.CommandContext(context.Background(), "powershell", "-Command", script) //nolint:gosec // intentional command from user config
+		}
+		script := fmt.Sprintf(`
+			tmpfile=$(mktemp)
+			trap "rm -f $tmpfile" EXIT
+			curl -fsSL -o "$tmpfile" '%s' && \
+			chmod +x "$tmpfile" && \
+			%s
+		`, urlInstall.URL, strings.ReplaceAll(urlInstall.Command, "{file}", "$tmpfile"))
+		return exec.CommandContext(context.Background(), "sh", "-c", script) //nolint:gosec // intentional command from user config
+	}
+
+	return nil
 }
 
 func (m *Manager) installWithManager(mgr PackageManager, pkgName string) (bool, string) {
@@ -717,11 +812,11 @@ func (m *Manager) GetInstallMethod(pkg Package) string {
 	}
 
 	if _, ok := pkg.Custom[m.OS]; ok {
-		return "custom"
+		return MethodCustom
 	}
 
 	if _, ok := pkg.URL[m.OS]; ok {
-		return "url"
+		return MethodURL
 	}
 
 	return "none"
