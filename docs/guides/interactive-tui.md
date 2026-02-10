@@ -35,6 +35,7 @@ The main screen displays a table view of all your applications and their entries
 | Adopt | Target exists but backup does not -- can adopt the existing file |
 | Missing | Neither backup nor target exist |
 | Outdated | Symlink exists but template source has changed since last render |
+| Modified | Symlink exists but the rendered file has been manually edited since last render |
 
 ## Navigation
 
@@ -54,6 +55,7 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | `/` | Search and filter |
 | `f` | Toggle filter (show/hide apps excluded by `when` expressions) |
 | `s` / `ctrl+s` | Save changes |
+| `i` | Context-sensitive: install package (on app row) or view diff (on modified entry) |
 | `d` / `delete` / `backspace` | Delete selected item |
 | `q` | Quit |
 
@@ -242,6 +244,34 @@ Press `s` or `ctrl+s` to save your changes to the `tidydots.yaml` configuration 
 
 !!! warning
     Save writes to your `tidydots.yaml` immediately. If you want to preview changes first, use dry-run mode (`tidydots -n`) to confirm behavior before saving.
+
+## Template diff & edit
+
+When a config entry uses templates (`.tmpl` files) and you have manually edited the rendered output, the entry shows a **Modified** status in blue. You can view a diff of your changes and edit the source template to incorporate them.
+
+### Viewing diffs
+
+1. Navigate to a sub-entry row showing **Modified** status
+2. Press `i` to launch the diff viewer
+3. If the entry contains multiple modified template files, a picker appears -- select the file you want to inspect
+4. Your editor opens with two panes:
+    - **Left pane**: A unified diff showing your edits (read-only)
+    - **Right pane**: The `.tmpl` source file (editable)
+5. Edit the template to backport your changes, then save and quit your editor
+6. The TUI resumes and refreshes the entry status
+
+### Editor detection
+
+tidydots automatically detects the best way to launch the editor:
+
+| Mode | Condition | Behavior |
+|------|-----------|----------|
+| **Neovim** (default) | `nvim` is on `$PATH` | Opens both files in vertical splits with the diff pane read-only |
+| **Tmux** | Running inside tmux with `$EDITOR` set | Opens template in a tmux split pane, diff in the current pane |
+| **Fallback** | Neither nvim nor tmux available | Opens just the template in `$EDITOR` (or `vim`/`vi`/`nano`) |
+
+!!! tip
+    The diff compares the **pure render** (what the template produced) against the **current file on disk** (with your edits). This helps you see exactly what you changed so you can update the template source accordingly.
 
 ## Help text
 

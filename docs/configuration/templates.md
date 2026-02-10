@@ -165,6 +165,20 @@ tidydots restore --force-render
 !!! warning
     Using `--force-render` permanently discards any manual edits to `.tmpl.rendered` files. There is no undo.
 
+## Viewing Template Diffs
+
+If you manually edit a `.tmpl.rendered` file, the TUI shows the entry with a **Modified** status (blue). You can view a diff of your edits and update the template source directly:
+
+1. Open the TUI: `tidydots`
+2. Navigate to the modified entry and press `i`
+3. Your editor opens with the diff (read-only) alongside the `.tmpl` source file
+4. Update the template to incorporate your edits, save, and quit
+
+This workflow makes it easy to experiment with rendered config files and then backport successful changes into the template source. See [Interactive TUI - Template diff & edit](../guides/interactive-tui.md#template-diff--edit) for full details.
+
+!!! info "Modified vs Outdated"
+    **Modified** means the rendered file on disk differs from the pure render stored in the database -- you edited the output. **Outdated** means the template source (`.tmpl`) has changed since the last render -- the template needs re-rendering.
+
 ## SQLite State Database
 
 tidydots stores template render history in a SQLite database at `.tidydots.db` in the root of your dotfiles repository (next to `tidydots.yaml`).
