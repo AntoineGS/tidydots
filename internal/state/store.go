@@ -61,27 +61,16 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-// GetLatestRender returns the most recent render record for the given template path.
-// Returns nil if no render exists.
-func (s *Store) GetLatestRender(templatePath string) (*RenderRecord, error) {
-	ctx := context.Background()
-	row := s.db.QueryRowContext(ctx, `
-		SELECT id, template_path, pure_render, template_hash, rendered_at, platform_os, platform_host
-		FROM template_renders
-		WHERE template_path = ?
-		ORDER BY id DESC
-		LIMIT 1
-	`, templatePath)
-
+func scanRenderRow(row *sql.Row, context string) (*RenderRecord, error) {
 	var r RenderRecord
 	var renderedAt string
 
 	err := row.Scan(&r.ID, &r.TemplatePath, &r.PureRender, &r.TemplateHash, &renderedAt, &r.PlatformOS, &r.PlatformHost)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil //nolint:nilnil // nil means "no previous render", distinct from error
+		return nil, nil //nolint:nilnil // nil means "not found", distinct from error
 	}
 	if err != nil {
-		return nil, fmt.Errorf("querying latest render: %w", err)
+		return nil, fmt.Errorf("%s: %w", context, err)
 	}
 
 	r.RenderedAt, err = parseTime(renderedAt)
@@ -90,6 +79,20 @@ func (s *Store) GetLatestRender(templatePath string) (*RenderRecord, error) {
 	}
 
 	return &r, nil
+}
+
+// GetLatestRender returns the most recent render record for the given template path.
+// Returns nil if no render exists.
+func (s *Store) GetLatestRender(templatePath string) (*RenderRecord, error) {
+	row := s.db.QueryRowContext(context.Background(), `
+		SELECT id, template_path, pure_render, template_hash, rendered_at, platform_os, platform_host
+		FROM template_renders
+		WHERE template_path = ?
+		ORDER BY id DESC
+		LIMIT 1
+	`, templatePath)
+
+	return scanRenderRow(row, "querying latest render")
 }
 
 // SaveRender stores a new render record for the given template.
@@ -143,30 +146,13 @@ func (s *Store) GetRenderHistory(templatePath string, limit int) ([]RenderRecord
 
 // GetRenderByID returns a specific render record by ID.
 func (s *Store) GetRenderByID(id int64) (*RenderRecord, error) {
-	ctx := context.Background()
-	row := s.db.QueryRowContext(ctx, `
+	row := s.db.QueryRowContext(context.Background(), `
 		SELECT id, template_path, pure_render, template_hash, rendered_at, platform_os, platform_host
 		FROM template_renders
 		WHERE id = ?
 	`, id)
 
-	var r RenderRecord
-	var renderedAt string
-
-	err := row.Scan(&r.ID, &r.TemplatePath, &r.PureRender, &r.TemplateHash, &renderedAt, &r.PlatformOS, &r.PlatformHost)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil //nolint:nilnil // nil means "not found", distinct from error
-	}
-	if err != nil {
-		return nil, fmt.Errorf("querying render by ID: %w", err)
-	}
-
-	r.RenderedAt, err = parseTime(renderedAt)
-	if err != nil {
-		return nil, fmt.Errorf("parsing rendered_at: %w", err)
-	}
-
-	return &r, nil
+	return scanRenderRow(row, "querying render by ID")
 }
 
 // PruneHistory keeps only the N most recent renders per template, deleting older ones.

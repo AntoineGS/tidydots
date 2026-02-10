@@ -677,7 +677,7 @@ func TestGetFilteredApplications(t *testing.T) {
 	}
 
 	// Linux renderer that reports OS=linux, Hostname=work-laptop
-	linuxRenderer := &mockWhenRenderer{result: ""}
+	linuxRenderer := &mockWhenRenderer{result: ""} //nolint:govet // result field used by mock interface method
 	// Use a more realistic mock that evaluates differently per app
 	linuxApps := testGetFilteredApps(t, cfg, map[string]bool{
 		"neovim":    true,

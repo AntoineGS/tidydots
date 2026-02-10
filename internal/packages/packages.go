@@ -402,7 +402,7 @@ func expandArgs(args []string, pkgName string) []string {
 // BuildCommand creates an *exec.Cmd for installing a package using the given method.
 // It is a pure command builder — the caller controls execution, stdio wiring, and dry-run logic.
 // Returns nil if no command can be built for the given method.
-func BuildCommand(pkg Package, method, osType string) *exec.Cmd {
+func BuildCommand(pkg Package, method, osType string) *exec.Cmd { //nolint:gocyclo // switch over package manager types is inherently branchy
 	pm := PackageManager(method)
 
 	// Package managers (pacman, yay, apt, etc.)
