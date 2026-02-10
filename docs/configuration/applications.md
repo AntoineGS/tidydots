@@ -122,7 +122,7 @@ when: '{{ and (eq .Distro "arch") (eq .Hostname "desktop") }}'
 
 ## Entries
 
-The `entries` field is an array of [SubEntry](configs.md) objects. Each entry defines a config symlink managed by tidydots. An application must have at least one entry.
+The `entries` field is an array of [SubEntry](configs.md) objects. Each entry defines a config symlink managed by tidydots. Applications that only install packages can omit `entries` entirely.
 
 ```yaml
 entries:

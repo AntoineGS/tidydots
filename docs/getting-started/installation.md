@@ -17,7 +17,7 @@ If you do not have Go installed, follow the [official Go installation guide](htt
 The simplest way to install tidydots is with `go install`:
 
 ```bash
-go install github.com/antoinegs/tidydots/cmd/tidydots@latest
+go install github.com/AntoineGS/tidydots/cmd/tidydots@latest
 ```
 
 This downloads, compiles, and installs the `tidydots` binary into your `$GOPATH/bin` directory (usually `~/go/bin`).
@@ -34,7 +34,7 @@ This downloads, compiles, and installs the `tidydots` binary into your `$GOPATH/
 If you prefer to build from source, or want to contribute to the project:
 
 ```bash
-git clone https://github.com/antoinegs/tidydots.git
+git clone https://github.com/AntoineGS/tidydots.git
 cd tidydots
 go build ./cmd/tidydots
 ```

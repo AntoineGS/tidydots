@@ -326,4 +326,4 @@ applications:
           command: "tar xzf {file} -C ~/.local/bin"
 ```
 
-tidydots tries methods in order: installer first (if defined), then standard managers, then custom, then URL. The first successful method wins.
+tidydots tries methods in order: git first (if defined), then installer, then standard managers, then custom, then URL. The first successful method wins.

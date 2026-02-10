@@ -283,6 +283,44 @@ Available package managers: [pacman yay]
 
 ---
 
+## tidydots completion
+
+Generate shell autocompletion scripts for tidydots.
+
+```
+tidydots completion <shell> [flags]
+```
+
+### Supported shells
+
+| Shell | Command |
+|-------|---------|
+| bash | `tidydots completion bash` |
+| zsh | `tidydots completion zsh` |
+| fish | `tidydots completion fish` |
+| powershell | `tidydots completion powershell` |
+
+### Examples
+
+```bash
+# Add to your ~/.bashrc
+source <(tidydots completion bash)
+
+# Add to your ~/.zshrc
+source <(tidydots completion zsh)
+
+# Add to your fish config
+tidydots completion fish | source
+
+# Add to your PowerShell profile
+tidydots completion powershell | Out-String | Invoke-Expression
+```
+
+!!! tip
+    Run `tidydots completion <shell> --help` for detailed instructions on setting up autocompletion for your specific shell.
+
+---
+
 ## Examples
 
 ### First-time setup on a new machine

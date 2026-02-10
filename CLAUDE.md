@@ -103,8 +103,9 @@ version: 3
 applications:
   - name: "nvim"
     description: "Neovim text editor"
+    when: '{{ eq .OS "linux" }}'
 
-    configs:
+    entries:
       # Config entry (symlink management)
       - name: "nvim-config"
         files: []  # Empty = entire folder
@@ -113,25 +114,17 @@ applications:
           linux: "~/.config/nvim"
           windows: "~/AppData/Local/nvim"
 
-    packages:
-      # Package entry
-      - name: "neovim"
-        managers:
-          pacman: "neovim"
-          apt: "neovim"
-          brew: "neovim"
-
-      # Git package entry
-      - name: "nvim-plugins"
-        managers:
-          git:
-            url: "https://github.com/user/plugins.git"
-            branch: "main"
-            targets:
-              linux: "~/.local/share/nvim/site/pack/plugins/start/myplugins"
-            sudo: false
-
-    when: '{{ eq .OS "linux" }}'
+    package:
+      managers:
+        pacman: "neovim"
+        apt: "neovim"
+        brew: "neovim"
+        git:
+          url: "https://github.com/user/plugins.git"
+          branch: "main"
+          targets:
+            linux: "~/.local/share/nvim/site/pack/plugins/start/myplugins"
+          sudo: false
 
   # System-level application with sudo
   - name: "system-config"

@@ -34,7 +34,7 @@ The main screen displays a table view of all your applications and their entries
 | Linked | Symlink is already in place and correct |
 | Adopt | Target exists but backup does not -- can adopt the existing file |
 | Missing | Neither backup nor target exist |
-| Outdated | Symlink exists but points to the wrong location |
+| Outdated | Symlink exists but template source has changed since last render |
 
 ## Navigation
 
@@ -46,18 +46,47 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 |-----|--------|
 | `↑` / `k` | Move up |
 | `↓` / `j` | Move down |
-| `←` / `h` | Move left |
-| `→` / `l` | Move right |
-| `enter` / `e` | Edit or activate selected item |
-| `esc` | Go back or cancel |
+| `←` / `h` | Collapse application row |
+| `→` / `l` / `enter` | Expand application row (show sub-entries) |
+| `e` | Edit selected application or entry |
+| `esc` | Go back or cancel (see [priority](#clearing-selections)) |
 | `tab` / `space` | Toggle selection |
 | `/` | Search and filter |
+| `f` | Toggle filter (show/hide apps excluded by `when` expressions) |
 | `s` / `ctrl+s` | Save changes |
 | `d` / `delete` / `backspace` | Delete selected item |
+| `q` | Quit |
+
+### Adding items
+
+| Key | Action |
+|-----|--------|
+| `A` | Add a new application |
+| `a` | Add a new sub-entry to the current application |
+
+### Sorting
+
+Press a sort key to sort by that column. Press the same key again to reverse the direction.
+
+| Key | Sort by |
+|-----|---------|
+| `n` | Name |
+| `s` | Status |
+| `p` | Path |
 
 ### Search and filter
 
-Press `/` to enter search mode. Type to filter applications and entries by name. The list updates in real time as you type. Press `esc` to exit search mode (your selections are preserved).
+Press `/` to enter search mode. Type to filter applications and entries by name, description, target paths, or backup paths. The list updates in real time as you type. Press `enter` to confirm or `esc` to exit search mode (your selections are preserved).
+
+Press `f` to toggle the filter. When enabled (the default), applications that do not match their `when` expression on the current machine are hidden. When disabled, all applications are shown regardless of `when` conditions.
+
+### Mouse support
+
+| Input | Action |
+|-------|--------|
+| Left click | Move cursor to clicked row |
+| Right click | Move cursor and toggle selection |
+| Scroll wheel | Scroll up/down by 3 rows |
 
 ## Two-phase editing
 
@@ -133,8 +162,8 @@ Browse and select the items you want to operate on. Use `tab` or `space` to togg
 
 After pressing an operation key (`r`, `i`, or `d`), a summary screen appears showing exactly what will be changed. Review the list of operations, then:
 
-- Press `enter` to confirm and proceed
-- Press `esc` to cancel and return to the main screen
+- Press `y` or `enter` to confirm and proceed
+- Press `n` or `esc` to cancel and return to the main screen
 
 **3. Progress screen**
 
@@ -157,7 +186,7 @@ Once confirmed, a progress screen shows real-time feedback as each operation exe
 
 ### Edit an application
 
-Navigate to an application row and press `enter` or `e` to open the edit screen. You can modify:
+Navigate to an application row and press `e` to open the edit screen. You can modify:
 
 - **Name** -- the application identifier
 - **Description** -- optional description text
@@ -165,7 +194,7 @@ Navigate to an application row and press `enter` or `e` to open the edit screen.
 
 ### Edit a config entry
 
-Navigate to a config entry and press `enter` or `e`. Editable fields include:
+Navigate to a config entry and press `e` to edit. Editable fields include:
 
 - **Name** -- entry identifier
 - **Backup** -- path in your dotfiles repo
@@ -250,9 +279,9 @@ tidydots install -i
 ### Add a new application via TUI
 
 1. Launch `tidydots`
-2. Use the interface to add a new application
+2. Press `A` to add a new application
 3. Fill in the name, description, and `when` expression
-4. Add config entries with backup paths and targets
+4. Press `a` to add config entries with backup paths and targets
 5. Press `s` to save the configuration
 
 ## Next steps

@@ -4,7 +4,7 @@ tidydots can clone and update git repositories as part of your dotfiles setup. T
 
 ## How it works
 
-Git is treated as a special package manager within the `package` field. When you run `tidydots install` or `tidydots restore`:
+Git is treated as a special package manager within the `package` field. When you run `tidydots install`:
 
 - If the target directory **does not exist**, tidydots runs `git clone` to create it
 - If the target directory **exists and contains a `.git/` directory**, tidydots runs `git pull` to update it

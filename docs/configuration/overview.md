@@ -55,7 +55,7 @@ The `tidydots.yaml` file supports the following root-level fields:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `version` | integer | yes | - | Configuration format version. Must be `3` |
+| `version` | integer | no | `3` | Configuration format version. Must be `3` |
 | `backup_root` | string | no | `"."` (config dir) | Base directory for resolving relative backup paths |
 | `default_manager` | string | no | - | Preferred package manager when multiple are available |
 | `manager_priority` | []string | no | - | Ordered list of package managers to try, highest priority first |
