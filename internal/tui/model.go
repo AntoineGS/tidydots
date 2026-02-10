@@ -220,6 +220,11 @@ type Model struct {
 	filterToggleHiddenCount  int  // count of selections that would be hidden
 	showingDetail            bool
 
+	// Diff picker state
+	showingDiffPicker bool
+	diffPickerCursor  int
+	diffPickerFiles   []manager.ModifiedTemplate
+
 	// Filter state
 	filterEnabled bool // true to hide filtered apps, false to show all
 
@@ -495,6 +500,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseMsg:
 		return m.handleMouseEvent(msg)
+
+	case editorLaunchCompleteMsg:
+		// Editor exited - refresh application states since template may have changed
+		m.refreshApplicationStates()
+		m.rebuildTable()
+		if msg.err != nil {
+			m.results = []ResultItem{{
+				Name:    "Editor",
+				Success: false,
+				Message: msg.err.Error(),
+			}}
+		}
+		return m, nil
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width

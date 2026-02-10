@@ -835,6 +835,11 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle diff picker separately
+	if m.Operation == OpList && m.showingDiffPicker {
+		return m.updateDiffPicker(msg)
+	}
+
 	// Handle detail popup separately
 	if m.Operation == OpList && m.showingDetail {
 		switch msg.String() {
@@ -1052,7 +1057,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case "i":
-		// Install package at Application level (only in List view)
+		// Install or Diff depending on context (only in List view)
 		if m.Operation == OpList {
 			// Check if multi-select mode is active
 			if m.multiSelectActive {
@@ -1062,9 +1067,33 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			// Single-item install (original behavior)
-			appIdx, _ := m.getApplicationAtCursorFromTable()
-			if appIdx >= 0 {
+			appIdx, subIdx := m.getApplicationAtCursorFromTable()
+
+			// On a modified sub-entry: launch diff viewer
+			if appIdx >= 0 && subIdx >= 0 && m.Manager != nil {
+				subItem := m.Applications[appIdx].SubItems[subIdx]
+				if subItem.State == StateModified {
+					backupPath := m.resolvePath(subItem.SubEntry.Backup)
+					modifiedFiles, err := m.Manager.GetModifiedTemplateFiles(backupPath)
+					if err != nil || len(modifiedFiles) == 0 {
+						return m, nil
+					}
+
+					if len(modifiedFiles) == 1 {
+						// Single file: launch editor directly
+						return m, launchDiffEditor(modifiedFiles[0])
+					}
+
+					// Multiple files: show picker
+					m.showingDiffPicker = true
+					m.diffPickerCursor = 0
+					m.diffPickerFiles = modifiedFiles
+					return m, nil
+				}
+			}
+
+			// On an app row: install package (original behavior)
+			if appIdx >= 0 && subIdx < 0 {
 				app := m.Applications[appIdx]
 				if app.PkgInstalled != nil && !*app.PkgInstalled {
 					m.Operation = OpInstallPackages
@@ -1297,6 +1326,13 @@ func (m Model) renderHelpForCurrentState() string {
 			"esc", "clear",
 		)
 
+	case m.showingDiffPicker:
+		return RenderHelpWithWidth(m.width,
+			"↑/k ↓/j", "navigate",
+			"enter", "select",
+			"esc", "cancel",
+		)
+
 	case m.showingDetail:
 		return RenderHelpWithWidth(m.width,
 			"h/←/esc", "close",
@@ -1328,9 +1364,15 @@ func (m Model) renderHelpForCurrentState() string {
 				"r", "restore",
 			}
 
-			// Only show "i install" when on level 1 (application), not on level 2 (sub-entry)
+			// Show context-sensitive "i" help
 			if subIdx < 0 {
+				// App row: install
 				helpItems = append(helpItems, "i", "install")
+			} else if appIdx >= 0 && subIdx >= 0 && appIdx < len(m.Applications) &&
+				subIdx < len(m.Applications[appIdx].SubItems) &&
+				m.Applications[appIdx].SubItems[subIdx].State == StateModified {
+				// Modified sub-entry: diff
+				helpItems = append(helpItems, "i", "diff")
 			}
 
 			helpItems = append(helpItems, "q", "quit")
@@ -1410,6 +1452,13 @@ func (m Model) viewListTable() string {
 		}
 	}
 
+	// Diff picker panel
+	var diffPickerContent string
+	if m.showingDiffPicker {
+		diffPickerContent = m.viewDiffPicker()
+		linesAfterTable += strings.Count(diffPickerContent, "\n") + 1
+	}
+
 	// Result message
 	if len(m.results) > 0 {
 		linesAfterTable += 2 // Blank line + result
@@ -1442,6 +1491,12 @@ func (m Model) viewListTable() string {
 	if detailContent != "" {
 		b.WriteString(detailContent)
 		b.WriteString("\n")
+	}
+
+	// Diff picker panel
+	if diffPickerContent != "" {
+		b.WriteString("\n")
+		b.WriteString(diffPickerContent)
 	}
 
 	// Result message

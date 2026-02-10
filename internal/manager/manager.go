@@ -405,3 +405,73 @@ func removeAll(path string) error {
 
 	return os.RemoveAll(path)
 }
+
+// ModifiedTemplate contains the diff data for a single modified template file.
+type ModifiedTemplate struct {
+	TemplatePath  string // absolute path to .tmpl source file
+	RenderedPath  string // absolute path to .tmpl.rendered file
+	RelPath       string // relative path within backup dir
+	PureRender    []byte // baseline content from state DB
+	CurrentOnDisk []byte // current .tmpl.rendered content on disk
+}
+
+// GetModifiedTemplateFiles returns all .tmpl files in the backup directory
+// whose rendered output on disk differs from the pure render stored in the state DB.
+func (m *Manager) GetModifiedTemplateFiles(backupDir string) ([]ModifiedTemplate, error) {
+	if m.stateStore == nil {
+		return nil, nil
+	}
+
+	var result []ModifiedTemplate
+
+	err := filepath.WalkDir(backupDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		if tmpl.IsRenderedFile(d.Name()) || tmpl.IsConflictFile(d.Name()) {
+			return nil
+		}
+
+		if !tmpl.IsTemplateFile(d.Name()) {
+			return nil
+		}
+
+		relPath, relErr := filepath.Rel(backupDir, path)
+		if relErr != nil {
+			return nil
+		}
+
+		record, lookupErr := m.stateStore.GetLatestRender(relPath)
+		if lookupErr != nil || record == nil {
+			return nil
+		}
+
+		renderedPath := tmpl.RenderedPath(path)
+		renderedContent, readErr := os.ReadFile(renderedPath) //nolint:gosec // path from config
+		if readErr != nil {
+			return nil
+		}
+
+		if !bytes.Equal(renderedContent, record.PureRender) {
+			result = append(result, ModifiedTemplate{
+				TemplatePath:  path,
+				RenderedPath:  renderedPath,
+				RelPath:       relPath,
+				PureRender:    record.PureRender,
+				CurrentOnDisk: renderedContent,
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walking backup directory: %w", err)
+	}
+
+	return result, nil
+}
