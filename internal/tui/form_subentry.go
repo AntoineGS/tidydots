@@ -996,15 +996,15 @@ func (m Model) renderSubEntryFormHelp() string {
 		// Files list focused
 		if m.subEntryForm.filesCursor < len(m.subEntryForm.files) {
 			return RenderHelpWithWidth(m.width,
-				"enter/e", "edit",
-				"d/del", "remove",
+				"e", "edit",
+				"d", "delete",
 				"s", "save",
 				"q", "back",
 			)
 		}
 
 		return RenderHelpWithWidth(m.width,
-			"enter/e", "add file",
+			"e", "add file",
 			"s", "save",
 			"q", "back",
 		)
@@ -1013,7 +1013,7 @@ func (m Model) renderSubEntryFormHelp() string {
 	if m.isSubEntryTextInputField() {
 		// Text field focused (not editing)
 		return RenderHelpWithWidth(m.width,
-			"enter/e", "edit",
+			"e", "edit",
 			"s", "save",
 			"q", "back",
 		)
@@ -1029,7 +1029,7 @@ func (m Model) renderSubEntryFormHelp() string {
 	}
 
 	return RenderHelpWithWidth(m.width,
-		"enter/e", "edit",
+		"e", "edit",
 		"s", "save",
 		"q", "back",
 	)

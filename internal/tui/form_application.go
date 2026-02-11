@@ -1094,12 +1094,12 @@ func (m Model) renderApplicationFormHelp() string {
 				return RenderHelpWithWidth(m.width, "enter", "add", "s", "save", "q", "back")
 			}
 			if m.applicationForm.gitFieldCursor == -1 {
-				return RenderHelpWithWidth(m.width, "d/del", "delete", "s", "save", "q", "back")
+				return RenderHelpWithWidth(m.width, "d", "delete", "s", "save", "q", "back")
 			}
 			if m.applicationForm.gitFieldCursor == GitFieldSudo {
 				return RenderHelpWithWidth(m.width, "space", "toggle", "s", "save", "q", "back")
 			}
-			return RenderHelpWithWidth(m.width, "enter/e", "edit", "s", "save", "q", "back")
+			return RenderHelpWithWidth(m.width, "e", "edit", "s", "save", "q", "back")
 		}
 		// Installer package states
 		if m.applicationForm.packagesCursor == len(displayPackageManagers)+1 {
@@ -1107,24 +1107,24 @@ func (m Model) renderApplicationFormHelp() string {
 				return RenderHelpWithWidth(m.width, "enter", "add", "s", "save", "q", "back")
 			}
 			if m.applicationForm.installerFieldCursor == -1 {
-				return RenderHelpWithWidth(m.width, "d/del", "delete", "s", "save", "q", "back")
+				return RenderHelpWithWidth(m.width, "d", "delete", "s", "save", "q", "back")
 			}
-			return RenderHelpWithWidth(m.width, "enter/e", "edit", "s", "save", "q", "back")
+			return RenderHelpWithWidth(m.width, "e", "edit", "s", "save", "q", "back")
 		}
 		// Bounds check for packagesCursor
 		if m.applicationForm.packagesCursor >= 0 && m.applicationForm.packagesCursor < len(displayPackageManagers) {
 			manager := displayPackageManagers[m.applicationForm.packagesCursor]
 			if m.applicationForm.packageManagers[manager] != "" {
 				return RenderHelpWithWidth(m.width,
-					"enter/e", "edit",
-					"d/del", "clear",
+					"e", "edit",
+					"d", "delete",
 					"s", "save",
 					"q", "back",
 				)
 			}
 		}
 		return RenderHelpWithWidth(m.width,
-			"enter/e", "set package",
+			"e", "set package",
 			"s", "save",
 			"q", "back",
 		)
@@ -1132,7 +1132,7 @@ func (m Model) renderApplicationFormHelp() string {
 
 	if ft == appFieldWhen {
 		return RenderHelpWithWidth(m.width,
-			"enter/e", "edit",
+			"e", "edit",
 			"s", "save",
 			"q", "back",
 		)
@@ -1140,7 +1140,7 @@ func (m Model) renderApplicationFormHelp() string {
 
 	// Text field focused (not editing)
 	return RenderHelpWithWidth(m.width,
-		"enter/e", "edit",
+		"e", "edit",
 		"s", "save",
 		"q", "back",
 	)
