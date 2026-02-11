@@ -6,19 +6,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Entry is a unified configuration entry that manages symlink configuration.
-// Entries can optionally have a package field for installation.
-type Entry struct {
-	Name        string            `yaml:"name"`
-	Description string            `yaml:"description,omitempty"`
-	Targets     map[string]string `yaml:"targets,omitempty"`
-	Package     *EntryPackage     `yaml:"package,omitempty"`
-	Backup      string            `yaml:"backup,omitempty"`
-	When        string            `yaml:"when,omitempty"`
-	Files       []string          `yaml:"files,omitempty"`
-	Sudo        bool              `yaml:"sudo,omitempty"`
-}
-
 // ManagerValue represents a typed value for a package manager entry.
 // It holds either a package name string (for traditional managers like pacman, apt),
 // a GitPackage configuration (for git repositories), or an InstallerPackage
@@ -186,30 +173,6 @@ func (ep *EntryPackage) GetInstallerPackage() (*InstallerPackage, bool) {
 	}
 
 	return value.Installer, true
-}
-
-// IsConfig returns true if this is a config type entry (has backup field)
-func (e *Entry) IsConfig() bool {
-	return e.Backup != ""
-}
-
-// HasPackage returns true if this entry has package installation configuration
-func (e *Entry) HasPackage() bool {
-	return e.Package != nil
-}
-
-// IsFolder returns true if this config entry manages an entire folder (no specific files)
-func (e *Entry) IsFolder() bool {
-	return e.IsConfig() && len(e.Files) == 0
-}
-
-// GetTarget returns the target path for the specified OS
-func (e *Entry) GetTarget(osType string) string {
-	if target, ok := e.Targets[osType]; ok {
-		return target
-	}
-
-	return ""
 }
 
 // Application represents a logical grouping of configuration entries

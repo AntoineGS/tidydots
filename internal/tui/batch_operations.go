@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -136,10 +135,8 @@ func (m Model) executeBatchInstall() tea.Cmd {
 			if app.PkgInstalled != nil && !*app.PkgInstalled && app.Application.HasPackage() {
 				// Convert Application to PackageItem
 				pkg := PackageItem{
-					Entry: config.Entry{
-						Name:    app.Application.Name,
-						Package: app.Application.Package,
-					},
+					Name:     app.Application.Name,
+					Package:  app.Application.Package,
 					Method:   app.PkgMethod,
 					Selected: true,
 				}

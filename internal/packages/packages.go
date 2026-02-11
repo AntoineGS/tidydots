@@ -853,17 +853,11 @@ func IsInstallerInstalled(binary string) bool {
 	return platform.IsCommandAvailable(binary)
 }
 
-// FromEntry creates a Package from a config.Entry.
-// It converts the entry's package configuration into a Package struct,
-// mapping managers and URL install configurations. Returns nil if the
-// entry does not have a package configuration.
-func FromEntry(e config.Entry) *Package {
-	if e.Package == nil {
-		return nil
-	}
-
+// convertPackage converts a config.EntryPackage into Package fields (managers, custom, url).
+// This is the shared conversion logic used by FromApplication and FromPackageSpec.
+func convertPackage(pkg *config.EntryPackage) (map[PackageManager]ManagerValue, map[string]string, map[string]URLInstall) {
 	managers := make(map[PackageManager]ManagerValue)
-	for k, v := range e.Package.Managers {
+	for k, v := range pkg.Managers {
 		// Convert config.GitPackage to packages.GitConfig
 		if k == "git" && v.IsGit() {
 			managers[Git] = ManagerValue{Git: &GitConfig{
@@ -886,34 +880,67 @@ func FromEntry(e config.Entry) *Package {
 	}
 
 	urlInstalls := make(map[string]URLInstall)
-	for k, v := range e.Package.URL {
+	for k, v := range pkg.URL {
 		urlInstalls[k] = URLInstall{
 			URL:     v.URL,
 			Command: v.Command,
 		}
 	}
 
+	return managers, pkg.Custom, urlInstalls
+}
+
+// FromApplication creates a Package from a config.Application.
+// It converts the application's package configuration into a Package struct,
+// mapping managers and URL install configurations. Returns nil if the
+// application does not have a package configuration.
+func FromApplication(app config.Application) *Package {
+	if app.Package == nil {
+		return nil
+	}
+
+	managers, custom, urlInstalls := convertPackage(app.Package)
+
 	return &Package{
-		Name:        e.Name,
-		Description: e.Description,
+		Name:        app.Name,
+		Description: app.Description,
 		Managers:    managers,
-		Custom:      e.Package.Custom,
+		Custom:      custom,
 		URL:         urlInstalls,
-		When:        e.When,
+		When:        app.When,
 	}
 }
 
-// FromEntries creates a slice of Packages from a slice of config.Entry.
-// It filters the entries to only those with package configurations and
+// FromApplications creates a slice of Packages from a slice of config.Application.
+// It filters the applications to only those with package configurations and
 // converts each to a Package struct.
-func FromEntries(entries []config.Entry) []Package {
-	result := make([]Package, 0, len(entries))
+func FromApplications(apps []config.Application) []Package {
+	result := make([]Package, 0, len(apps))
 
-	for _, e := range entries {
-		if pkg := FromEntry(e); pkg != nil {
+	for _, app := range apps {
+		if pkg := FromApplication(app); pkg != nil {
 			result = append(result, *pkg)
 		}
 	}
 
 	return result
+}
+
+// FromPackageSpec creates a Package from a name and EntryPackage.
+// This is used by the TUI's buildInstallCommand which only has a name and
+// package spec (no description/when, but those aren't needed by BuildCommand).
+// Returns nil if pkg is nil.
+func FromPackageSpec(name string, pkg *config.EntryPackage) *Package {
+	if pkg == nil {
+		return nil
+	}
+
+	managers, custom, urlInstalls := convertPackage(pkg)
+
+	return &Package{
+		Name:     name,
+		Managers: managers,
+		Custom:   custom,
+		URL:      urlInstalls,
+	}
 }

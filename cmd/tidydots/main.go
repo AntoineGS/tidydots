@@ -379,7 +379,7 @@ func runInstall(cmd *cobra.Command, args []string) error {
 
 	// Create package manager
 	pkgMgr := packages.NewManager(&packages.Config{
-		Packages:        packages.FromEntries(packageEntries),
+		Packages:        packages.FromApplications(packageEntries),
 		DefaultManager:  packages.PackageManager(cfg.DefaultManager),
 		ManagerPriority: convertToPackageManagers(cfg.ManagerPriority),
 	}, plat.OS, dryRun, verbose)
@@ -452,7 +452,7 @@ func runListPackages(_ *cobra.Command, _ []string) error {
 
 	// Create package manager to determine install methods
 	pkgMgr := packages.NewManager(&packages.Config{
-		Packages:        packages.FromEntries(packageEntries),
+		Packages:        packages.FromApplications(packageEntries),
 		DefaultManager:  packages.PackageManager(cfg.DefaultManager),
 		ManagerPriority: convertToPackageManagers(cfg.ManagerPriority),
 	}, plat.OS, false, verbose)

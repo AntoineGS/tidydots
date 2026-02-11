@@ -33,10 +33,10 @@ func BenchmarkFilterPackages(b *testing.B) {
 	}
 }
 
-func BenchmarkFromEntries(b *testing.B) {
-	entries := make([]config.Entry, 100)
-	for i := range entries {
-		entries[i] = config.Entry{
+func BenchmarkFromApplications(b *testing.B) {
+	apps := make([]config.Application, 100)
+	for i := range apps {
+		apps[i] = config.Application{
 			Name: "test",
 			Package: &config.EntryPackage{
 				Managers: map[string]config.ManagerValue{
@@ -49,6 +49,6 @@ func BenchmarkFromEntries(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_ = FromEntries(entries)
+		_ = FromApplications(apps)
 	}
 }

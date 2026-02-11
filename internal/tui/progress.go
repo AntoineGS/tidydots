@@ -1180,10 +1180,8 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.currentPackageIndex = 0
 					m.results = nil
 					m.pendingPackages = []PackageItem{{
-						Entry: config.Entry{
-							Name:    app.Application.Name,
-							Package: app.Application.Package,
-						},
+						Name:     app.Application.Name,
+						Package:  app.Application.Package,
 						Method:   app.PkgMethod,
 						Selected: true,
 					}}
@@ -1697,7 +1695,7 @@ func (m Model) installNextPackage() tea.Cmd {
 }
 
 func (m Model) buildInstallCommand(pkg PackageItem) *exec.Cmd {
-	converted := packages.FromEntry(pkg.Entry)
+	converted := packages.FromPackageSpec(pkg.Name, pkg.Package)
 	if converted == nil {
 		return nil
 	}

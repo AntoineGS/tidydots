@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/manager"
@@ -198,10 +197,8 @@ type Model struct {
 	applicationForm          *ApplicationForm
 	searchText               string
 	ConfigPath               string
-	Packages                 []PackageItem
 	pendingPackages          []PackageItem
 	results                  []ResultItem
-	Paths                    []PathItem
 	Applications             []ApplicationItem
 	searchInput              textinput.Model
 	tableRows                []TableRow
@@ -251,38 +248,12 @@ type Model struct {
 	batchFailCount    int            // Count of failed operations
 }
 
-// EntryType distinguishes between config, git, and package-only type entries
-type EntryType int
-
-// Entry types for configuration entries.
-const (
-	// EntryTypeConfig indicates a config type entry (symlink management)
-	EntryTypeConfig EntryType = iota
-	// EntryTypeGit indicates a git type entry (repository clone)
-	EntryTypeGit
-	// EntryTypePackage indicates a package-only entry (no config or git)
-	EntryTypePackage // Package-only entry (no config or git)
-)
-
-// PathItem represents a configuration entry in the path selection list,
-// including its state, target path, and package information.
-//
-//nolint:govet // field order optimized for readability over memory layout
-type PathItem struct {
-	Entry        config.Entry
-	PkgInstalled *bool
-	Target       string
-	PkgMethod    string
-	State        PathState
-	EntryType    EntryType
-	Selected     bool
-}
-
-// PackageItem represents a package to be installed, including its entry
-// configuration, installation method, and selection state.
+// PackageItem represents a package to be installed, including its name,
+// package configuration, installation method, and selection state.
 type PackageItem struct {
+	Name     string
+	Package  *config.EntryPackage
 	Method   string // How it would be installed (pacman, apt, custom, url, none)
-	Entry    config.Entry
 	Selected bool
 }
 
@@ -322,63 +293,6 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	tmplCtx := tmpl.NewContextFromPlatform(plat)
 	renderer := tmpl.NewEngine(tmplCtx)
 
-	items := make([]PathItem, 0)
-
-	// Flatten applications into PathItems
-	apps := cfg.GetFilteredApplications(renderer)
-	for _, app := range apps {
-		// Convert each SubEntry to a PathItem
-		for _, subEntry := range app.Entries {
-			// Create Entry from SubEntry
-			entry := config.Entry{
-				Name:        app.Name + "/" + subEntry.Name, // Prefix with app name
-				Description: app.Description,                // Use app description
-				Sudo:        subEntry.Sudo,
-				When:        app.When, // Use app when expression
-				Files:       subEntry.Files,
-				Backup:      subEntry.Backup,
-				Targets:     subEntry.Targets,
-			}
-
-			entryType := EntryTypeConfig
-
-			// Add package from app-level if present
-			if app.Package != nil {
-				entry.Package = app.Package
-			}
-
-			target := entry.GetTarget(plat.OS)
-			// Expand ~ and env vars in target path for file operations
-			expandedTarget := config.ExpandPath(target, plat.EnvVars)
-			item := PathItem{
-				Entry:     entry,
-				Target:    expandedTarget,
-				Selected:  true,
-				EntryType: entryType,
-			}
-
-			items = append(items, item)
-		}
-	}
-
-	// Sort all items by name
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Entry.Name < items[j].Entry.Name
-	})
-
-	// Keep Packages slice for backward compatibility with install operations
-	// Build from PathItems that have packages
-	pkgItems := make([]PackageItem, 0)
-
-	for _, item := range items {
-		if item.Entry.HasPackage() {
-			pkgItems = append(pkgItems, PackageItem{
-				Entry:    item.Entry,
-				Selected: true, // Method populated by async check
-			})
-		}
-	}
-
 	// Initialize search input
 	searchInput := textinput.New()
 	searchInput.Placeholder = "type to search..."
@@ -390,8 +304,6 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 		Config:             cfg,
 		Platform:           plat,
 		Renderer:           renderer,
-		Paths:              items,
-		Packages:           pkgItems,
 		DryRun:             dryRun,
 		viewHeight:         15,
 		width:              80,
@@ -527,7 +439,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case PackageInstallMsg:
 		// Record result
 		m.results = append(m.results, ResultItem{
-			Name:    msg.Package.Entry.Name,
+			Name:    msg.Package.Name,
 			Success: msg.Success,
 			Message: msg.Message,
 		})
@@ -536,16 +448,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Success {
 			installed := true
 
-			for i := range m.Paths {
-				if m.Paths[i].Entry.Name == msg.Package.Entry.Name && m.Paths[i].PkgInstalled != nil {
-					m.Paths[i].PkgInstalled = &installed
-
-					break
-				}
-			}
-
 			for i := range m.Applications {
-				if m.Applications[i].Application.Name == msg.Package.Entry.Name && m.Applications[i].PkgInstalled != nil {
+				if m.Applications[i].Application.Name == msg.Package.Name && m.Applications[i].PkgInstalled != nil {
 					m.Applications[i].PkgInstalled = &installed
 
 					break

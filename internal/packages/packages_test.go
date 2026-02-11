@@ -738,18 +738,18 @@ func TestFilterPackages(t *testing.T) {
 	}
 }
 
-func TestFromEntry(t *testing.T) {
+func TestFromApplication(t *testing.T) {
 	tests := []struct {
 		name       string
 		wantName   string
 		wantDesc   string
-		entry      config.Entry
+		app        config.Application
 		wantMgrLen int
 		wantNil    bool
 	}{
 		{
-			name: "entry with package - manager only",
-			entry: config.Entry{
+			name: "app with package - manager only",
+			app: config.Application{
 				Name:        "vim",
 				Description: "Text editor",
 				Package: &config.EntryPackage{
@@ -762,16 +762,15 @@ func TestFromEntry(t *testing.T) {
 			wantMgrLen: 2,
 		},
 		{
-			name: "entry without package",
-			entry: config.Entry{
-				Name:   "dotfiles",
-				Backup: "./dotfiles",
+			name: "app without package",
+			app: config.Application{
+				Name: "dotfiles",
 			},
 			wantNil: true,
 		},
 		{
-			name: "entry with package - custom command",
-			entry: config.Entry{
+			name: "app with package - custom command",
+			app: config.Application{
 				Name: "custom-tool",
 				Package: &config.EntryPackage{
 					Custom: map[string]string{"linux": "curl -sSL example.com | sh"},
@@ -781,8 +780,8 @@ func TestFromEntry(t *testing.T) {
 			wantName: "custom-tool",
 		},
 		{
-			name: "entry with package - URL install",
-			entry: config.Entry{
+			name: "app with package - URL install",
+			app: config.Application{
 				Name: "url-tool",
 				Package: &config.EntryPackage{
 					URL: map[string]config.URLInstallSpec{
@@ -794,8 +793,8 @@ func TestFromEntry(t *testing.T) {
 			wantName: "url-tool",
 		},
 		{
-			name: "entry with when expression",
-			entry: config.Entry{
+			name: "app with when expression",
+			app: config.Application{
 				Name: "filtered-pkg",
 				When: `{{ eq .OS "linux" }}`,
 				Package: &config.EntryPackage{
@@ -806,8 +805,8 @@ func TestFromEntry(t *testing.T) {
 			wantName: "filtered-pkg",
 		},
 		{
-			name: "entry with all package options",
-			entry: config.Entry{
+			name: "app with all package options",
+			app: config.Application{
 				Name:        "full-pkg",
 				Description: "Full package example",
 				Package: &config.EntryPackage{
@@ -827,47 +826,46 @@ func TestFromEntry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FromEntry(tt.entry)
+			got := FromApplication(tt.app)
 
 			if tt.wantNil {
 				if got != nil {
-					t.Errorf("FromEntry() = %v, want nil", got)
+					t.Errorf("FromApplication() = %v, want nil", got)
 				}
 
 				return
 			}
 
 			if got == nil {
-				t.Fatal("FromEntry() = nil, want non-nil")
+				t.Fatal("FromApplication() = nil, want non-nil")
 			}
 
 			if got.Name != tt.wantName {
-				t.Errorf("FromEntry().Name = %q, want %q", got.Name, tt.wantName)
+				t.Errorf("FromApplication().Name = %q, want %q", got.Name, tt.wantName)
 			}
 
 			if got.Description != tt.wantDesc {
-				t.Errorf("FromEntry().Description = %q, want %q", got.Description, tt.wantDesc)
+				t.Errorf("FromApplication().Description = %q, want %q", got.Description, tt.wantDesc)
 			}
 
 			if tt.wantMgrLen > 0 && len(got.Managers) != tt.wantMgrLen {
-				t.Errorf("FromEntry().Managers has %d entries, want %d", len(got.Managers), tt.wantMgrLen)
+				t.Errorf("FromApplication().Managers has %d entries, want %d", len(got.Managers), tt.wantMgrLen)
 			}
 		})
 	}
 }
 
-func TestFromEntries(t *testing.T) {
+func TestFromApplications(t *testing.T) {
 	tests := []struct {
-		name    string
-		entries []config.Entry
-		want    []string // expected package names
+		name string
+		apps []config.Application
+		want []string // expected package names
 	}{
 		{
-			name: "mixed entries - only packages returned",
-			entries: []config.Entry{
+			name: "mixed apps - only packages returned",
+			apps: []config.Application{
 				{
-					Name:   "dotfiles",
-					Backup: "./dotfiles",
+					Name: "dotfiles",
 				},
 				{
 					Name: "vim",
@@ -885,8 +883,8 @@ func TestFromEntries(t *testing.T) {
 			want: []string{"vim", "tmux"},
 		},
 		{
-			name: "all package entries",
-			entries: []config.Entry{
+			name: "all package apps",
+			apps: []config.Application{
 				{
 					Name: "pkg1",
 					Package: &config.EntryPackage{
@@ -903,36 +901,36 @@ func TestFromEntries(t *testing.T) {
 			want: []string{"pkg1", "pkg2"},
 		},
 		{
-			name: "no package entries",
-			entries: []config.Entry{
-				{Name: "dotfiles", Backup: "./dotfiles"},
+			name: "no package apps",
+			apps: []config.Application{
+				{Name: "dotfiles"},
 			},
 			want: []string{},
 		},
 		{
-			name:    "empty entries",
-			entries: []config.Entry{},
-			want:    []string{},
+			name: "empty apps",
+			apps: []config.Application{},
+			want: []string{},
 		},
 		{
-			name:    "nil entries",
-			entries: nil,
-			want:    []string{},
+			name: "nil apps",
+			apps: nil,
+			want: []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FromEntries(tt.entries)
+			got := FromApplications(tt.apps)
 
 			if len(got) != len(tt.want) {
-				t.Errorf("FromEntries() returned %d packages, want %d", len(got), len(tt.want))
+				t.Errorf("FromApplications() returned %d packages, want %d", len(got), len(tt.want))
 				return
 			}
 
 			for i, pkg := range got {
 				if pkg.Name != tt.want[i] {
-					t.Errorf("FromEntries()[%d].Name = %q, want %q", i, pkg.Name, tt.want[i])
+					t.Errorf("FromApplications()[%d].Name = %q, want %q", i, pkg.Name, tt.want[i])
 				}
 			}
 		})
@@ -1716,8 +1714,8 @@ func TestGetInstallMethod_Installer(t *testing.T) {
 	}
 }
 
-func TestFromEntry_Installer(t *testing.T) {
-	entry := config.Entry{
+func TestFromApplication_Installer(t *testing.T) {
+	app := config.Application{
 		Name:        "installer-tool",
 		Description: "A tool installed via script",
 		Package: &config.EntryPackage{
@@ -1734,9 +1732,9 @@ func TestFromEntry_Installer(t *testing.T) {
 		},
 	}
 
-	got := FromEntry(entry)
+	got := FromApplication(app)
 	if got == nil {
-		t.Fatal("FromEntry() = nil, want non-nil")
+		t.Fatal("FromApplication() = nil, want non-nil")
 	}
 
 	if got.Name != "installer-tool" {

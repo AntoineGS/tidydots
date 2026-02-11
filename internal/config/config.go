@@ -119,21 +119,14 @@ func (c *Config) GetAllConfigSubEntries(renderer PathRenderer) []SubEntry {
 	return result
 }
 
-// GetFilteredPackages returns all packages from filtered applications as pseudo-Entry objects
-func (c *Config) GetFilteredPackages(renderer PathRenderer) []Entry {
+// GetFilteredPackages returns applications with packages, filtered by when expressions
+func (c *Config) GetFilteredPackages(renderer PathRenderer) []Application {
 	apps := c.GetFilteredApplications(renderer)
-	result := make([]Entry, 0, len(apps))
+	result := make([]Application, 0, len(apps))
 
 	for _, app := range apps {
 		if app.HasPackage() {
-			// Create a pseudo-entry for the package
-			entry := Entry{
-				Name:        app.Name,
-				Description: app.Description,
-				Package:     app.Package,
-				When:        app.When,
-			}
-			result = append(result, entry)
+			result = append(result, app)
 		}
 	}
 

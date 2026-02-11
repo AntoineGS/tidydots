@@ -64,16 +64,9 @@ func TestNewModel(t *testing.T) {
 
 	model := NewModel(cfg, plat, false)
 
-	// Should have 2 paths (windows-only excluded)
-	if len(model.Paths) != 2 {
-		t.Errorf("Expected 2 paths, got %d", len(model.Paths))
-	}
-
-	// All should be selected by default
-	for _, p := range model.Paths {
-		if !p.Selected {
-			t.Errorf("Path %s should be selected by default", p.Entry.Name)
-		}
+	// Should have 2 applications (windows-only is excluded since it has no linux targets)
+	if len(model.Applications) != 2 {
+		t.Errorf("Expected 2 applications, got %d", len(model.Applications))
 	}
 
 	// Should start at manage view (ScreenResults with OpList)
@@ -105,18 +98,20 @@ func TestNewModelRootPaths(t *testing.T) {
 		},
 	}
 
-	// All entries are shown regardless of Root flag
+	// All entries are shown regardless of Sudo flag
 	plat := &platform.Platform{OS: platform.OSLinux}
 	model := NewModel(cfg, plat, false)
 
-	if len(model.Paths) != 2 {
-		t.Errorf("Expected 2 paths, got %d", len(model.Paths))
+	if len(model.Applications) != 2 {
+		t.Errorf("Expected 2 applications, got %d", len(model.Applications))
 	}
 
-	// Verify both paths are present (names are prefixed with app name)
+	// Verify both apps are present with their sub-entries
 	names := make(map[string]bool)
-	for _, p := range model.Paths {
-		names[p.Entry.Name] = true
+	for _, app := range model.Applications {
+		for _, sub := range app.SubItems {
+			names[app.Application.Name+"/"+sub.SubEntry.Name] = true
+		}
 	}
 
 	if !names["user-app/user-config"] {
@@ -173,7 +168,7 @@ func TestOperationString(t *testing.T) {
 	}
 }
 
-func TestPathItemIsFolder(t *testing.T) {
+func TestSubEntryIsFolder(t *testing.T) {
 	cfg := &config.Config{
 		Version:    3,
 		BackupRoot: "/backup",
@@ -196,24 +191,26 @@ func TestPathItemIsFolder(t *testing.T) {
 
 	model := NewModel(cfg, plat, false)
 
-	// Entries are sorted by name, so find them by name
-	var folderPath, filesPath *PathItem
+	// Find apps by name and check their sub-entries
+	var folderSub, filesSub *config.SubEntry
 
-	for i := range model.Paths {
-		switch model.Paths[i].Entry.Name {
-		case "folder-app/folder":
-			folderPath = &model.Paths[i]
-		case "files-app/files":
-			filesPath = &model.Paths[i]
+	for _, app := range model.Applications {
+		for i := range app.SubItems {
+			switch app.Application.Name + "/" + app.SubItems[i].SubEntry.Name {
+			case "folder-app/folder":
+				folderSub = &app.SubItems[i].SubEntry
+			case "files-app/files":
+				filesSub = &app.SubItems[i].SubEntry
+			}
 		}
 	}
 
-	if folderPath == nil || !folderPath.Entry.IsFolder() {
-		t.Error("folder entry should be a folder")
+	if folderSub == nil || len(folderSub.Files) != 0 {
+		t.Error("folder entry should be a folder (empty files list)")
 	}
 
-	if filesPath == nil || filesPath.Entry.IsFolder() {
-		t.Error("files entry should not be a folder")
+	if filesSub == nil || len(filesSub.Files) == 0 {
+		t.Error("files entry should not be a folder (has files)")
 	}
 }
 
@@ -813,8 +810,8 @@ func TestEditWithSortedApplications(t *testing.T) {
 	}
 }
 
-func TestPathItemTargetTildeExpansion(t *testing.T) {
-	// Test that PathItem.Target is expanded when created in NewModel
+func TestSubEntryTargetTildeExpansion(t *testing.T) {
+	// Test that SubEntryItem.Target is expanded when created in NewModel
 	cfg := &config.Config{
 		Version:    3,
 		BackupRoot: "/home/user/backup",
@@ -845,26 +842,30 @@ func TestPathItemTargetTildeExpansion(t *testing.T) {
 
 	model := NewModel(cfg, plat, false)
 
-	if len(model.Paths) != 1 {
-		t.Fatalf("Expected 1 path item, got %d", len(model.Paths))
+	if len(model.Applications) != 1 {
+		t.Fatalf("Expected 1 application, got %d", len(model.Applications))
 	}
 
-	pathItem := model.Paths[0]
+	if len(model.Applications[0].SubItems) != 1 {
+		t.Fatalf("Expected 1 sub-entry, got %d", len(model.Applications[0].SubItems))
+	}
+
+	target := model.Applications[0].SubItems[0].Target
 
 	// The target should NOT contain a literal tilde
-	if len(pathItem.Target) > 0 && pathItem.Target[0] == '~' {
-		t.Errorf("PathItem.Target should not start with '~' - tilde should be expanded. Got: %q", pathItem.Target)
+	if len(target) > 0 && target[0] == '~' {
+		t.Errorf("SubEntryItem.Target should not start with '~' - tilde should be expanded. Got: %q", target)
 	}
 
 	// The Target should be expanded to an absolute path
-	if !filepath.IsAbs(pathItem.Target) {
-		t.Errorf("PathItem.Target should be an absolute path after expansion. Got: %q", pathItem.Target)
+	if !filepath.IsAbs(target) {
+		t.Errorf("SubEntryItem.Target should be an absolute path after expansion. Got: %q", target)
 	}
 
 	// Should end with .config/nvim (using OS-appropriate separator)
 	expectedSuffix := filepath.Join(".config", "nvim")
-	if !strings.HasSuffix(pathItem.Target, expectedSuffix) {
-		t.Errorf("PathItem.Target should end with %q. Got: %q", expectedSuffix, pathItem.Target)
+	if !strings.HasSuffix(target, expectedSuffix) {
+		t.Errorf("SubEntryItem.Target should end with %q. Got: %q", expectedSuffix, target)
 	}
 }
 
