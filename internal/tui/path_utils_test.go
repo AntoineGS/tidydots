@@ -22,6 +22,12 @@ func TestExpandTargetPath(t *testing.T) {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
 
+	// On Windows, /absolute/path is resolved by filepath.Abs with current drive letter
+	absExpected, err := filepath.Abs("/absolute/path")
+	if err != nil {
+		t.Fatalf("Failed to get absolute path: %v", err)
+	}
+
 	tests := []struct {
 		name       string
 		input      string
@@ -62,7 +68,7 @@ func TestExpandTargetPath(t *testing.T) {
 		{
 			name:      "absolute path",
 			input:     "/absolute/path",
-			wantExact: "/absolute/path",
+			wantExact: absExpected,
 			wantErr:   false,
 		},
 	}

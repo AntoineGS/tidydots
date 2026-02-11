@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -407,6 +408,10 @@ func TestRestoreV3MultipleSubEntries(t *testing.T) {
 }
 
 func TestRestoreEntry_PathError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("read-only directory permissions are not enforced the same way on Windows")
+	}
+
 	tests := []struct {
 		setup   func(t *testing.T, tmpDir string) (*Manager, config.SubEntry, string)
 		name    string

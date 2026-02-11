@@ -92,9 +92,9 @@ func TestGetDirname(t *testing.T) {
 		path string
 		want string
 	}{
-		{"/home/user/file.txt", "/home/user"},
+		{filepath.FromSlash("/home/user/file.txt"), filepath.FromSlash("/home/user")},
 		{"file.txt", "."},
-		{"/home/user/", "/home/user"}, // filepath.Dir handles trailing slash
+		{filepath.FromSlash("/home/user/"), filepath.FromSlash("/home/user")},
 		{"", "."},
 	}
 

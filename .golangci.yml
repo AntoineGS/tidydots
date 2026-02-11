@@ -106,6 +106,12 @@ linters:
         linters:
           - gosec
 
+      # internal/template doesn't conflict with stdlib in practice
+      - path: internal/template/
+        text: "var-naming: avoid package names"
+        linters:
+          - revive
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

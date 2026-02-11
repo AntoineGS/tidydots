@@ -10,9 +10,16 @@ import (
 )
 
 const (
-	testNvimDir = "/home/user/.config/nvim"
+	testNvimDir = "/home/user/.config/nvim" // used as map key in toggle/navigation tests
 	testInitLua = "init.lua"
 )
+
+// testNvimTmpDir creates a platform-appropriate absolute path for tests that
+// call expandTargetPath (which uses filepath.Abs). Returns a path under t.TempDir().
+func testNvimTmpDir(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), ".config", "nvim")
+}
 
 // TestMultiSelect_ToggleSelection tests toggling a file selection with space/tab
 func TestMultiSelect_ToggleSelection(t *testing.T) {
@@ -158,6 +165,9 @@ func TestMultiSelect_PersistAcrossNavigation(t *testing.T) {
 
 // TestMultiSelect_ConfirmMultipleFiles tests confirming multiple selections with enter
 func TestMultiSelect_ConfirmMultipleFiles(t *testing.T) {
+	// Use platform-appropriate absolute paths for tests that call expandTargetPath
+	nvimDir := testNvimTmpDir(t)
+
 	cfg := &config.Config{
 		Applications: []config.Application{
 			{
@@ -177,13 +187,13 @@ func TestMultiSelect_ConfirmMultipleFiles(t *testing.T) {
 	m.initSubEntryFormNew(0)
 
 	// Set up target path
-	m.subEntryForm.linuxTargetInput.SetValue(testNvimDir)
+	m.subEntryForm.linuxTargetInput.SetValue(nvimDir)
 
-	// Pre-populate selectedFiles map with multiple selections
+	// Pre-populate selectedFiles map with multiple selections using filepath.Join
 	m.subEntryForm.addFileMode = ModePicker
-	m.subEntryForm.selectedFiles[testNvimDir+"/"+testInitLua] = true
-	m.subEntryForm.selectedFiles[testNvimDir+"/plugins.lua"] = true
-	m.subEntryForm.selectedFiles[testNvimDir+"/lua/config.lua"] = true
+	m.subEntryForm.selectedFiles[filepath.Join(nvimDir, testInitLua)] = true
+	m.subEntryForm.selectedFiles[filepath.Join(nvimDir, "plugins.lua")] = true
+	m.subEntryForm.selectedFiles[filepath.Join(nvimDir, "lua", "config.lua")] = true
 
 	initialFilesCount := len(m.subEntryForm.files)
 
@@ -207,8 +217,8 @@ func TestMultiSelect_ConfirmMultipleFiles(t *testing.T) {
 		t.Errorf("addFileMode = %d, want %d (ModeNone)", model.subEntryForm.addFileMode, ModeNone)
 	}
 
-	// Verify files contain expected relative paths
-	expectedFiles := []string{testInitLua, "plugins.lua", "lua/config.lua"}
+	// Verify files contain expected relative paths (using filepath.Join for cross-platform)
+	expectedFiles := []string{testInitLua, "plugins.lua", filepath.Join("lua", "config.lua")}
 	for _, expected := range expectedFiles {
 		found := false
 		for _, file := range model.subEntryForm.files {
@@ -394,6 +404,9 @@ func TestMultiSelect_DuplicateSelectionIgnored(t *testing.T) {
 
 // TestMultiSelect_MixedSelectionsAndConfirm tests selecting, deselecting, and confirming
 func TestMultiSelect_MixedSelectionsAndConfirm(t *testing.T) {
+	// Use platform-appropriate absolute paths for tests that call expandTargetPath
+	nvimDir := testNvimTmpDir(t)
+
 	cfg := &config.Config{
 		Applications: []config.Application{
 			{
@@ -413,15 +426,15 @@ func TestMultiSelect_MixedSelectionsAndConfirm(t *testing.T) {
 	m.initSubEntryFormNew(0)
 
 	// Set up target path
-	m.subEntryForm.linuxTargetInput.SetValue(testNvimDir)
+	m.subEntryForm.linuxTargetInput.SetValue(nvimDir)
 
-	// Select multiple files
-	m.subEntryForm.selectedFiles[testNvimDir+"/"+testInitLua] = true
-	m.subEntryForm.selectedFiles[testNvimDir+"/plugins.lua"] = true
-	m.subEntryForm.selectedFiles[testNvimDir+"/colors.lua"] = true
+	// Select multiple files using filepath.Join
+	m.subEntryForm.selectedFiles[filepath.Join(nvimDir, testInitLua)] = true
+	m.subEntryForm.selectedFiles[filepath.Join(nvimDir, "plugins.lua")] = true
+	m.subEntryForm.selectedFiles[filepath.Join(nvimDir, "colors.lua")] = true
 
 	// Deselect one
-	delete(m.subEntryForm.selectedFiles, testNvimDir+"/colors.lua")
+	delete(m.subEntryForm.selectedFiles, filepath.Join(nvimDir, "colors.lua"))
 
 	// Verify count before confirm
 	if len(m.subEntryForm.selectedFiles) != 2 {

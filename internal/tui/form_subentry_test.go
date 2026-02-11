@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -670,19 +671,21 @@ func TestPickerStartDirectory_Resolution(t *testing.T) {
 
 // TestConvertToRelative_AfterSelection tests path conversion after picker selection
 func TestConvertToRelative_AfterSelection(t *testing.T) {
-	// Test convertToRelativePaths from path_utils.go
-	targetDir := "/home/user/.config/nvim"
+	// Use a real temp dir for platform-appropriate absolute paths
+	tmpDir := t.TempDir()
+	targetDir := filepath.Join(tmpDir, ".config", "nvim")
+
 	absPaths := []string{
-		"/home/user/.config/nvim/init.lua",
-		"/home/user/.config/nvim/lua/config.lua",
-		"/home/user/.config/nvim",
+		filepath.Join(targetDir, "init.lua"),
+		filepath.Join(targetDir, "lua", "config.lua"),
+		targetDir,
 	}
 
 	relativePaths, errs := convertToRelativePaths(absPaths, targetDir)
 
 	expectedPaths := []string{
 		"init.lua",
-		"lua/config.lua",
+		filepath.Join("lua", "config.lua"),
 		".",
 	}
 

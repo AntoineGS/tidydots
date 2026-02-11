@@ -41,7 +41,7 @@ func createUnixScript(t *testing.T, dir, name string, exitCode int, stdout, stde
 
 	script += fmt.Sprintf("exit %d\n", exitCode)
 
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil { //nolint:gosec // test helper: mock binary must be executable
 		t.Fatalf("failed to create mock binary %s: %v", name, err)
 	}
 
@@ -65,11 +65,33 @@ func createWindowsBat(t *testing.T, dir, name string, exitCode int, stdout, stde
 
 	script += fmt.Sprintf("exit /b %d\r\n", exitCode)
 
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil { //nolint:gosec // test helper: mock binary must be executable
 		t.Fatalf("failed to create mock binary %s: %v", name, err)
 	}
 
 	return path
+}
+
+// SkipIfNoSymlink skips the test if the OS does not support symlink creation
+// (e.g., Windows without Developer Mode enabled).
+func SkipIfNoSymlink(t *testing.T) {
+	t.Helper()
+
+	if runtime.GOOS != "windows" {
+		return
+	}
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+
+	if err := os.WriteFile(src, []byte("x"), 0o600); err != nil {
+		t.Fatalf("cannot create test file: %v", err)
+	}
+
+	if err := os.Symlink(src, dst); err != nil {
+		t.Skipf("symlinks not available: %v", err)
+	}
 }
 
 // PrependPath returns the current PATH with dir prepended, using the

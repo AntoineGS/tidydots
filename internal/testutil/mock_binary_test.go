@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,7 +65,7 @@ func TestCreateMockBinary(t *testing.T) {
 			}
 
 			// Execute and check output
-			cmd := exec.Command(path)
+			cmd := exec.CommandContext(context.Background(), path)
 			output, err := cmd.Output()
 
 			if tt.wantErr && err == nil {

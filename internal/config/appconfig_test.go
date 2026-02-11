@@ -3,23 +3,31 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
-// Note: Tests that modify HOME environment variable cannot run in parallel
-// because os.Setenv affects the entire process.
+// Note: Tests that modify HOME/USERPROFILE environment variables cannot run in
+// parallel because os.Setenv affects the entire process.
+
+// setTestHome overrides the home directory for tests on all platforms.
+// On Unix, os.UserHomeDir() reads HOME; on Windows it reads USERPROFILE.
+func setTestHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+	}
+}
 
 func TestSaveAppConfig(t *testing.T) {
 	// Create a temporary home directory
 	tmpDir := t.TempDir()
 
-	// Override HOME for this test
-	origHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tmpDir); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	// Override home for this test
+	setTestHome(t, tmpDir)
 
 	cfg := &AppConfig{
 		ConfigDir: "/path/to/configs",
@@ -55,12 +63,8 @@ func TestSaveAppConfig(t *testing.T) {
 func TestLoadAppConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Override HOME
-	origHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tmpDir); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	// Override home
+	setTestHome(t, tmpDir)
 
 	// Create config directory
 	configDir := filepath.Join(tmpDir, appConfigDir)
@@ -95,11 +99,7 @@ func TestLoadAppConfig(t *testing.T) {
 func TestLoadAppConfigWithTilde(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	origHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tmpDir); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	setTestHome(t, tmpDir)
 
 	// Create config directory
 	configDir := filepath.Join(tmpDir, appConfigDir)
@@ -134,11 +134,7 @@ func TestLoadAppConfigWithTilde(t *testing.T) {
 func TestLoadAppConfigNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	origHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tmpDir); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	setTestHome(t, tmpDir)
 
 	_, err := LoadAppConfig()
 	if err == nil {
@@ -153,11 +149,7 @@ func TestLoadAppConfigNotFound(t *testing.T) {
 func TestLoadAppConfigInvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	origHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tmpDir); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	setTestHome(t, tmpDir)
 
 	configDir := filepath.Join(tmpDir, appConfigDir)
 	if err := os.MkdirAll(configDir, 0750); err != nil {
@@ -180,11 +172,7 @@ func TestLoadAppConfigInvalidYAML(t *testing.T) {
 func TestLoadAppConfigEmptyConfigDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	origHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tmpDir); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	setTestHome(t, tmpDir)
 
 	configDir := filepath.Join(tmpDir, appConfigDir)
 	if err := os.MkdirAll(configDir, 0750); err != nil {
@@ -211,11 +199,7 @@ func TestLoadAppConfigEmptyConfigDir(t *testing.T) {
 func TestLoadAppConfigNonexistentConfigDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	origHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tmpDir); err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Setenv("HOME", origHome) }()
+	setTestHome(t, tmpDir)
 
 	configDir := filepath.Join(tmpDir, appConfigDir)
 	if err := os.MkdirAll(configDir, 0750); err != nil {
@@ -259,7 +243,7 @@ func TestAppConfigPath(t *testing.T) {
 	path := AppConfigPath()
 
 	home, _ := os.UserHomeDir()
-	expected := filepath.Join(home, ".config/tidydots/config.yaml")
+	expected := filepath.Join(home, appConfigDir, appConfigFile)
 
 	if path != expected {
 		t.Errorf("AppConfigPath() = %q, want %q", path, expected)

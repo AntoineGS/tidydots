@@ -861,9 +861,10 @@ func TestPathItemTargetTildeExpansion(t *testing.T) {
 		t.Errorf("PathItem.Target should be an absolute path after expansion. Got: %q", pathItem.Target)
 	}
 
-	// Should end with .config/nvim
-	if !strings.HasSuffix(pathItem.Target, ".config/nvim") {
-		t.Errorf("PathItem.Target should end with '.config/nvim'. Got: %q", pathItem.Target)
+	// Should end with .config/nvim (using OS-appropriate separator)
+	expectedSuffix := filepath.Join(".config", "nvim")
+	if !strings.HasSuffix(pathItem.Target, expectedSuffix) {
+		t.Errorf("PathItem.Target should end with %q. Got: %q", expectedSuffix, pathItem.Target)
 	}
 }
 

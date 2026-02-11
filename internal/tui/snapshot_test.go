@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -18,6 +19,9 @@ const (
 // TestScreenResults_Snapshots tests the visual output of ScreenResults
 // in various states using golden file snapshots.
 func TestScreenResults_Snapshots(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("snapshot golden files are platform-specific (terminal rendering differs on Windows)")
+	}
 	tests := []struct {
 		name      string
 		setupFunc func(*Model)

@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -276,7 +277,16 @@ func TestRemoveAll(t *testing.T) {
 
 func TestResolvePath(t *testing.T) {
 	t.Parallel()
-	backupRoot := filepath.Join("/home", "user", "backups")
+
+	var backupRoot, absPath string
+	if runtime.GOOS == osWindows {
+		backupRoot = filepath.Join("C:\\", "Users", "user", "backups")
+		absPath = filepath.Join("C:\\", "etc", "config")
+	} else {
+		backupRoot = filepath.Join("/home", "user", "backups")
+		absPath = filepath.Join("/etc", "config")
+	}
+
 	cfg := &config.Config{
 		BackupRoot: backupRoot,
 	}
@@ -289,7 +299,7 @@ func TestResolvePath(t *testing.T) {
 		want string
 	}{
 		{"relative path", "./configs", filepath.Join(backupRoot, "configs")},
-		{"absolute path", filepath.Join("/etc", "config"), filepath.Join("/etc", "config")},
+		{"absolute path", absPath, absPath},
 	}
 
 	for _, tt := range tests {

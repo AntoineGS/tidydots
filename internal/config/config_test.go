@@ -823,8 +823,8 @@ func TestExpandPath(t *testing.T) {
 		},
 		{
 			name:     "env var expansion",
-			path:     "$HOME/.config",
-			envVars:  nil,
+			path:     "$TEST_HOME" + string(filepath.Separator) + ".config",
+			envVars:  map[string]string{"TEST_HOME": home},
 			expected: filepath.Join(home, ".config"),
 		},
 		{

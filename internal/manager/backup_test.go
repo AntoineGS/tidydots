@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -443,6 +444,10 @@ func TestBackup_SymlinkAlreadyExists(t *testing.T) {
 }
 
 func TestBackup_FilePermissionsPreserved(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("NTFS does not support Unix file permission bits")
+	}
+
 	t.Parallel()
 	m := setupTestManager(t)
 

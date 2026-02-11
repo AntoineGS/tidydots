@@ -113,25 +113,7 @@ func createSymlink(ctx context.Context, source, target string, useSudo bool) err
 		return NewPathError("restore", source, fmt.Errorf("cannot access symlink source: %w", err))
 	}
 
-	if runtime.GOOS == "windows" {
-		// Check if source is a directory
-		info, err := os.Stat(source)
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			// Use mklink /J for directory junctions on Windows
-			cmd := exec.CommandContext(ctx, "cmd", "/c", "mklink", "/J", target, source)
-			return cmd.Run()
-		}
-		// Use mklink for files
-		cmd := exec.CommandContext(ctx, "cmd", "/c", "mklink", target, source)
-
-		return cmd.Run()
-	}
-
-	if useSudo {
+	if useSudo && runtime.GOOS != osWindows {
 		cmd := exec.CommandContext(ctx, "sudo", "ln", "-s", source, target) //nolint:gosec // intentional sudo command
 		return cmd.Run()
 	}

@@ -10,12 +10,15 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	"github.com/AntoineGS/tidydots/internal/state"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
 )
+
+const osWindows = "windows"
 
 // File permissions constants
 const (
@@ -299,7 +302,18 @@ func isSymlink(path string) bool {
 		return false
 	}
 
-	return info.Mode()&os.ModeSymlink != 0
+	if info.Mode()&os.ModeSymlink != 0 {
+		return true
+	}
+
+	// On Windows, directory junctions (mklink /J) are not reported as
+	// ModeSymlink in recent Go versions, but Readlink still resolves them.
+	if runtime.GOOS == osWindows {
+		_, err := os.Readlink(path)
+		return err == nil
+	}
+
+	return false
 }
 
 func pathExists(path string) bool {
