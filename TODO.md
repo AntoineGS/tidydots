@@ -1,6 +1,1 @@
-- Use Bubbles.List for edit screens
-- Integrate Bubbles.FilePicker
-- Maybe also Bubbles.Help
-- Also TextInput
-- Add support for templates, using the filtering system
-- Add UI for git packages
+Support for macOS rename subentry to entry
