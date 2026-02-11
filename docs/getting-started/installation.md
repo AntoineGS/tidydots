@@ -12,6 +12,24 @@ go version
 
 If you do not have Go installed, follow the [official Go installation guide](https://go.dev/doc/install) for your platform.
 
+## Arch Linux (AUR)
+
+For Arch Linux users, tidydots is available on the AUR:
+
+```bash
+# Using an AUR helper (e.g., yay or paru)
+yay -S tidydots-git
+paru -S tidydots-git
+```
+
+Or build manually from the AUR:
+
+```bash
+git clone https://aur.archlinux.org/tidydots-git.git
+cd tidydots-git
+makepkg -si
+```
+
 ## Install with `go install`
 
 The simplest way to install tidydots is with `go install`:
