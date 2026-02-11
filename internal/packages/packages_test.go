@@ -154,8 +154,9 @@ func TestHasManager(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				Config:    &Config{},
-				Available: tt.available,
+				Config:       &Config{},
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			got := m.HasManager(tt.check)
@@ -288,8 +289,9 @@ func TestSelectPreferredManager(t *testing.T) {
 					DefaultManager:  tt.defaultManager,
 					ManagerPriority: tt.managerPriority,
 				},
-				OS:        tt.osType,
-				Available: tt.available,
+				OS:           tt.osType,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			m.selectPreferredManager()
@@ -408,10 +410,11 @@ func TestCanInstall(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				ctx:       context.Background(),
-				Config:    &Config{},
-				OS:        tt.osType,
-				Available: tt.available,
+				ctx:          context.Background(),
+				Config:       &Config{},
+				OS:           tt.osType,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			got := m.CanInstall(tt.pkg)
@@ -523,10 +526,11 @@ func TestGetInstallMethod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				ctx:       context.Background(),
-				Config:    &Config{},
-				OS:        tt.osType,
-				Available: tt.available,
+				ctx:          context.Background(),
+				Config:       &Config{},
+				OS:           tt.osType,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			got := m.GetInstallMethod(tt.pkg)
@@ -618,11 +622,12 @@ func TestInstall_DryRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				ctx:       context.Background(),
-				Config:    &Config{},
-				OS:        tt.osType,
-				DryRun:    true,
-				Available: tt.available,
+				ctx:          context.Background(),
+				Config:       &Config{},
+				OS:           tt.osType,
+				DryRun:       true,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			result := m.Install(tt.pkg)
@@ -644,6 +649,15 @@ func TestInstall_DryRun(t *testing.T) {
 			}
 		})
 	}
+}
+
+// toAvailableSet builds a set map from a slice of PackageManagers for test setup.
+func toAvailableSet(managers []PackageManager) map[PackageManager]bool {
+	s := make(map[PackageManager]bool, len(managers))
+	for _, m := range managers {
+		s[m] = true
+	}
+	return s
 }
 
 // mockRenderer implements config.PathRenderer for testing.
@@ -1021,8 +1035,9 @@ func TestGetInstallablePackages(t *testing.T) {
 				Config: &Config{
 					Packages: tt.packages,
 				},
-				OS:        tt.osType,
-				Available: tt.available,
+				OS:           tt.osType,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			got := m.GetInstallablePackages()
@@ -1087,11 +1102,12 @@ func TestInstallAll_DryRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				ctx:       context.Background(),
-				Config:    &Config{},
-				OS:        tt.osType,
-				DryRun:    true,
-				Available: tt.available,
+				ctx:          context.Background(),
+				Config:       &Config{},
+				OS:           tt.osType,
+				DryRun:       true,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			results := m.InstallAll(tt.packages)
@@ -1630,10 +1646,11 @@ func TestCanInstall_Installer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				ctx:       context.Background(),
-				Config:    &Config{},
-				OS:        tt.osType,
-				Available: tt.available,
+				ctx:          context.Background(),
+				Config:       &Config{},
+				OS:           tt.osType,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			got := m.CanInstall(tt.pkg)
@@ -1700,10 +1717,11 @@ func TestGetInstallMethod_Installer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
-				ctx:       context.Background(),
-				Config:    &Config{},
-				OS:        tt.osType,
-				Available: tt.available,
+				ctx:          context.Background(),
+				Config:       &Config{},
+				OS:           tt.osType,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
 			}
 
 			got := m.GetInstallMethod(tt.pkg)
@@ -1991,7 +2009,7 @@ func TestBuildCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := BuildCommand(tt.pkg, tt.method, tt.osType)
+			cmd := BuildCommand(context.Background(), tt.pkg, tt.method, tt.osType)
 
 			if tt.wantNil {
 				if cmd != nil {

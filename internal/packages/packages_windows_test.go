@@ -3,6 +3,7 @@
 package packages
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestBuildCommand_WindowsManagers(t *testing.T) {
 				},
 			}
 
-			cmd := BuildCommand(pkg, string(tt.manager), "windows")
+			cmd := BuildCommand(context.Background(), pkg, string(tt.manager), "windows")
 			if cmd == nil {
 				t.Fatal("BuildCommand() returned nil")
 			}
@@ -68,7 +69,7 @@ func TestBuildCommand_WindowsCustomUsesPowerShell(t *testing.T) {
 		Custom: map[string]string{"windows": "msbuild /t:install"},
 	}
 
-	cmd := BuildCommand(pkg, MethodCustom, "windows")
+	cmd := BuildCommand(context.Background(), pkg, MethodCustom, "windows")
 	if cmd == nil {
 		t.Fatal("BuildCommand() returned nil")
 	}
@@ -90,7 +91,7 @@ func TestBuildCommand_WindowsURLUsesInvokeWebRequest(t *testing.T) {
 		},
 	}
 
-	cmd := BuildCommand(pkg, MethodURL, "windows")
+	cmd := BuildCommand(context.Background(), pkg, MethodURL, "windows")
 	if cmd == nil {
 		t.Fatal("BuildCommand() returned nil")
 	}

@@ -3,6 +3,7 @@
 package packages
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestBuildCommand_DarwinBrew(t *testing.T) {
 		},
 	}
 
-	cmd := BuildCommand(pkg, string(Brew), "linux") // tidydots maps macOS to "linux"
+	cmd := BuildCommand(context.Background(), pkg, string(Brew), "linux") // tidydots maps macOS to "linux"
 	if cmd == nil {
 		t.Fatal("BuildCommand() returned nil")
 	}
@@ -37,7 +38,7 @@ func TestBuildCommand_DarwinCustomUsesShell(t *testing.T) {
 		Custom: map[string]string{"linux": "brew install --cask firefox"},
 	}
 
-	cmd := BuildCommand(pkg, MethodCustom, "linux") // tidydots maps macOS to "linux"
+	cmd := BuildCommand(context.Background(), pkg, MethodCustom, "linux") // tidydots maps macOS to "linux"
 	if cmd == nil {
 		t.Fatal("BuildCommand() returned nil")
 	}
@@ -58,7 +59,7 @@ func TestBuildCommand_DarwinURLUsesCurl(t *testing.T) {
 		},
 	}
 
-	cmd := BuildCommand(pkg, MethodURL, "linux")
+	cmd := BuildCommand(context.Background(), pkg, MethodURL, "linux")
 	if cmd == nil {
 		t.Fatal("BuildCommand() returned nil")
 	}

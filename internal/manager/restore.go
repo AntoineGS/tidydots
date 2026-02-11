@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
 )
 
@@ -113,7 +114,7 @@ func createSymlink(ctx context.Context, source, target string, useSudo bool) err
 		return NewPathError("restore", source, fmt.Errorf("cannot access symlink source: %w", err))
 	}
 
-	if useSudo && runtime.GOOS != osWindows {
+	if useSudo && runtime.GOOS != platform.OSWindows {
 		cmd := exec.CommandContext(ctx, "sudo", "ln", "-s", source, target) //nolint:gosec // intentional sudo command
 		return cmd.Run()
 	}

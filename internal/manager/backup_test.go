@@ -444,7 +444,7 @@ func TestBackup_SymlinkAlreadyExists(t *testing.T) {
 }
 
 func TestBackup_FilePermissionsPreserved(t *testing.T) {
-	if runtime.GOOS == osWindows {
+	if runtime.GOOS == platform.OSWindows {
 		t.Skip("NTFS does not support Unix file permission bits")
 	}
 

@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,10 +105,17 @@ func (c *Config) GetAllSubEntries(renderer PathRenderer) []SubEntry {
 // GetAllConfigSubEntries returns only config type sub-entries from filtered applications
 func (c *Config) GetAllConfigSubEntries(renderer PathRenderer) []SubEntry {
 	apps := c.GetFilteredApplications(renderer)
-	// Estimate capacity based on average entries per app
-	estimatedCap := len(apps) * 3
-	result := make([]SubEntry, 0, estimatedCap)
 
+	totalEntries := 0
+	for _, app := range apps {
+		for _, entry := range app.Entries {
+			if entry.IsConfig() {
+				totalEntries++
+			}
+		}
+	}
+
+	result := make([]SubEntry, 0, totalEntries)
 	for _, app := range apps {
 		for _, entry := range app.Entries {
 			if entry.IsConfig() {
@@ -135,6 +143,8 @@ func (c *Config) GetFilteredPackages(renderer PathRenderer) []Application {
 
 // PathRenderer renders template strings. Used to inject the template engine
 // into config path expansion without creating a circular dependency.
+// The name parameter in RenderString is used for error context in template
+// parse failures.
 type PathRenderer interface {
 	RenderString(name, tmplStr string) (string, error)
 }
@@ -149,7 +159,7 @@ func ExpandPathWithTemplate(path string, envVars map[string]string, renderer Pat
 
 	rendered, err := renderer.RenderString("path", path)
 	if err != nil {
-		// Fall back to ExpandPath on template error
+		slog.Warn("template rendering failed, falling back to path expansion", "path", path, "error", err)
 		return ExpandPath(path, envVars)
 	}
 

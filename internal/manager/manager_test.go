@@ -279,7 +279,7 @@ func TestResolvePath(t *testing.T) {
 	t.Parallel()
 
 	var backupRoot, absPath string
-	if runtime.GOOS == osWindows {
+	if runtime.GOOS == platform.OSWindows {
 		backupRoot = filepath.Join("C:\\", "Users", "user", "backups")
 		absPath = filepath.Join("C:\\", "etc", "config")
 	} else {

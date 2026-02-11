@@ -3,6 +3,7 @@
 package packages
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 
@@ -62,7 +63,7 @@ func TestBuildCommand_LinuxManagers(t *testing.T) {
 				},
 			}
 
-			cmd := BuildCommand(pkg, string(tt.manager), "linux")
+			cmd := BuildCommand(context.Background(), pkg, string(tt.manager), "linux")
 			if cmd == nil {
 				t.Fatal("BuildCommand() returned nil")
 			}
@@ -80,7 +81,7 @@ func TestBuildCommand_LinuxCustomUsesShell(t *testing.T) {
 		Custom: map[string]string{"linux": "make install"},
 	}
 
-	cmd := BuildCommand(pkg, MethodCustom, "linux")
+	cmd := BuildCommand(context.Background(), pkg, MethodCustom, "linux")
 	if cmd == nil {
 		t.Fatal("BuildCommand() returned nil")
 	}
@@ -102,7 +103,7 @@ func TestBuildCommand_LinuxURLUsesCurl(t *testing.T) {
 		},
 	}
 
-	cmd := BuildCommand(pkg, MethodURL, "linux")
+	cmd := BuildCommand(context.Background(), pkg, MethodURL, "linux")
 	if cmd == nil {
 		t.Fatal("BuildCommand() returned nil")
 	}
