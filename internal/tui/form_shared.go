@@ -382,7 +382,7 @@ func (m *Model) saveNewApplication(app config.Application) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	m.initApplicationItems()
+	m.reinitPreservingState(app.Name)
 
 	return nil
 }
@@ -408,7 +408,7 @@ func (m *Model) saveEditedApplication(appIdx int, name, description, when string
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	m.initApplicationItems()
+	m.reinitPreservingState(name)
 
 	return nil
 }

@@ -1328,7 +1328,7 @@ func (m *Model) addSubEntryToApp(appIdx int, subEntry config.SubEntry) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	m.initApplicationItems()
+	m.reinitPreservingState(app.Name)
 
 	return nil
 }
@@ -1359,7 +1359,7 @@ func (m *Model) updateSubEntry(appIdx, subIdx int, subEntry config.SubEntry) err
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	m.initApplicationItems()
+	m.reinitPreservingState(app.Name)
 
 	return nil
 }

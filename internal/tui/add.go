@@ -84,7 +84,7 @@ func (m *Model) deleteApplicationOrSubEntry(appIdx, subIdx int) error {
 		return err
 	}
 
-	m.initApplicationItems()
+	m.reinitPreservingState("")
 
 	return nil
 }

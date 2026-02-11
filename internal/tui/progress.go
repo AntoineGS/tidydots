@@ -201,6 +201,70 @@ func (m *Model) initApplicationItems() {
 	m.initTableModel()
 }
 
+// reinitPreservingState rebuilds application items from config while preserving
+// existing states for all apps except the edited one. The edited app gets its
+// sub-entry states synchronously refreshed. Pass empty string to preserve all states.
+func (m *Model) reinitPreservingState(editedAppName string) {
+	type savedAppState struct {
+		subStates    map[string]PathState // subEntry name -> state
+		pkgMethod    string
+		pkgInstalled *bool
+		expanded     bool
+	}
+
+	// Save existing states by app name
+	saved := make(map[string]savedAppState)
+	for _, app := range m.Applications {
+		subStates := make(map[string]PathState)
+		for _, sub := range app.SubItems {
+			subStates[sub.SubEntry.Name] = sub.State
+		}
+		saved[app.Application.Name] = savedAppState{
+			subStates:    subStates,
+			pkgMethod:    app.PkgMethod,
+			pkgInstalled: app.PkgInstalled,
+			expanded:     app.Expanded,
+		}
+	}
+
+	// Rebuild from config
+	m.initApplicationItems()
+
+	// Restore preserved states
+	for i, app := range m.Applications {
+		prev, ok := saved[app.Application.Name]
+		if !ok {
+			// New app (e.g., just created) - synchronously detect states
+			for j := range m.Applications[i].SubItems {
+				m.Applications[i].SubItems[j].State = m.detectSubEntryState(&m.Applications[i].SubItems[j])
+			}
+			continue
+		}
+
+		// Restore expanded and package states for all apps
+		m.Applications[i].Expanded = prev.expanded
+		m.Applications[i].PkgMethod = prev.pkgMethod
+		m.Applications[i].PkgInstalled = prev.pkgInstalled
+
+		if app.Application.Name == editedAppName {
+			// For the edited app, synchronously refresh sub-entry states
+			for j := range m.Applications[i].SubItems {
+				m.Applications[i].SubItems[j].State = m.detectSubEntryState(&m.Applications[i].SubItems[j])
+			}
+		} else {
+			// For other apps, restore previous sub-entry states
+			for j, sub := range app.SubItems {
+				if state, exists := prev.subStates[sub.SubEntry.Name]; exists {
+					m.Applications[i].SubItems[j].State = state
+				}
+			}
+		}
+	}
+
+	// Rebuild table with restored states
+	m.initTableModel()
+}
+
 // refreshApplicationStates updates the state of all sub-entry items
 func (m *Model) refreshApplicationStates() {
 	for i := range m.Applications {
