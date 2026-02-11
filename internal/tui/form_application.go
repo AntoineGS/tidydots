@@ -1091,25 +1091,25 @@ func (m Model) renderApplicationFormHelp() string {
 		// Git package states
 		if m.applicationForm.packagesCursor == len(displayPackageManagers) {
 			if !m.applicationForm.hasGitPackage {
-				return RenderHelpWithWidth(m.width, "enter", "add", "s", "save", "q", "back")
+				return RenderHelpWithWidth(m.width, "enter", "add", "s", "save")
 			}
 			if m.applicationForm.gitFieldCursor == -1 {
-				return RenderHelpWithWidth(m.width, "d", "delete", "s", "save", "q", "back")
+				return RenderHelpWithWidth(m.width, "d", "delete", "s", "save")
 			}
 			if m.applicationForm.gitFieldCursor == GitFieldSudo {
-				return RenderHelpWithWidth(m.width, "space", "toggle", "s", "save", "q", "back")
+				return RenderHelpWithWidth(m.width, "space", "toggle", "s", "save")
 			}
-			return RenderHelpWithWidth(m.width, "e", "edit", "s", "save", "q", "back")
+			return RenderHelpWithWidth(m.width, "e", "edit", "s", "save")
 		}
 		// Installer package states
 		if m.applicationForm.packagesCursor == len(displayPackageManagers)+1 {
 			if !m.applicationForm.hasInstallerPackage {
-				return RenderHelpWithWidth(m.width, "enter", "add", "s", "save", "q", "back")
+				return RenderHelpWithWidth(m.width, "enter", "add", "s", "save")
 			}
 			if m.applicationForm.installerFieldCursor == -1 {
-				return RenderHelpWithWidth(m.width, "d", "delete", "s", "save", "q", "back")
+				return RenderHelpWithWidth(m.width, "d", "delete", "s", "save")
 			}
-			return RenderHelpWithWidth(m.width, "e", "edit", "s", "save", "q", "back")
+			return RenderHelpWithWidth(m.width, "e", "edit", "s", "save")
 		}
 		// Bounds check for packagesCursor
 		if m.applicationForm.packagesCursor >= 0 && m.applicationForm.packagesCursor < len(displayPackageManagers) {
@@ -1119,14 +1119,12 @@ func (m Model) renderApplicationFormHelp() string {
 					"e", "edit",
 					"d", "delete",
 					"s", "save",
-					"q", "back",
 				)
 			}
 		}
 		return RenderHelpWithWidth(m.width,
-			"e", "set package",
+			"e", "edit",
 			"s", "save",
-			"q", "back",
 		)
 	}
 
@@ -1134,7 +1132,6 @@ func (m Model) renderApplicationFormHelp() string {
 		return RenderHelpWithWidth(m.width,
 			"e", "edit",
 			"s", "save",
-			"q", "back",
 		)
 	}
 
@@ -1142,7 +1139,6 @@ func (m Model) renderApplicationFormHelp() string {
 	return RenderHelpWithWidth(m.width,
 		"e", "edit",
 		"s", "save",
-		"q", "back",
 	)
 }
 

@@ -999,14 +999,12 @@ func (m Model) renderSubEntryFormHelp() string {
 				"e", "edit",
 				"d", "delete",
 				"s", "save",
-				"q", "back",
 			)
 		}
 
 		return RenderHelpWithWidth(m.width,
 			"e", "add file",
 			"s", "save",
-			"q", "back",
 		)
 	}
 
@@ -1015,7 +1013,6 @@ func (m Model) renderSubEntryFormHelp() string {
 		return RenderHelpWithWidth(m.width,
 			"e", "edit",
 			"s", "save",
-			"q", "back",
 		)
 	}
 
@@ -1024,14 +1021,12 @@ func (m Model) renderSubEntryFormHelp() string {
 		return RenderHelpWithWidth(m.width,
 			"enter/space", "toggle",
 			"s", "save",
-			"q", "back",
 		)
 	}
 
 	return RenderHelpWithWidth(m.width,
 		"e", "edit",
 		"s", "save",
-		"q", "back",
 	)
 }
 
