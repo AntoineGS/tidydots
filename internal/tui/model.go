@@ -496,47 +496,14 @@ func (m Model) handleCommonKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 }
 
 // handleTextEditKeys checks for keys common to all text-editing handlers.
-// Handles ctrl+c (force quit) and ctrl+s (save form).
+// Handles ctrl+c (force quit).
 func (m Model) handleTextEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	switch {
 	case key.Matches(msg, SharedKeys.ForceQuit):
 		return m, tea.Quit, true
-	case key.Matches(msg, TextEditKeys.SaveForm):
-		return m.saveActiveForm()
 	}
 
 	return m, nil, false
-}
-
-// saveActiveForm saves whichever form is currently active and returns to the results screen.
-func (m Model) saveActiveForm() (tea.Model, tea.Cmd, bool) {
-	switch m.activeForm {
-	case FormApplication:
-		if m.applicationForm == nil {
-			return m, nil, true
-		}
-		if err := m.saveApplicationForm(); err != nil {
-			m.applicationForm.err = err.Error()
-			return m, nil, true
-		}
-		m.applicationForm = nil
-	case FormSubEntry:
-		if m.subEntryForm == nil {
-			return m, nil, true
-		}
-		if err := m.saveSubEntryForm(); err != nil {
-			m.subEntryForm.err = err.Error()
-			return m, nil, true
-		}
-		m.subEntryForm = nil
-	default:
-		return m, nil, true
-	}
-
-	m.activeForm = FormNone
-	m.Screen = ScreenResults
-
-	return m, nil, true
 }
 
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

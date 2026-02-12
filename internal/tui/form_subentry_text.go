@@ -38,7 +38,7 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case key.Matches(msg, SearchKeys.Confirm):
+	case key.Matches(msg, SearchKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		// Accept suggestion only if user has explicitly selected one
 		if hasSelectedSuggestion {
 			m.acceptSuggestionSubEntry()

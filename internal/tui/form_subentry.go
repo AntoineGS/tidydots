@@ -593,7 +593,7 @@ func (m Model) updateSubEntryFileInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case key.Matches(msg, SearchKeys.Confirm):
+	case key.Matches(msg, SearchKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		fileName := strings.TrimSpace(m.subEntryForm.newFileInput.Value())
 		if m.subEntryForm.editingFile {
 			// Update existing file if not empty

@@ -116,7 +116,7 @@ func (m Model) updateApplicationGitFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cm
 		m.applicationForm.editingGitField = false
 		return m, nil
 
-	case key.Matches(msg, TextEditKeys.Confirm):
+	case key.Matches(msg, TextEditKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		// Save current value and exit edit mode
 		m.applicationForm.editingGitField = false
 		return m, nil
@@ -256,7 +256,7 @@ func (m Model) updateApplicationInstallerFieldInput(msg tea.KeyMsg) (tea.Model, 
 		m.applicationForm.editingInstallerField = false
 		return m, nil
 
-	case key.Matches(msg, TextEditKeys.Confirm):
+	case key.Matches(msg, TextEditKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		// Save current value and exit edit mode
 		m.applicationForm.editingInstallerField = false
 		return m, nil

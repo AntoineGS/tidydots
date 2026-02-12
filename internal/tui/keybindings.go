@@ -265,17 +265,16 @@ type TextEditKeyMap struct {
 
 // TextEditKeys are the keybindings for text editing mode.
 var TextEditKeys = TextEditKeyMap{
-	// Confirm: key.NewBinding(
-	// 	key.WithKeys("enter", "tab"),
-	// 	key.WithHelp("enter/tab", "save"),
-	// ),
+	Confirm: key.NewBinding(
+		key.WithKeys("enter"),
+	),
 	Cancel: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "cancel edit"),
 	),
 	SaveForm: key.NewBinding(
 		key.WithKeys("ctrl+s"),
-		key.WithHelp("ctrl+s", "save form"),
+		key.WithHelp("ctrl+s", "save field"),
 	),
 }
 

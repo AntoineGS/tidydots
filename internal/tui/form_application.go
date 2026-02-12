@@ -372,7 +372,7 @@ func (m Model) updateApplicationFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		m.cancelApplicationFieldEdit()
 		return m, nil
 
-	case key.Matches(msg, TextEditKeys.Confirm):
+	case key.Matches(msg, TextEditKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		// Save and exit edit mode
 		m.applicationForm.editingField = false
 		m.updateApplicationFormFocus()
@@ -586,7 +586,7 @@ func (m Model) updateApplicationPackageInput(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		m.applicationForm.err = ""
 		return m, nil
 
-	case key.Matches(msg, SearchKeys.Confirm):
+	case key.Matches(msg, SearchKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		pkgName := strings.TrimSpace(m.applicationForm.packageNameInput.Value())
 		if m.applicationForm.packagesCursor < 0 || m.applicationForm.packagesCursor >= len(displayPackageManagers) {
 			m.applicationForm.editingPackage = false
@@ -635,7 +635,7 @@ func (m Model) updateApplicationWhenInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.applicationForm.err = ""
 		return m, nil
 
-	case key.Matches(msg, TextEditKeys.Confirm):
+	case key.Matches(msg, TextEditKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		// Save and exit edit mode
 		m.applicationForm.editingWhen = false
 		m.applicationForm.whenInput.Blur()
