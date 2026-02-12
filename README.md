@@ -11,7 +11,8 @@ packages, and clone git repositories --- all from a single YAML file.
 - **Symlink-based config management** --- edits sync instantly, no copying
 - **Cross-platform** --- Linux and Windows with OS-specific target paths
 - **Template rendering** --- Go templates for machine-specific configuration
-- **Multi-package-manager support** --- pacman, yay, paru, apt, dnf, brew, winget, scoop, choco
+- **Multi-package-manager support** --- pacman, yay, paru, apt, dnf, brew,
+  winget, scoop, choco
 - **Interactive TUI** --- Bubble Tea terminal interface for visual management
 - **Git repository management** --- clone and update repos as packages
 - **Smart adopt workflow** --- migrates existing configs automatically
@@ -64,6 +65,12 @@ go build ./cmd/tidydots
    tidydots restore
    ```
 
+   or let the TUI guide you through the process:
+
+   ```bash
+   tidydots
+   ```
+
 See the [Quick Start guide](https://tidydots.io/getting-started/quick-start/)
 for a full walkthrough, or explore the
 [configuration reference](https://tidydots.io/configuration/overview/) for all
@@ -74,11 +81,15 @@ available options.
 The full documentation is available at **[tidydots.io](https://tidydots.io)**
 and covers:
 
-- [Getting Started](https://tidydots.io/getting-started/quick-start/) --- installation, quick start, and core concepts
-- [Configuration](https://tidydots.io/configuration/overview/) --- applications, configs, packages, and templates
-- [Guides](https://tidydots.io/guides/multi-machine-setups/) --- multi-machine setups, package management, system configs
+- [Getting Started](https://tidydots.io/getting-started/quick-start/) ---
+  installation, quick start, and core concepts
+- [Configuration](https://tidydots.io/configuration/overview/) --- applications,
+  configs, packages, and templates
+- [Guides](https://tidydots.io/guides/multi-machine-setups/) --- multi-machine
+  setups, package management, system configs
 - [CLI Reference](https://tidydots.io/cli/reference/) --- all commands and flags
-- [Troubleshooting](https://tidydots.io/troubleshooting/) --- common issues and solutions
+- [Troubleshooting](https://tidydots.io/troubleshooting/) --- common issues and
+  solutions
 
 ## License
 
