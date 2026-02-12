@@ -88,7 +88,7 @@ func (m Model) updateApplicationGitFields(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
-		return m, nil
+		return m, m.checkUncheckedPackageStatesCmd()
 	}
 
 	return m, nil
@@ -228,7 +228,7 @@ func (m Model) updateApplicationInstallerFields(msg tea.KeyMsg) (tea.Model, tea.
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
-		return m, nil
+		return m, m.checkUncheckedPackageStatesCmd()
 	}
 
 	return m, nil

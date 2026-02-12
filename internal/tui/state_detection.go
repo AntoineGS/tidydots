@@ -81,6 +81,32 @@ func (m Model) checkSubEntryStatesCmd() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// checkUncheckedPackageStatesCmd triggers async checks for apps whose package state hasn't been resolved yet.
+// Called after saving a new or edited application to resolve "Loading..." status.
+func (m Model) checkUncheckedPackageStatesCmd() tea.Cmd {
+	var cmds []tea.Cmd
+	osType := m.Platform.OS
+
+	for i, app := range m.Applications {
+		if !app.Application.HasPackage() || app.PkgInstalled != nil {
+			continue
+		}
+		appIndex := i
+		pkg := app.Application.Package
+		name := app.Application.Name
+		cmds = append(cmds, func() tea.Msg {
+			method := getPackageInstallMethodFromPackage(pkg, osType)
+			installed := false
+			if method != TypeNone {
+				installed = isPackageInstalledFromPackage(pkg, method, name)
+			}
+			return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
+		})
+	}
+
+	return tea.Batch(cmds...)
+}
+
 // checkFilteredStatesCmd triggers async checks for filtered apps that haven't been scanned yet.
 // Called when the user toggles the filter off, revealing previously-hidden apps.
 func (m Model) checkFilteredStatesCmd() tea.Cmd {
