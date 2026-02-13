@@ -250,8 +250,12 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 	}
 
 	if !pathExists(source) {
-		m.logger.Debug("source folder does not exist", slog.String("path", source))
-		return nil
+		if m.DryRun {
+			m.logger.Info("source folder does not exist (dry-run, skipping)", slog.String("path", source))
+			return nil
+		}
+
+		return NewPathError("restore", source, fmt.Errorf("source folder does not exist"))
 	}
 
 	parentDir := filepath.Dir(target)
@@ -413,8 +417,12 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 		}
 
 		if !pathExists(srcFile) {
-			m.logger.Debug("source file does not exist", slog.String("path", srcFile))
-			continue
+			if m.DryRun {
+				m.logger.Info("source file does not exist (dry-run, skipping)", slog.String("path", srcFile))
+				continue
+			}
+
+			return NewPathError("restore", srcFile, fmt.Errorf("source file does not exist"))
 		}
 
 		if pathExists(dstFile) && !isSymlink(dstFile) {

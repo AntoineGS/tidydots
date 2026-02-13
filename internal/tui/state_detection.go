@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"path/filepath"
+
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
@@ -146,12 +148,14 @@ func detectSubEntryStateStatic(item SubEntryItem, plat *platform.Platform, cfg *
 	return st
 }
 
-// resolvePathStatic resolves relative paths and expands ~ without using Model receiver.
+// resolvePathStatic resolves relative paths against BackupRoot and expands ~ without using Model receiver.
 func resolvePathStatic(path string, cfg *config.Config, envVars map[string]string) string {
-	resolvedPath := path
-	if len(path) > 0 && path[0] == '.' {
-		resolvedPath = cfg.BackupRoot + path[1:]
+	expandedPath := config.ExpandPath(path, envVars)
+
+	if filepath.IsAbs(expandedPath) {
+		return expandedPath
 	}
 
-	return config.ExpandPath(resolvedPath, envVars)
+	expandedBackupRoot := config.ExpandPath(cfg.BackupRoot, envVars)
+	return filepath.Join(expandedBackupRoot, expandedPath)
 }

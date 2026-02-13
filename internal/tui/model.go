@@ -803,14 +803,14 @@ func (m Model) handleMouseClick(mouseY int, toggleSelect bool) (tea.Model, tea.C
 	return m, nil
 }
 
-// resolvePath resolves relative paths and expands ~ in paths
+// resolvePath resolves relative paths against BackupRoot and expands ~ in paths
 func (m Model) resolvePath(path string) string {
-	// Resolve relative paths against BackupRoot
-	resolvedPath := path
-	if len(path) > 0 && path[0] == '.' {
-		resolvedPath = m.Config.BackupRoot + path[1:]
+	expandedPath := config.ExpandPath(path, m.Platform.EnvVars)
+
+	if filepath.IsAbs(expandedPath) {
+		return expandedPath
 	}
 
-	// Expand ~ for file operations
-	return config.ExpandPath(resolvedPath, m.Platform.EnvVars)
+	expandedBackupRoot := config.ExpandPath(m.Config.BackupRoot, m.Platform.EnvVars)
+	return filepath.Join(expandedBackupRoot, expandedPath)
 }

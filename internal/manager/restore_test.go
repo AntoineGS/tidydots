@@ -1267,8 +1267,13 @@ func TestRestoreFiles_SourceMissing(t *testing.T) {
 	subEntry := config.SubEntry{Name: "test", Files: []string{"missing.txt"}}
 
 	err := mgr.RestoreFiles(subEntry, backupDir, targetDir)
-	if err != nil {
-		t.Fatalf("restoreFiles() error = %v", err)
+	if err == nil {
+		t.Fatal("restoreFiles() should return error for missing source file")
+	}
+
+	var pathErr *PathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("expected PathError, got %T: %v", err, err)
 	}
 
 	// No symlink should be created (source doesn't exist)
@@ -1294,8 +1299,13 @@ func TestRestoreFolder_SourceMissing(t *testing.T) {
 	subEntry := config.SubEntry{Name: "test"}
 
 	err := mgr.RestoreFolder(subEntry, backupDir, targetDir)
-	if err != nil {
-		t.Fatalf("restoreFolder() error = %v", err)
+	if err == nil {
+		t.Fatal("restoreFolder() should return error for missing source folder")
+	}
+
+	var pathErr *PathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("expected PathError, got %T: %v", err, err)
 	}
 
 	// Target should not be created (source doesn't exist)
@@ -1388,8 +1398,13 @@ func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 	subEntry := cfg.Applications[0].Entries[0]
 
 	err := mgr.RestoreFiles(subEntry, backupPath, targetDir)
-	if err != nil {
-		t.Fatalf("RestoreFiles() error = %v", err)
+	if err == nil {
+		t.Fatal("RestoreFiles() should return error for missing source file")
+	}
+
+	var pathErr *PathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("expected PathError, got %T: %v", err, err)
 	}
 
 	// No symlink should be created
@@ -1435,8 +1450,13 @@ func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
 	subEntry := cfg.Applications[0].Entries[0]
 
 	err := mgr.RestoreFolder(subEntry, backupPath, targetDir)
-	if err != nil {
-		t.Fatalf("RestoreFolder() error = %v", err)
+	if err == nil {
+		t.Fatal("RestoreFolder() should return error for missing source folder")
+	}
+
+	var pathErr *PathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("expected PathError, got %T: %v", err, err)
 	}
 
 	// Target should not be created
