@@ -1815,6 +1815,95 @@ func TestManager_InstallGitPackage_WithSudo(t *testing.T) {
 	}
 }
 
+func TestParseWingetListOutput(t *testing.T) {
+	t.Parallel()
+
+	t.Run("standard output", func(t *testing.T) {
+		t.Parallel()
+		output := `Name                                       Id                                         Version          Available Source
+-----------------------------------------------------------------------------------------------------------------------
+7-Zip 26.00 (x64)                          7zip.7zip                                  26.00                      winget
+Git                                        Git.Git                                    2.53.0                     winget
+Starship                                   Starship.Starship                          1.17.1                     winget
+zoxide                                     ajeetdsouza.zoxide                         0.9.4                      winget
+`
+		ids := parseWingetListOutput(output)
+
+		expected := []string{"7zip.7zip", "git.git", "starship.starship", "ajeetdsouza.zoxide"}
+		for _, id := range expected {
+			if !ids[id] {
+				t.Errorf("expected %q in installed IDs", id)
+			}
+		}
+	})
+
+	t.Run("case insensitive lookup", func(t *testing.T) {
+		t.Parallel()
+		output := `Name       Id                    Version Source
+----------------------------------------------------
+Git        Git.Git               2.53.0  winget
+`
+		ids := parseWingetListOutput(output)
+
+		if !ids["git.git"] {
+			t.Error("expected case-insensitive ID lookup to work")
+		}
+	})
+
+	t.Run("empty output", func(t *testing.T) {
+		t.Parallel()
+		ids := parseWingetListOutput("")
+
+		if len(ids) != 0 {
+			t.Errorf("expected 0 IDs, got %d", len(ids))
+		}
+	})
+
+	t.Run("no header separator", func(t *testing.T) {
+		t.Parallel()
+		ids := parseWingetListOutput("Some random text\nwithout dashes")
+
+		if len(ids) != 0 {
+			t.Errorf("expected 0 IDs, got %d", len(ids))
+		}
+	})
+
+	t.Run("with progress spinner lines", func(t *testing.T) {
+		t.Parallel()
+		output := `-    \
+-    \    |    /
+Name       Id                    Version Source
+----------------------------------------------------
+Git        Git.Git               2.53.0  winget
+`
+		ids := parseWingetListOutput(output)
+
+		if !ids["git.git"] {
+			t.Error("expected git.git to be found despite progress spinner lines")
+		}
+	})
+
+	t.Run("with carriage return spinner from piped output", func(t *testing.T) {
+		t.Parallel()
+		// When winget writes to a pipe, progress spinner uses \r to overwrite.
+		// Lines use \r\n endings (Windows). The spinner chars and header are on
+		// the same line separated by \r, with \r\n at the end.
+		output := "\r- \r\\ \r| \r/ \rName       Id                    Version Source\r\n" +
+			"----------------------------------------------------\r\n" +
+			"Git        Git.Git               2.53.0  winget\r\n" +
+			"zoxide     ajeetdsouza.zoxide    0.9.4   winget\r\n"
+
+		ids := parseWingetListOutput(output)
+
+		if !ids["git.git"] {
+			t.Error("expected git.git to be found with \\r spinner prefix")
+		}
+		if !ids["ajeetdsouza.zoxide"] {
+			t.Error("expected ajeetdsouza.zoxide to be found with \\r spinner prefix")
+		}
+	})
+}
+
 func TestBuildCommand(t *testing.T) {
 	tests := []struct {
 		name     string

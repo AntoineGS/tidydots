@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -30,6 +31,7 @@ var (
 	forceDelete bool
 	forceRender bool
 	cpuProfile  string
+	logFile     *os.File
 )
 
 func main() {
@@ -48,6 +50,22 @@ Run 'tidydots init <path>' to set up the app configuration.
 Run without arguments to start the interactive TUI.`,
 		RunE: runInteractive,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			if verbose {
+				logWriter := os.Stderr
+				// When running interactively (TUI), write logs to a file to avoid corrupting the display
+				if tui.IsTerminal() {
+					logPath := filepath.Join(os.TempDir(), "tidydots.log")
+					f, err := os.Create(logPath)
+					if err == nil {
+						logFile = f
+						logWriter = f
+						fmt.Fprintf(os.Stderr, "Verbose logs: %s\n", logPath)
+					}
+				}
+				slog.SetDefault(slog.New(slog.NewTextHandler(logWriter, &slog.HandlerOptions{
+					Level: slog.LevelDebug,
+				})))
+			}
 			if cpuProfile != "" {
 				f, err := os.Create(filepath.Clean(cpuProfile))
 				if err != nil {
@@ -61,6 +79,9 @@ Run without arguments to start the interactive TUI.`,
 			return nil
 		},
 		PersistentPostRun: func(_ *cobra.Command, _ []string) {
+			if logFile != nil {
+				_ = logFile.Close()
+			}
 			if cpuProfile != "" {
 				pprof.StopCPUProfile()
 			}

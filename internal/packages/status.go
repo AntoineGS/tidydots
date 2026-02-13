@@ -1,31 +1,102 @@
 package packages
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"os/exec"
+	"strings"
+	"sync"
 
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
+// installedCache holds the lazily-populated set of installed package IDs for
+// managers that support bulk listing (see managerCmd.bulkList).
+// The cache is populated once per manager on the first IsInstalled call.
+var installedCache sync.Map // map[string]*bulkCacheEntry
+
+type bulkCacheEntry struct {
+	once       sync.Once
+	installedIDs map[string]bool // lowercase ID → true
+}
+
 // IsInstalled checks if a package is installed on the system.
-// It uses the appropriate package manager query command based on the installation method.
+// For managers with bulk list support, it runs a single list command and caches
+// the results. For other managers, it runs the per-package check command.
 // Returns true if the package is installed, false otherwise.
 func IsInstalled(ctx context.Context, pkgName string, manager string) bool {
 	mc, ok := managerCmds[PackageManager(manager)]
 	if !ok {
-		// For git, custom, url methods, we can't easily check installation status
+		slog.Debug("no check command for manager, assuming not installed",
+			slog.String("package", pkgName),
+			slog.String("manager", manager))
 		return false
 	}
 
+	// Managers with bulk list support: run one command, cache all installed IDs
+	if mc.bulkList != nil {
+		return isInstalledBulk(ctx, pkgName, manager, mc)
+	}
+
+	return isInstalledSingle(ctx, pkgName, manager, mc)
+}
+
+// isInstalledBulk checks installation via cached bulk list output.
+func isInstalledBulk(ctx context.Context, pkgName, manager string, mc managerCmd) bool {
+	val, _ := installedCache.LoadOrStore(manager, &bulkCacheEntry{})
+	entry := val.(*bulkCacheEntry)
+
+	entry.once.Do(func() {
+		entry.installedIDs = mc.bulkList(ctx)
+	})
+
+	found := entry.installedIDs[strings.ToLower(pkgName)]
+	if found {
+		slog.Debug("package detected as installed (bulk cache)",
+			slog.String("package", pkgName),
+			slog.String("manager", manager))
+	} else {
+		slog.Debug("package not found in bulk cache",
+			slog.String("package", pkgName),
+			slog.String("manager", manager))
+	}
+
+	return found
+}
+
+// isInstalledSingle checks installation by running the per-package check command.
+func isInstalledSingle(ctx context.Context, pkgName, manager string, mc managerCmd) bool {
 	args := expandArgs(mc.check, pkgName)
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...) //nolint:gosec // args from trusted lookup table
 
-	// Run silently - just check exit code
+	var stderr bytes.Buffer
 	cmd.Stdout = nil
-	cmd.Stderr = nil
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 
-	return err == nil
+	if err != nil {
+		errMsg := strings.TrimSpace(stderr.String())
+		slog.Debug("package check command failed",
+			slog.String("package", pkgName),
+			slog.String("manager", manager),
+			slog.String("command", strings.Join(args, " ")),
+			slog.String("error", err.Error()),
+			slog.String("stderr", errMsg))
+		return false
+	}
+
+	slog.Debug("package detected as installed",
+		slog.String("package", pkgName),
+		slog.String("manager", manager))
+
+	return true
+}
+
+// ResetInstalledCache clears the bulk installed cache, causing the next
+// IsInstalled call to re-query. Useful for tests and after install operations.
+func ResetInstalledCache() {
+	installedCache = sync.Map{}
 }
 
 // IsInstallerInstalled checks if an installer package is installed by looking up

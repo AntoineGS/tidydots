@@ -119,6 +119,10 @@ func getApplicationStatus(app ApplicationItem) string {
 
 	if app.PkgInstalled == nil {
 		if app.Application.HasPackage() {
+			// If method is already resolved to "none", no manager is available for this OS
+			if app.PkgMethod == TypeNone {
+				return StatusUnknown
+			}
 			return StatusLoading
 		}
 		return StatusUnknown

@@ -152,6 +152,24 @@ func TestGetApplicationStatus(t *testing.T) {
 			t.Errorf("Expected StatusUnknown, got %s", status)
 		}
 	})
+
+	t.Run("package configured but no manager available", func(t *testing.T) {
+		app := ApplicationItem{
+			Application: config.Application{
+				Package: &config.EntryPackage{
+					Managers: map[string]config.ManagerValue{
+						"pacman": {PackageName: "yazi"},
+					},
+				},
+			},
+			PkgMethod: TypeNone,
+		}
+
+		status := getApplicationStatus(app)
+		if status != StatusUnknown {
+			t.Errorf("Expected StatusUnknown, got %s", status)
+		}
+	})
 }
 
 func TestGetTypeInfo(t *testing.T) {
