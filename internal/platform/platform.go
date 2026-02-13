@@ -305,14 +305,50 @@ func lookPathSkipWindowsDrives(file string, mounts []string) bool {
 var (
 	availableManagersOnce   sync.Once
 	availableManagersCached []string
+	detectedOS              string
 	detectedWSL             bool
 	windowsDriveMounts      []string
 )
 
-// SetDetectionHints provides WSL information so that DetectAvailableManagers
-// can skip slow Windows drive mounts. On WSL, it reads /proc/mounts to
-// identify 9p/drvfs mount points. Call this before DetectAvailableManagers.
-func SetDetectionHints(_ string, isWSL bool) {
+// managersForOS defines which package managers are valid for each OS.
+// Managers not listed here (like "git") are considered cross-platform.
+var managersForOS = map[string]map[string]bool{
+	OSLinux: {
+		"yay": true, "paru": true, "pacman": true,
+		"apt": true, "dnf": true, "brew": true,
+	},
+	OSWindows: {
+		"winget": true, "scoop": true, "choco": true,
+	},
+}
+
+// isManagerValidForOS returns true if the manager is valid for the given OS,
+// or if the manager is cross-platform (not listed in any OS-specific set).
+func isManagerValidForOS(manager, osType string) bool {
+	osManagers, osKnown := managersForOS[osType]
+	if !osKnown || osType == "" {
+		return true // unknown OS, allow everything
+	}
+
+	if osManagers[manager] {
+		return true // explicitly listed for this OS
+	}
+
+	// Check if it's OS-specific to a different OS (should be excluded)
+	for otherOS, otherManagers := range managersForOS {
+		if otherOS != osType && otherManagers[manager] {
+			return false
+		}
+	}
+
+	return true // cross-platform (e.g. "git")
+}
+
+// SetDetectionHints provides OS and WSL information so that DetectAvailableManagers
+// can filter managers by platform and skip slow Windows drive mounts on WSL.
+// Call this before DetectAvailableManagers.
+func SetDetectionHints(osType string, isWSL bool) {
+	detectedOS = osType
 	detectedWSL = isWSL
 	if isWSL {
 		windowsDriveMounts = detectWindowsDriveMounts()
@@ -321,6 +357,7 @@ func SetDetectionHints(_ string, isWSL bool) {
 
 // DetectAvailableManagers returns a list of package managers available on the system
 // by checking which managers from KnownPackageManagers are present in the PATH.
+// Managers are filtered by OS to avoid false positives (e.g. MSYS2 pacman on Windows).
 // On WSL, it skips slow Windows drive mount PATH entries (e.g. /mnt/c/).
 // Results are cached after the first call since PATH rarely changes during execution.
 func DetectAvailableManagers() []string {
@@ -328,6 +365,10 @@ func DetectAvailableManagers() []string {
 		available := make([]string, 0, len(KnownPackageManagers))
 
 		for _, mgr := range KnownPackageManagers {
+			if !isManagerValidForOS(mgr, detectedOS) {
+				continue
+			}
+
 			if detectedWSL && len(windowsDriveMounts) > 0 {
 				if lookPathSkipWindowsDrives(mgr, windowsDriveMounts) {
 					available = append(available, mgr)

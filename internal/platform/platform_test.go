@@ -196,6 +196,46 @@ func TestDetectAvailableManagers_Git(t *testing.T) {
 	}
 }
 
+func TestIsManagerValidForOS(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		manager string
+		os      string
+		want    bool
+	}{
+		{"pacman on linux", "pacman", OSLinux, true},
+		{"pacman on windows", "pacman", OSWindows, false},
+		{"yay on linux", "yay", OSLinux, true},
+		{"yay on windows", "yay", OSWindows, false},
+		{"apt on linux", "apt", OSLinux, true},
+		{"apt on windows", "apt", OSWindows, false},
+		{"winget on windows", "winget", OSWindows, true},
+		{"winget on linux", "winget", OSLinux, false},
+		{"scoop on windows", "scoop", OSWindows, true},
+		{"scoop on linux", "scoop", OSLinux, false},
+		{"choco on windows", "choco", OSWindows, true},
+		{"choco on linux", "choco", OSLinux, false},
+		{"brew on linux", "brew", OSLinux, true},
+		{"brew on windows", "brew", OSWindows, false},
+		{"git on linux", "git", OSLinux, true},
+		{"git on windows", "git", OSWindows, true},
+		{"unknown manager on linux", "unknown", OSLinux, true},
+		{"pacman on empty os", "pacman", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := isManagerValidForOS(tt.manager, tt.os)
+			if got != tt.want {
+				t.Errorf("isManagerValidForOS(%q, %q) = %v, want %v", tt.manager, tt.os, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsUnderWindowsDrive(t *testing.T) {
 	t.Parallel()
 
