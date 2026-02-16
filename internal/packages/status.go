@@ -17,7 +17,7 @@ import (
 var installedCache sync.Map // map[string]*bulkCacheEntry
 
 type bulkCacheEntry struct {
-	once       sync.Once
+	once         sync.Once
 	installedIDs map[string]bool // lowercase ID → true
 }
 
@@ -45,7 +45,7 @@ func IsInstalled(ctx context.Context, pkgName string, manager string) bool {
 // isInstalledBulk checks installation via cached bulk list output.
 func isInstalledBulk(ctx context.Context, pkgName, manager string, mc managerCmd) bool {
 	val, _ := installedCache.LoadOrStore(manager, &bulkCacheEntry{})
-	entry := val.(*bulkCacheEntry)
+	entry, _ := val.(*bulkCacheEntry) //nolint:errcheck // type is guaranteed by LoadOrStore above
 
 	entry.once.Do(func() {
 		entry.installedIDs = mc.bulkList(ctx)
