@@ -76,10 +76,6 @@ func TestDetectDisplay_Linux(t *testing.T) {
 			waylandDisplay: "wayland-0",
 			want:           true,
 		},
-		{
-			name: "no display",
-			want: false,
-		},
 	}
 
 	for _, tt := range tests {
@@ -92,6 +88,23 @@ func TestDetectDisplay_Linux(t *testing.T) {
 				t.Errorf("detectDisplay(%q) = %v, want %v", OSLinux, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDetectDisplay_Linux_SocketFallback(t *testing.T) {
+	// With no env vars, detection falls back to socket checks.
+	// Result depends on whether a display server is running on this machine.
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WAYLAND_DISPLAY", "")
+
+	got := detectDisplay(OSLinux)
+	t.Logf("detectDisplay(linux) socket fallback = %v", got)
+
+	// If Wayland or X11 sockets exist, the result should be true
+	if hasWaylandSocket() || hasX11Socket() {
+		if !got {
+			t.Error("detectDisplay(linux) = false, but display sockets were found")
+		}
 	}
 }
 

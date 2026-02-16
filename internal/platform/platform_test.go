@@ -155,16 +155,10 @@ func TestDetectDisplay(t *testing.T) {
 			waylandDisplay: "wayland-0",
 			want:           true,
 		},
-		{
-			name:   "linux with neither set",
-			osType: OSLinux,
-			want:   false,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear both env vars first
 			t.Setenv("DISPLAY", tt.display)
 			t.Setenv("WAYLAND_DISPLAY", tt.waylandDisplay)
 
@@ -174,6 +168,32 @@ func TestDetectDisplay(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDetectDisplay_NoEnvVars(t *testing.T) {
+	// When env vars are empty, detectDisplay falls back to socket detection.
+	// The result depends on whether a display server is actually running,
+	// so we just verify it doesn't panic and returns a bool.
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WAYLAND_DISPLAY", "")
+
+	got := detectDisplay(OSLinux)
+	// On CI (headless), this should be false; on a desktop, true.
+	// We can't assert a specific value, but we verify it runs without error.
+	t.Logf("detectDisplay(linux) with no env vars = %v", got)
+	_ = got
+}
+
+func TestHasWaylandSocket(t *testing.T) {
+	// Verify the function doesn't panic regardless of environment.
+	got := hasWaylandSocket()
+	t.Logf("hasWaylandSocket() = %v", got)
+}
+
+func TestHasX11Socket(t *testing.T) {
+	// Verify the function doesn't panic regardless of environment.
+	got := hasX11Socket()
+	t.Logf("hasX11Socket() = %v", got)
 }
 
 func TestDetectAvailableManagers_Git(t *testing.T) {

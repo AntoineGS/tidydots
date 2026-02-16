@@ -3,6 +3,7 @@ package platform
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -124,7 +125,9 @@ func detectOS() string {
 }
 
 // detectDisplay checks whether a display server is available.
-// On Linux, it checks for DISPLAY (X11) or WAYLAND_DISPLAY (Wayland).
+// On Linux, it first checks DISPLAY (X11) and WAYLAND_DISPLAY (Wayland)
+// environment variables. If neither is set, it falls back to checking for
+// Wayland sockets and X11 lock files on the filesystem.
 // On Windows, it always returns true.
 func detectDisplay(osType string) bool {
 	if osType == OSWindows {
@@ -137,6 +140,51 @@ func detectDisplay(osType string) bool {
 
 	if os.Getenv("WAYLAND_DISPLAY") != "" {
 		return true
+	}
+
+	if hasWaylandSocket() {
+		return true
+	}
+
+	if hasX11Socket() {
+		return true
+	}
+
+	return false
+}
+
+// hasWaylandSocket checks for Wayland compositor sockets in the XDG runtime directory.
+func hasWaylandSocket() bool {
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if runtimeDir == "" {
+		runtimeDir = filepath.Join("/run/user", fmt.Sprintf("%d", os.Getuid()))
+	}
+
+	entries, err := os.ReadDir(runtimeDir)
+	if err != nil {
+		return false
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "wayland-") && !strings.HasSuffix(entry.Name(), ".lock") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// hasX11Socket checks for X11 server sockets in /tmp/.X11-unix/.
+func hasX11Socket() bool {
+	entries, err := os.ReadDir("/tmp/.X11-unix")
+	if err != nil {
+		return false
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "X") {
+			return true
+		}
 	}
 
 	return false
