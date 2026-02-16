@@ -17,6 +17,14 @@ import (
 func (m *Manager) Install(pkg Package) InstallResult {
 	result := InstallResult{Package: pkg.Name}
 
+	// Phase 1: Install dependencies across all managers
+	if method, msg, ok := m.installDeps(pkg); !ok {
+		result.Method = method
+		result.Success = false
+		result.Message = msg
+		return result
+	}
+
 	// Check if this is a git package
 	if gitValue, ok := pkg.Managers[Git]; ok && gitValue.IsGit() {
 		result.Method = string(Git)
@@ -78,6 +86,34 @@ func (m *Manager) Install(pkg Package) InstallResult {
 	result.Message = "No installation method available for this OS/system"
 
 	return result
+}
+
+// installDeps installs all dependencies for a package across its managers.
+// It skips managers that are not available on the current system.
+// It returns the manager method, an error message, and false if any dependency fails.
+// Returns ("", "", true) if all dependencies installed successfully.
+func (m *Manager) installDeps(pkg Package) (string, string, bool) {
+	for mgr, val := range pkg.Managers {
+		if len(val.Deps) == 0 {
+			continue
+		}
+		// Skip git and installer - they don't have traditional deps
+		if mgr == Git || mgr == Installer {
+			continue
+		}
+		// Skip managers not available on this system
+		if !m.availableSet[mgr] {
+			continue
+		}
+		for _, dep := range val.Deps {
+			success, msg := m.installWithManager(mgr, dep)
+			if !success {
+				return string(mgr), fmt.Sprintf("Dependency %s failed: %s", dep, msg), false
+			}
+		}
+	}
+
+	return "", "", true
 }
 
 // InstallAll installs all packages in the provided slice sequentially.

@@ -38,6 +38,59 @@ package:
 
 Each key is a package manager name and the value is the package identifier string for that manager.
 
+### Package Dependencies
+
+You can declare dependencies for any standard package manager. Dependencies are installed before the main package.
+
+**Same-manager dependencies** (most common case):
+
+```yaml
+package:
+  managers:
+    winget:
+      name: "sxyazi.yazi"
+      deps:
+        - "GnuWin32.Jq"
+        - "Gyan.FFmpeg"
+        - "sharkdp.fd"
+    pacman: "yazi"  # No deps needed, pacman handles transitive deps
+```
+
+When a manager entry has dependencies, it uses the object form with `name` and `deps` instead of a plain string. If dependencies are removed, it collapses back to the plain string form.
+
+**Cross-manager dependencies** (for installer/custom packages):
+
+When an application is installed via `installer` or `custom`, you can declare dependencies from native package managers using a deps-only entry (no `name` field):
+
+```yaml
+package:
+  managers:
+    apt:
+      deps:
+        - "libssl-dev"
+        - "cmake"
+    installer:
+      command:
+        linux: "curl -fsSL https://example.com/install.sh | sh"
+      binary: "mytool"
+```
+
+In this example, `libssl-dev` and `cmake` are installed via `apt` before the installer command runs.
+
+**Dependency fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | no | Package identifier for the manager (omit for deps-only entries) |
+| `deps` | list of strings | no | Package names to install as dependencies |
+
+**Behavior:**
+
+- All dependencies across all managers are installed first, before the main package
+- If any dependency fails to install, the main package installation is aborted
+- Dependencies are installed in an unordered fashion
+- The plain string form (`pacman: "yazi"`) is equivalent to `pacman: { name: "yazi" }` with no deps
+
 ### Git Packages
 
 Clone or update a git repository as a package. The `managers.git` key takes a nested object instead of a string.
@@ -327,3 +380,27 @@ applications:
 ```
 
 tidydots tries methods in order: git first (if defined), then installer, then standard managers, then custom, then URL. The first successful method wins.
+
+### Application with Package Dependencies
+
+```yaml
+applications:
+  - name: "yazi"
+    description: "Terminal file manager"
+    entries:
+      - name: "yazi-config"
+        backup: "./yazi"
+        targets:
+          linux: "~/.config/yazi"
+          windows: "~/AppData/Roaming/yazi/config"
+    package:
+      managers:
+        pacman: "yazi"
+        winget:
+          name: "sxyazi.yazi"
+          deps:
+            - "GnuWin32.Jq"
+            - "Gyan.FFmpeg"
+            - "sharkdp.fd"
+            - "BurntSushi.ripgrep.MSVC"
+```

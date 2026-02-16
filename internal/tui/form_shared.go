@@ -78,12 +78,22 @@ func renderPackagesSection(
 	packagesCursor int,
 	editingPackage bool,
 	packageNameInput textinput.Model,
+	packageDeps map[string][]string,
 ) string {
 	var b strings.Builder
 
 	for i, manager := range displayPackageManagers {
 		prefix := IndentSpaces
 		pkgName := packageManagers[manager]
+
+		depsCount := 0
+		if packageDeps != nil {
+			depsCount = len(packageDeps[manager])
+		}
+		depsIndicator := ""
+		if depsCount > 0 {
+			depsIndicator = fmt.Sprintf(" (%d deps)", depsCount)
+		}
 
 		// Show input if editing this manager's package
 		switch {
@@ -92,18 +102,54 @@ func renderPackagesSection(
 		case focused && packagesCursor == i:
 			// Focused on this manager
 			if pkgName != "" {
-				b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s %s", manager+":", pkgName))))
+				b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s %s%s", manager+":", pkgName, depsIndicator))))
 			} else {
-				b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s (not set)", manager+":"))))
+				b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s (not set)%s", manager+":", depsIndicator))))
 			}
 		default:
 			// Not focused
 			if pkgName != "" {
-				b.WriteString(fmt.Sprintf("%s%-8s %s\n", prefix, manager+":", pkgName))
+				b.WriteString(fmt.Sprintf("%s%-8s %s%s\n", prefix, manager+":", pkgName, depsIndicator))
 			} else {
-				b.WriteString(fmt.Sprintf("%s%-8s %s\n", prefix, manager+":", MutedTextStyle.Render("(not set)")))
+				b.WriteString(fmt.Sprintf("%s%-8s %s%s\n", prefix, manager+":", MutedTextStyle.Render("(not set)"), depsIndicator))
 			}
 		}
+	}
+
+	return b.String()
+}
+
+// renderDepsSection renders the deps editing view for a specific package manager
+func renderDepsSection(
+	manager string,
+	deps []string,
+	cursor int,
+	editingItem bool,
+	depInput textinput.Model,
+) string {
+	var b strings.Builder
+	prefix := IndentSpaces
+
+	b.WriteString(fmt.Sprintf("%s%s\n", prefix, HelpKeyStyle.Render(fmt.Sprintf("Dependencies for %s:", manager))))
+
+	for i, dep := range deps {
+		if editingItem && cursor == i {
+			b.WriteString(fmt.Sprintf("%s  %s\n", prefix, depInput.View()))
+		} else if cursor == i {
+			b.WriteString(fmt.Sprintf("%s  %s\n", prefix, SelectedMenuItemStyle.Render(dep)))
+		} else {
+			b.WriteString(fmt.Sprintf("%s  %s\n", prefix, dep))
+		}
+	}
+
+	// Add button
+	addText := "[+ Add dependency]"
+	if editingItem && cursor == len(deps) {
+		b.WriteString(fmt.Sprintf("%s  %s\n", prefix, depInput.View()))
+	} else if cursor == len(deps) {
+		b.WriteString(fmt.Sprintf("%s  %s\n", prefix, SelectedMenuItemStyle.Render(addText)))
+	} else {
+		b.WriteString(fmt.Sprintf("%s  %s\n", prefix, MutedTextStyle.Render(addText)))
 	}
 
 	return b.String()

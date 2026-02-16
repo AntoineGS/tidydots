@@ -41,7 +41,7 @@ func convertPackage(pkg *config.EntryPackage) (map[PackageManager]ManagerValue, 
 			}}
 			continue
 		}
-		managers[PackageManager(k)] = ManagerValue{PackageName: v.PackageName}
+		managers[PackageManager(k)] = ManagerValue{PackageName: v.PackageName, Deps: v.Deps}
 	}
 
 	urlInstalls := make(map[string]URLInstall)

@@ -26,6 +26,7 @@ const (
 	PlaceholderInstallerLinux   = "e.g., curl ... | sh"
 	PlaceholderInstallerWindows = "e.g., winget install ..."
 	PlaceholderInstallerBinary  = "e.g., cargo"
+	PlaceholderDep              = "e.g., ffmpeg"
 	IndentSpaces                = "    "
 	CheckboxUnchecked           = "[ ]"
 	CheckboxChecked             = "[✓]"

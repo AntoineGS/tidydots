@@ -2140,3 +2140,168 @@ func TestBuildCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestInstall_DryRun_WithDeps(t *testing.T) {
+	tests := []struct {
+		name        string
+		osType      string
+		wantMethod  string
+		pkg         Package
+		available   []PackageManager
+		wantSuccess bool
+	}{
+		{
+			name:      "winget main with winget deps installs successfully",
+			available: []PackageManager{Winget},
+			osType:    "windows",
+			pkg: Package{
+				Name: "app",
+				Managers: map[PackageManager]ManagerValue{
+					Winget: {
+						PackageName: "Publisher.App",
+						Deps:        []string{"Publisher.DepA", "Publisher.DepB"},
+					},
+				},
+			},
+			wantSuccess: true,
+			wantMethod:  "winget",
+		},
+		{
+			name:      "deps-only with no main name plus installer",
+			available: []PackageManager{Pacman},
+			osType:    "linux",
+			pkg: Package{
+				Name: "tool-with-deps",
+				Managers: map[PackageManager]ManagerValue{
+					Pacman: {
+						PackageName: "",
+						Deps:        []string{"base-devel", "cmake"},
+					},
+					Installer: {Installer: &InstallerConfig{
+						Command: map[string]string{
+							"linux": "curl -fsSL https://example.com/install.sh | sh",
+						},
+					}},
+				},
+			},
+			wantSuccess: true,
+			wantMethod:  "installer",
+		},
+		{
+			name:      "deps with unavailable manager are skipped",
+			available: []PackageManager{Pacman},
+			osType:    "linux",
+			pkg: Package{
+				Name: "cross-platform-deps",
+				Managers: map[PackageManager]ManagerValue{
+					Pacman: {PackageName: "main-pkg"},
+					PackageManager("apt"): {
+						Deps: []string{"libssl-dev"},
+					},
+				},
+			},
+			wantSuccess: true,
+			wantMethod:  "pacman",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Manager{
+				ctx:          context.Background(),
+				Config:       &Config{},
+				OS:           tt.osType,
+				DryRun:       true,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
+			}
+
+			result := m.Install(tt.pkg)
+
+			if result.Success != tt.wantSuccess {
+				t.Errorf("Install().Success = %v, want %v (message: %s)", result.Success, tt.wantSuccess, result.Message)
+			}
+
+			if result.Method != tt.wantMethod {
+				t.Errorf("Install().Method = %q, want %q", result.Method, tt.wantMethod)
+			}
+
+			if result.Package != tt.pkg.Name {
+				t.Errorf("Install().Package = %q, want %q", result.Package, tt.pkg.Name)
+			}
+
+			if tt.wantSuccess && result.Message == "" {
+				t.Error("Expected non-empty message for successful dry-run")
+			}
+		})
+	}
+}
+
+func TestInstall_DryRun_DepFailure(t *testing.T) {
+	tests := []struct {
+		name       string
+		osType     string
+		wantMethod string
+		pkg        Package
+		available  []PackageManager
+	}{
+		{
+			name:      "dep failure with unknown but available manager aborts main install",
+			available: []PackageManager{Pacman, PackageManager("fakemgr")},
+			osType:    "linux",
+			pkg: Package{
+				Name: "aborted-pkg",
+				Managers: map[PackageManager]ManagerValue{
+					Pacman: {PackageName: "main-pkg"},
+					PackageManager("fakemgr"): {
+						PackageName: "side-pkg",
+						Deps:        []string{"missing-dep"},
+					},
+				},
+			},
+			wantMethod: "fakemgr",
+		},
+		{
+			name:      "dep failure prevents custom fallback",
+			available: []PackageManager{PackageManager("bogus")},
+			osType:    "linux",
+			pkg: Package{
+				Name: "custom-fallback-pkg",
+				Managers: map[PackageManager]ManagerValue{
+					PackageManager("bogus"): {
+						Deps: []string{"some-dep"},
+					},
+				},
+				Custom: map[string]string{"linux": "make install"},
+			},
+			wantMethod: "bogus",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Manager{
+				ctx:          context.Background(),
+				Config:       &Config{},
+				OS:           tt.osType,
+				DryRun:       true,
+				Available:    tt.available,
+				availableSet: toAvailableSet(tt.available),
+			}
+
+			result := m.Install(tt.pkg)
+
+			if result.Success {
+				t.Errorf("Expected failure due to dep, but got success (message: %s)", result.Message)
+			}
+
+			if result.Method != tt.wantMethod {
+				t.Errorf("Install().Method = %q, want %q", result.Method, tt.wantMethod)
+			}
+
+			if !strings.Contains(result.Message, "Dependency") {
+				t.Errorf("Expected 'Dependency' in failure message, got: %s", result.Message)
+			}
+		})
+	}
+}

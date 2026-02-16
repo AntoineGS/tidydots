@@ -56,6 +56,7 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | `f` | Toggle filter (show/hide apps excluded by `when` expressions) |
 | `s` / `ctrl+s` | Save changes |
 | `i` | Context-sensitive: install package (on app row) or view diff (on modified entry) |
+| `p` | Edit package dependencies (in package form) |
 | `d` / `delete` / `backspace` | Delete selected item |
 | `q` | Quit |
 
@@ -193,6 +194,20 @@ Navigate to an application row and press `e` to open the edit screen. You can mo
 - **Name** -- the application identifier
 - **Description** -- optional description text
 - **When** -- conditional expression for machine filtering
+
+### Editing package dependencies
+
+When editing an application's packages section, you can manage dependencies for any standard package manager:
+
+1. Navigate to the packages section of the application form
+2. Move to a native package manager entry (e.g., `winget`, `apt`)
+3. Press `p` to open the dependency editor for that manager
+4. Use the list editor to add, edit, or delete dependencies:
+   - `↑/k`, `↓/j` to navigate
+   - `enter` or `e` to edit an item or add a new one
+   - `d` or `delete` to remove a dependency
+   - `esc` to exit the dependency editor
+5. Dependencies are shown as a count indicator on the manager row: `winget: sxyazi.yazi (3 deps)`
 
 ### Edit a config entry
 

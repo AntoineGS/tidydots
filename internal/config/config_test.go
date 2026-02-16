@@ -1216,4 +1216,115 @@ func TestManagerValueMarshalYAML(t *testing.T) {
 			t.Errorf("Round-trip URL = %q, want %q", gitPkg.Git.URL, "https://github.com/user/repo.git")
 		}
 	})
+
+	t.Run("native manager with deps marshals as object and round-trips", func(t *testing.T) {
+		t.Parallel()
+		ep := EntryPackage{
+			Managers: map[string]ManagerValue{
+				"winget": {PackageName: "sxyazi.yazi", Deps: []string{"GnuWin32.Jq", "sharkdp.fd"}},
+			},
+		}
+
+		out, err := yaml.Marshal(&ep)
+		if err != nil {
+			t.Fatalf("Marshal error: %v", err)
+		}
+
+		output := string(out)
+		if !strings.Contains(output, "name:") {
+			t.Errorf("Object form should contain 'name:', got:\n%s", output)
+		}
+		if !strings.Contains(output, "deps:") {
+			t.Errorf("Object form should contain 'deps:', got:\n%s", output)
+		}
+
+		// Verify round-trip
+		var ep2 EntryPackage
+		if err := yaml.Unmarshal(out, &ep2); err != nil {
+			t.Fatalf("Unmarshal error: %v", err)
+		}
+
+		val, ok := ep2.Managers["winget"]
+		if !ok {
+			t.Fatal("Round-trip lost winget manager")
+		}
+		if val.PackageName != "sxyazi.yazi" {
+			t.Errorf("Round-trip PackageName = %q, want %q", val.PackageName, "sxyazi.yazi")
+		}
+		if len(val.Deps) != 2 || val.Deps[0] != "GnuWin32.Jq" || val.Deps[1] != "sharkdp.fd" {
+			t.Errorf("Round-trip Deps = %v, want [GnuWin32.Jq sharkdp.fd]", val.Deps)
+		}
+	})
+
+	t.Run("native manager with empty deps collapses to plain string", func(t *testing.T) {
+		t.Parallel()
+		ep := EntryPackage{
+			Managers: map[string]ManagerValue{
+				"pacman": {PackageName: "yazi", Deps: []string{}},
+			},
+		}
+
+		out, err := yaml.Marshal(&ep)
+		if err != nil {
+			t.Fatalf("Marshal error: %v", err)
+		}
+
+		output := string(out)
+		if strings.Contains(output, "name:") || strings.Contains(output, "deps:") {
+			t.Errorf("Empty deps should collapse to plain string, got:\n%s", output)
+		}
+
+		// Verify round-trip
+		var ep2 EntryPackage
+		if err := yaml.Unmarshal(out, &ep2); err != nil {
+			t.Fatalf("Unmarshal error: %v", err)
+		}
+
+		val, ok := ep2.Managers["pacman"]
+		if !ok {
+			t.Fatal("Round-trip lost pacman manager")
+		}
+		if val.PackageName != "yazi" {
+			t.Errorf("Round-trip PackageName = %q, want %q", val.PackageName, "yazi")
+		}
+	})
+
+	t.Run("deps-only entry round-trips correctly", func(t *testing.T) {
+		t.Parallel()
+		ep := EntryPackage{
+			Managers: map[string]ManagerValue{
+				"apt": {Deps: []string{"libssl-dev", "cmake"}},
+			},
+		}
+
+		out, err := yaml.Marshal(&ep)
+		if err != nil {
+			t.Fatalf("Marshal error: %v", err)
+		}
+
+		output := string(out)
+		if strings.Contains(output, "name:") {
+			t.Errorf("Deps-only should not contain 'name:', got:\n%s", output)
+		}
+		if !strings.Contains(output, "deps:") {
+			t.Errorf("Deps-only should contain 'deps:', got:\n%s", output)
+		}
+
+		// Verify round-trip
+		var ep2 EntryPackage
+		if err := yaml.Unmarshal(out, &ep2); err != nil {
+			t.Fatalf("Unmarshal error: %v", err)
+		}
+
+		val, ok := ep2.Managers["apt"]
+		if !ok {
+			t.Fatal("Round-trip lost apt manager")
+		}
+		if val.PackageName != "" {
+			t.Errorf("Round-trip PackageName should be empty, got %q", val.PackageName)
+		}
+		if len(val.Deps) != 2 || val.Deps[0] != "libssl-dev" || val.Deps[1] != "cmake" {
+			t.Errorf("Round-trip Deps = %v, want [libssl-dev cmake]", val.Deps)
+		}
+	})
 }

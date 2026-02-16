@@ -150,6 +150,14 @@ type ApplicationForm struct {
 	installerFieldCursor  int  // -1 = on installer label/button, 0-2 = on sub-fields
 	editingInstallerField bool // true when editing an installer text field
 	hasInstallerPackage   bool // true when installer package is configured/expanded
+
+	// Package dependency fields
+	packageDeps    map[string][]string // manager -> deps list
+	depsCursor     int                 // cursor within deps list
+	editingDeps    bool                // true when in deps editing mode
+	editingDepItem bool                // true when editing a dep text input
+	depsManagerKey string              // which manager's deps we're editing
+	depInput       textinput.Model     // text input for adding/editing deps
 }
 
 // SubEntryForm holds state for editing SubEntry data

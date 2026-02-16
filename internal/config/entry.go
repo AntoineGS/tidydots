@@ -14,6 +14,7 @@ type ManagerValue struct {
 	PackageName string
 	Git         *GitPackage
 	Installer   *InstallerPackage
+	Deps        []string
 }
 
 // IsGit returns true if this manager value represents a git package configuration.
@@ -23,6 +24,7 @@ func (v ManagerValue) IsGit() bool { return v.Git != nil }
 func (v ManagerValue) IsInstaller() bool { return v.Installer != nil }
 
 // MarshalYAML writes non-git/non-installer manager values as plain strings
+// when no deps exist, or as an object with name/deps when deps are present.
 func (v ManagerValue) MarshalYAML() (interface{}, error) {
 	if v.IsGit() {
 		return v.Git, nil
@@ -32,7 +34,19 @@ func (v ManagerValue) MarshalYAML() (interface{}, error) {
 		return v.Installer, nil
 	}
 
-	return v.PackageName, nil
+	// Collapse to plain string when no deps
+	if len(v.Deps) == 0 {
+		return v.PackageName, nil
+	}
+
+	// Object form with name and deps
+	result := map[string]interface{}{}
+	if v.PackageName != "" {
+		result["name"] = v.PackageName
+	}
+	result["deps"] = v.Deps
+
+	return result, nil
 }
 
 // EntryPackage contains package installation configuration
@@ -58,6 +72,84 @@ type InstallerPackage struct {
 	Binary  string            `yaml:"binary,omitempty"`
 }
 
+// unmarshalGitManager converts a raw interface{} value into a ManagerValue with a GitPackage.
+func unmarshalGitManager(value interface{}) (ManagerValue, error) {
+	gitMap, ok := value.(map[string]interface{})
+	if !ok {
+		return ManagerValue{}, fmt.Errorf("git manager must be an object, got %T", value)
+	}
+
+	gitBytes, err := yaml.Marshal(gitMap)
+	if err != nil {
+		return ManagerValue{}, fmt.Errorf("marshaling git config: %w", err)
+	}
+
+	var gitPkg GitPackage
+	if err := yaml.Unmarshal(gitBytes, &gitPkg); err != nil {
+		return ManagerValue{}, fmt.Errorf("unmarshaling git config: %w", err)
+	}
+
+	return ManagerValue{Git: &gitPkg}, nil
+}
+
+// unmarshalInstallerManager converts a raw interface{} value into a ManagerValue with an InstallerPackage.
+func unmarshalInstallerManager(value interface{}) (ManagerValue, error) {
+	installerMap, ok := value.(map[string]interface{})
+	if !ok {
+		return ManagerValue{}, fmt.Errorf("installer manager must be an object, got %T", value)
+	}
+
+	installerBytes, err := yaml.Marshal(installerMap)
+	if err != nil {
+		return ManagerValue{}, fmt.Errorf("marshaling installer config: %w", err)
+	}
+
+	var installerPkg InstallerPackage
+	if err := yaml.Unmarshal(installerBytes, &installerPkg); err != nil {
+		return ManagerValue{}, fmt.Errorf("unmarshaling installer config: %w", err)
+	}
+
+	return ManagerValue{Installer: &installerPkg}, nil
+}
+
+// unmarshalNativeManager converts a raw interface{} value into a ManagerValue for a standard
+// package manager. It supports both plain string format and object format with name/deps.
+func unmarshalNativeManager(key string, value interface{}) (ManagerValue, error) {
+	// Try string first (backward compat)
+	str, ok := value.(string)
+	if ok {
+		return ManagerValue{PackageName: str}, nil
+	}
+
+	// Try object with name/deps
+	objMap, ok := value.(map[string]interface{})
+	if !ok {
+		return ManagerValue{}, fmt.Errorf("manager %s must be a string or object, got %T", key, value)
+	}
+
+	var mv ManagerValue
+	if name, ok := objMap["name"]; ok {
+		if nameStr, ok := name.(string); ok {
+			mv.PackageName = nameStr
+		}
+	}
+
+	if deps, ok := objMap["deps"]; ok {
+		depsSlice, ok := deps.([]interface{})
+		if !ok {
+			return ManagerValue{}, fmt.Errorf("manager %s deps must be a list, got %T", key, deps)
+		}
+
+		for _, d := range depsSlice {
+			if dStr, ok := d.(string); ok {
+				mv.Deps = append(mv.Deps, dStr)
+			}
+		}
+	}
+
+	return mv, nil
+}
+
 // UnmarshalYAML implements custom YAML unmarshaling for EntryPackage
 // to properly handle git manager objects while keeping other managers as strings
 func (ep *EntryPackage) UnmarshalYAML(node *yaml.Node) error {
@@ -77,53 +169,25 @@ func (ep *EntryPackage) UnmarshalYAML(node *yaml.Node) error {
 	if raw.Managers != nil {
 		ep.Managers = make(map[string]ManagerValue, len(raw.Managers))
 		for key, value := range raw.Managers {
+			var (
+				mv  ManagerValue
+				err error
+			)
+
 			switch key {
 			case "git":
-				// Convert the map to GitPackage
-				gitMap, ok := value.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("git manager must be an object, got %T", value)
-				}
-
-				gitBytes, err := yaml.Marshal(gitMap)
-				if err != nil {
-					return fmt.Errorf("marshaling git config: %w", err)
-				}
-
-				var gitPkg GitPackage
-				if err := yaml.Unmarshal(gitBytes, &gitPkg); err != nil {
-					return fmt.Errorf("unmarshaling git config: %w", err)
-				}
-
-				ep.Managers[key] = ManagerValue{Git: &gitPkg}
-
+				mv, err = unmarshalGitManager(value)
 			case "installer":
-				// Convert the map to InstallerPackage
-				installerMap, ok := value.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("installer manager must be an object, got %T", value)
-				}
-
-				installerBytes, err := yaml.Marshal(installerMap)
-				if err != nil {
-					return fmt.Errorf("marshaling installer config: %w", err)
-				}
-
-				var installerPkg InstallerPackage
-				if err := yaml.Unmarshal(installerBytes, &installerPkg); err != nil {
-					return fmt.Errorf("unmarshaling installer config: %w", err)
-				}
-
-				ep.Managers[key] = ManagerValue{Installer: &installerPkg}
-
+				mv, err = unmarshalInstallerManager(value)
 			default:
-				// Traditional managers are strings
-				str, ok := value.(string)
-				if !ok {
-					return fmt.Errorf("manager %s must be a string, got %T", key, value)
-				}
-				ep.Managers[key] = ManagerValue{PackageName: str}
+				mv, err = unmarshalNativeManager(key, value)
 			}
+
+			if err != nil {
+				return err
+			}
+
+			ep.Managers[key] = mv
 		}
 	}
 

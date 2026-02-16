@@ -78,6 +78,7 @@ type ManagerValue struct {
 	PackageName string
 	Git         *GitConfig
 	Installer   *InstallerConfig
+	Deps        []string
 }
 
 // IsGit returns true if this manager value represents a git package configuration.
@@ -148,12 +149,25 @@ func (p *Package) UnmarshalYAML(node *yaml.Node) error {
 			p.Managers[pm] = ManagerValue{Installer: &installerCfg}
 
 		default:
-			// Traditional managers are strings
+			// Try string first (backward compat)
 			var pkgName string
-			if err := valueNode.Decode(&pkgName); err != nil {
-				return fmt.Errorf("failed to decode manager %s: %w", key, err)
+			if err := valueNode.Decode(&pkgName); err == nil {
+				p.Managers[pm] = ManagerValue{PackageName: pkgName}
+				continue
 			}
-			p.Managers[pm] = ManagerValue{PackageName: pkgName}
+
+			// Try object with name/deps
+			type nativeManagerObj struct {
+				Name string   `yaml:"name"`
+				Deps []string `yaml:"deps"`
+			}
+
+			var obj nativeManagerObj
+			if err := valueNode.Decode(&obj); err != nil {
+				return fmt.Errorf("failed to decode manager %s: expected string or object with name/deps: %w", key, err)
+			}
+
+			p.Managers[pm] = ManagerValue{PackageName: obj.Name, Deps: obj.Deps}
 		}
 	}
 

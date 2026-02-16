@@ -47,6 +47,11 @@ func (m *Model) initApplicationFormNew() {
 	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
 	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
 
+	depInput := textinput.New()
+	depInput.Placeholder = PlaceholderDep
+	depInput.CharLimit = 128
+	depInput.Width = 40
+
 	m.applicationForm = &ApplicationForm{
 		nameInput:             nameInput,
 		descriptionInput:      descriptionInput,
@@ -73,6 +78,12 @@ func (m *Model) initApplicationFormNew() {
 		installerBinaryInput:  installerBinaryInput,
 		installerFieldCursor:  -1,
 		hasInstallerPackage:   false,
+		packageDeps:           make(map[string][]string),
+		depsCursor:            0,
+		editingDeps:           false,
+		editingDepItem:        false,
+		depsManagerKey:        "",
+		depInput:              depInput,
 	}
 
 	m.activeForm = FormApplication
@@ -171,6 +182,24 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 		}
 	}
 
+	// Load package deps
+	packageDeps := make(map[string][]string)
+	if app.Package != nil && len(app.Package.Managers) > 0 {
+		for k, v := range app.Package.Managers {
+			if k == TypeGit || k == TypeInstaller {
+				continue
+			}
+			if len(v.Deps) > 0 {
+				packageDeps[k] = append([]string{}, v.Deps...)
+			}
+		}
+	}
+
+	depInput := textinput.New()
+	depInput.Placeholder = PlaceholderDep
+	depInput.CharLimit = 128
+	depInput.Width = 40
+
 	m.applicationForm = &ApplicationForm{
 		nameInput:             nameInput,
 		descriptionInput:      descriptionInput,
@@ -197,6 +226,12 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 		installerBinaryInput:  installerBinaryInput,
 		installerFieldCursor:  -1,
 		hasInstallerPackage:   hasInstallerPackage,
+		packageDeps:           packageDeps,
+		depsCursor:            0,
+		editingDeps:           false,
+		editingDepItem:        false,
+		depsManagerKey:        "",
+		depInput:              depInput,
 	}
 
 	m.activeForm = FormApplication
@@ -227,6 +262,14 @@ func (m *Model) getApplicationFieldType() applicationFieldType {
 func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
+	}
+
+	// Handle deps list editing
+	if m.applicationForm.editingDeps {
+		if m.applicationForm.editingDepItem {
+			return m.updateDepsItemInput(msg)
+		}
+		return m.updateDepsList(msg)
 	}
 
 	// Handle editing a git text field
@@ -480,6 +523,17 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	case key.Matches(msg, FormNavKeys.Delete):
 		return m.handlePackagesListDelete(gitItemIdx, installerItemIdx)
 
+	case key.Matches(msg, key.NewBinding(key.WithKeys("p"))):
+		// Enter deps editing for the current native manager
+		if m.applicationForm.packagesCursor >= 0 && m.applicationForm.packagesCursor < len(displayPackageManagers) {
+			manager := displayPackageManagers[m.applicationForm.packagesCursor]
+			m.applicationForm.depsManagerKey = manager
+			m.applicationForm.editingDeps = true
+			m.applicationForm.depsCursor = 0
+			return m, nil
+		}
+		return m, nil
+
 	case key.Matches(msg, FormNavKeys.Save):
 		// Save the form
 		if err := m.saveApplicationForm(); err != nil {
@@ -564,6 +618,121 @@ func (m Model) handlePackagesListDelete(gitItemIdx, installerItemIdx int) (tea.M
 	delete(m.applicationForm.packageManagers, manager)
 	m.applicationForm.err = ""
 	return m, nil
+}
+
+// updateDepsList handles navigation within the deps list
+func (m Model) updateDepsList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.applicationForm == nil {
+		return m, nil
+	}
+
+	manager := m.applicationForm.depsManagerKey
+	deps := m.applicationForm.packageDeps[manager]
+	maxIdx := len(deps) // last position is "Add" button
+
+	switch {
+	case key.Matches(msg, FormNavKeys.Cancel):
+		m.applicationForm.editingDeps = false
+		m.applicationForm.depsManagerKey = ""
+		return m, nil
+
+	case key.Matches(msg, FormNavKeys.Up):
+		if m.applicationForm.depsCursor > 0 {
+			m.applicationForm.depsCursor--
+		}
+		return m, nil
+
+	case key.Matches(msg, FormNavKeys.Down):
+		if m.applicationForm.depsCursor < maxIdx {
+			m.applicationForm.depsCursor++
+		}
+		return m, nil
+
+	case key.Matches(msg, FilesListKeys.Edit):
+		if m.applicationForm.depsCursor == maxIdx {
+			// Add new dep
+			m.applicationForm.editingDepItem = true
+			m.applicationForm.depInput.SetValue("")
+			m.applicationForm.depInput.Focus()
+			return m, nil
+		}
+		if m.applicationForm.depsCursor < len(deps) {
+			// Edit existing dep
+			m.applicationForm.editingDepItem = true
+			m.applicationForm.depInput.SetValue(deps[m.applicationForm.depsCursor])
+			m.applicationForm.depInput.Focus()
+			m.applicationForm.depInput.SetCursor(len(deps[m.applicationForm.depsCursor]))
+			return m, nil
+		}
+		return m, nil
+
+	case key.Matches(msg, FormNavKeys.Delete):
+		if m.applicationForm.depsCursor < len(deps) {
+			deps = append(deps[:m.applicationForm.depsCursor], deps[m.applicationForm.depsCursor+1:]...)
+			if len(deps) == 0 {
+				delete(m.applicationForm.packageDeps, manager)
+			} else {
+				m.applicationForm.packageDeps[manager] = deps
+			}
+			if m.applicationForm.depsCursor > 0 && m.applicationForm.depsCursor >= len(deps) {
+				m.applicationForm.depsCursor--
+			}
+		}
+		return m, nil
+
+	case key.Matches(msg, FormNavKeys.Save):
+		if err := m.saveApplicationForm(); err != nil {
+			m.applicationForm.err = err.Error()
+			return m, nil
+		}
+		m.activeForm = FormNone
+		m.applicationForm = nil
+		m.Screen = ScreenResults
+		return m, m.checkUncheckedPackageStatesCmd()
+	}
+
+	return m, nil
+}
+
+// updateDepsItemInput handles text input when editing a dep item
+func (m Model) updateDepsItemInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.applicationForm == nil {
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+
+	if m, cmd, handled := m.handleTextEditKeys(msg); handled {
+		return m, cmd
+	}
+
+	switch {
+	case key.Matches(msg, TextEditKeys.Cancel):
+		m.applicationForm.editingDepItem = false
+		m.applicationForm.depInput.SetValue("")
+		return m, nil
+
+	case key.Matches(msg, TextEditKeys.Confirm):
+		value := strings.TrimSpace(m.applicationForm.depInput.Value())
+		if value != "" {
+			manager := m.applicationForm.depsManagerKey
+			deps := m.applicationForm.packageDeps[manager]
+			if m.applicationForm.depsCursor < len(deps) {
+				// Edit existing
+				deps[m.applicationForm.depsCursor] = value
+				m.applicationForm.packageDeps[manager] = deps
+			} else {
+				// Add new
+				m.applicationForm.packageDeps[manager] = append(deps, value)
+			}
+		}
+		m.applicationForm.editingDepItem = false
+		m.applicationForm.depInput.SetValue("")
+		return m, nil
+	}
+
+	m.applicationForm.depInput, cmd = m.applicationForm.depInput.Update(msg)
+	return m, cmd
 }
 
 // updateApplicationPackageInput handles key events when editing a package name
@@ -680,37 +849,50 @@ func (m Model) viewApplicationForm() string {
 		packagesLabel = HelpKeyStyle.Render("Packages:")
 	}
 	b.WriteString(fmt.Sprintf("  %s\n", packagesLabel))
-	b.WriteString(renderPackagesSection(
-		ft == appFieldPackages,
-		m.applicationForm.packageManagers,
-		m.applicationForm.packagesCursor,
-		m.applicationForm.editingPackage,
-		m.applicationForm.packageNameInput,
-	))
-	onGitItem := ft == appFieldPackages && m.applicationForm.packagesCursor == len(displayPackageManagers)
-	b.WriteString(renderGitPackageSection(
-		ft == appFieldPackages,
-		onGitItem,
-		m.applicationForm.hasGitPackage,
-		m.applicationForm.gitFieldCursor,
-		m.applicationForm.editingGitField,
-		m.applicationForm.gitURLInput,
-		m.applicationForm.gitBranchInput,
-		m.applicationForm.gitLinuxInput,
-		m.applicationForm.gitWindowsInput,
-		m.applicationForm.gitSudo,
-	))
-	onInstallerItem := ft == appFieldPackages && m.applicationForm.packagesCursor == len(displayPackageManagers)+1
-	b.WriteString(renderInstallerPackageSection(
-		ft == appFieldPackages,
-		onInstallerItem,
-		m.applicationForm.hasInstallerPackage,
-		m.applicationForm.installerFieldCursor,
-		m.applicationForm.editingInstallerField,
-		m.applicationForm.installerLinuxInput,
-		m.applicationForm.installerWindowsInput,
-		m.applicationForm.installerBinaryInput,
-	))
+
+	if m.applicationForm.editingDeps {
+		// Show deps editing view instead of regular packages section
+		b.WriteString(renderDepsSection(
+			m.applicationForm.depsManagerKey,
+			m.applicationForm.packageDeps[m.applicationForm.depsManagerKey],
+			m.applicationForm.depsCursor,
+			m.applicationForm.editingDepItem,
+			m.applicationForm.depInput,
+		))
+	} else {
+		b.WriteString(renderPackagesSection(
+			ft == appFieldPackages,
+			m.applicationForm.packageManagers,
+			m.applicationForm.packagesCursor,
+			m.applicationForm.editingPackage,
+			m.applicationForm.packageNameInput,
+			m.applicationForm.packageDeps,
+		))
+		onGitItem := ft == appFieldPackages && m.applicationForm.packagesCursor == len(displayPackageManagers)
+		b.WriteString(renderGitPackageSection(
+			ft == appFieldPackages,
+			onGitItem,
+			m.applicationForm.hasGitPackage,
+			m.applicationForm.gitFieldCursor,
+			m.applicationForm.editingGitField,
+			m.applicationForm.gitURLInput,
+			m.applicationForm.gitBranchInput,
+			m.applicationForm.gitLinuxInput,
+			m.applicationForm.gitWindowsInput,
+			m.applicationForm.gitSudo,
+		))
+		onInstallerItem := ft == appFieldPackages && m.applicationForm.packagesCursor == len(displayPackageManagers)+1
+		b.WriteString(renderInstallerPackageSection(
+			ft == appFieldPackages,
+			onInstallerItem,
+			m.applicationForm.hasInstallerPackage,
+			m.applicationForm.installerFieldCursor,
+			m.applicationForm.editingInstallerField,
+			m.applicationForm.installerLinuxInput,
+			m.applicationForm.installerWindowsInput,
+			m.applicationForm.installerBinaryInput,
+		))
+	}
 	b.WriteString("\n")
 
 	// When section
@@ -783,6 +965,21 @@ func (m Model) renderApplicationFormHelp() string {
 
 	ft := m.getApplicationFieldType()
 
+	if m.applicationForm.editingDeps {
+		if m.applicationForm.editingDepItem {
+			return RenderHelpFromBindings(m.width,
+				TextEditKeys.Confirm,
+				TextEditKeys.Cancel,
+			)
+		}
+		depsBinding := key.NewBinding(key.WithKeys("enter", "e"), key.WithHelp("enter/e", "edit"))
+		return RenderHelpFromBindings(m.width,
+			depsBinding,
+			FormNavKeys.Delete,
+			FormNavKeys.Cancel,
+		)
+	}
+
 	if m.applicationForm.editingGitField || m.applicationForm.editingInstallerField {
 		return RenderHelpFromBindings(m.width,
 			TextEditKeys.Confirm,
@@ -842,11 +1039,13 @@ func (m Model) renderApplicationFormHelp() string {
 			return RenderHelpFromBindings(m.width, FormNavKeys.Edit, FormNavKeys.Save)
 		}
 		// Bounds check for packagesCursor
+		depsBinding := key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "deps"))
 		if m.applicationForm.packagesCursor >= 0 && m.applicationForm.packagesCursor < len(displayPackageManagers) {
 			manager := displayPackageManagers[m.applicationForm.packagesCursor]
 			if m.applicationForm.packageManagers[manager] != "" {
 				return RenderHelpFromBindings(m.width,
 					FormNavKeys.Edit,
+					depsBinding,
 					FormNavKeys.Delete,
 					FormNavKeys.Save,
 				)
@@ -854,6 +1053,7 @@ func (m Model) renderApplicationFormHelp() string {
 		}
 		return RenderHelpFromBindings(m.width,
 			FormNavKeys.Edit,
+			depsBinding,
 			FormNavKeys.Save,
 		)
 	}
@@ -929,6 +1129,28 @@ func (m *Model) saveApplicationForm() error {
 		installerWindows := strings.TrimSpace(m.applicationForm.installerWindowsInput.Value())
 		if installerLinux == "" && installerWindows == "" {
 			return errors.New("installer package requires at least one command (Linux or Windows)")
+		}
+	}
+
+	// Merge deps into package managers
+	if pkg != nil && len(m.applicationForm.packageDeps) > 0 {
+		for manager, deps := range m.applicationForm.packageDeps {
+			if mv, ok := pkg.Managers[manager]; ok {
+				mv.Deps = deps
+				pkg.Managers[manager] = mv
+			} else if len(deps) > 0 {
+				// Deps-only entry (no main package name)
+				pkg.Managers[manager] = config.ManagerValue{Deps: deps}
+			}
+		}
+	} else if pkg == nil && len(m.applicationForm.packageDeps) > 0 {
+		pkg = &config.EntryPackage{
+			Managers: make(map[string]config.ManagerValue),
+		}
+		for manager, deps := range m.applicationForm.packageDeps {
+			if len(deps) > 0 {
+				pkg.Managers[manager] = config.ManagerValue{Deps: deps}
+			}
 		}
 	}
 
@@ -1086,6 +1308,24 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 		}
 	}
 
+	// Load package deps
+	packageDeps := make(map[string][]string)
+	if app.Package != nil && len(app.Package.Managers) > 0 {
+		for k, v := range app.Package.Managers {
+			if k == TypeGit || k == TypeInstaller {
+				continue
+			}
+			if len(v.Deps) > 0 {
+				packageDeps[k] = append([]string{}, v.Deps...)
+			}
+		}
+	}
+
+	depInput := textinput.New()
+	depInput.Placeholder = PlaceholderDep
+	depInput.CharLimit = 128
+	depInput.Width = 40
+
 	return &ApplicationForm{
 		nameInput:             nameInput,
 		descriptionInput:      descriptionInput,
@@ -1104,6 +1344,12 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 		installerBinaryInput:  installerBinaryInput,
 		installerFieldCursor:  -1,
 		hasInstallerPackage:   hasInstallerPackage,
+		packageDeps:           packageDeps,
+		depsCursor:            0,
+		editingDeps:           false,
+		editingDepItem:        false,
+		depsManagerKey:        "",
+		depInput:              depInput,
 	}
 }
 
