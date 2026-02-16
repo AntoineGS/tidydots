@@ -1,0 +1,55 @@
+version: 2
+
+builds:
+  - id: tidydots
+    main: ./cmd/tidydots
+    binary: tidydots
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: tidydots
+    ids:
+      - tidydots
+    name_template: "tidydots_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+release:
+  github:
+    owner: AntoineGS
+    name: tidydots
+
+brews:
+  - name: tidydots
+    homepage: https://github.com/AntoineGS/tidydots
+    description: Cross-platform dotfile management tool
+    license: MIT
+    repository:
+      owner: AntoineGS
+      name: homebrew-tidydots
+      token: "{{ .Env.GORELEASER_TOKEN }}"

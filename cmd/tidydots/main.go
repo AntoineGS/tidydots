@@ -20,6 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version = "dev"
+
 var (
 	configDir   string // Override from --dir flag
 	osOverride  string
@@ -35,8 +37,9 @@ var (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "tidydots",
-		Short: "Manage dotfiles and configurations across platforms",
+		Use:     "tidydots",
+		Version: version,
+		Short:   "Manage dotfiles and configurations across platforms",
 		Long: `tidydots is a cross-platform tool for managing dotfiles and configurations.
 It supports backup and restore operations using symlinks, with support for
 both Windows and Linux systems.
