@@ -1,20 +1,19 @@
 
     filter: on (showing 3 of 3 apps)
-  ┌───────────────┬────────────┬───────────┬─────────────────────────────────────────────────────┐
-  │ name ↑        │ status     │ info      │ path                                                │
-  ├───────────────┼────────────┼───────────┼─────────────────────────────────────────────────────┤
-  │ ▶ bash        │ Unknown    │ 1 entry   │                                                     │
-  │ ▼ nvim        │ Unknown    │ 4 entries │                                                     │
-  │   ├─ settings │ Loading... │ folder    │ /tmp/tidydots-test-                                 │
-  │               │            │           │ nonexistent/.config/nvim/lua/settings.lua           │
-  │   ├─ init.lua │ Loading... │ folder    │ /tmp/tidydots-test-                                 │
-  │               │            │           │ nonexistent/.config/nvim/init.lua                   │
-  │   ├─ mappings │ Loading... │ folder    │ /tmp/tidydots-test-                                 │
-  │               │            │           │ nonexistent/.config/nvim/lua/mappings.lua           │
-  │   └─ plugins  │ Loading... │ folder    │ /tmp/tidydots-test-                                 │
-  │               │            │           │ nonexistent/.config/nvim/lua/plugins                │
-  │ ▶ zsh         │ Unknown    │ 1 entry   │                                                     │
-  └───────────────┴────────────┴───────────┴─────────────────────────────────────────────────────┘
+  ┌───────────────┬─────────┬───────────┬────────────────────────────────────────────────────────┐
+  │ name ↑        │ status  │ info      │ path                                                   │
+  ├───────────────┼─────────┼───────────┼────────────────────────────────────────────────────────┤
+  │ ▶ bash        │ Unknown │ 1 entry   │                                                        │
+  │ ▼ nvim        │ Unknown │ 4 entries │                                                        │
+  │   ├─ settings │ ⣾       │ folder    │ /tmp/tidydots-test-                                    │
+  │               │         │           │ nonexistent/.config/nvim/lua/settings.lua              │
+  │   ├─ init.lua │ ⣾       │ folder    │ /tmp/tidydots-test-nonexistent/.config/nvim/init.lua   │
+  │   ├─ mappings │ ⣾       │ folder    │ /tmp/tidydots-test-                                    │
+  │               │         │           │ nonexistent/.config/nvim/lua/mappings.lua              │
+  │   └─ plugins  │ ⣾       │ folder    │ /tmp/tidydots-test-                                    │
+  │               │         │           │ nonexistent/.config/nvim/lua/plugins                   │
+  │ ▶ zsh         │ Unknown │ 1 entry   │                                                        │
+  └───────────────┴─────────┴───────────┴────────────────────────────────────────────────────────┘
 
 
   / search  Add app  add entry  edit  delete  restore  install  quit
