@@ -283,6 +283,65 @@ Available package managers: [pacman yay]
 
 ---
 
+## tidydots preview
+
+Watch template files for changes and render them in real time.
+
+```
+tidydots preview <path>
+```
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `path` | Yes | A single `.tmpl` file or a directory containing `.tmpl` files |
+
+### Behavior
+
+1. Discovers all `.tmpl` files at the given path (recursively if a directory).
+2. Performs an initial render of every discovered template.
+3. Watches for file saves using filesystem notifications.
+4. On each save, re-renders the changed template and writes the output to the sibling `.tmpl.rendered` file.
+5. On a syntax error, prints the error and keeps the last good `.tmpl.rendered` intact.
+6. Runs until interrupted with `Ctrl+C`.
+
+The command uses the current platform context (OS, Hostname, User, etc.) for rendering, and inherits the global `--dir`, `--os`, and `--verbose` flags.
+
+### Examples
+
+```bash
+# Preview a single template file
+tidydots preview ./alacritty/alacritty.toml.tmpl
+
+# Preview all templates in a directory
+tidydots preview ./alacritty
+
+# Preview with OS override
+tidydots preview ./zsh -o windows
+
+# Preview with verbose logging
+tidydots preview ./alacritty -v
+```
+
+Sample terminal output:
+
+```
+Watching 3 template(s)...
+  config.zshrc.tmpl
+  config.gitconfig.tmpl
+  config.alacritty.tmpl
+
+✓ config.zshrc.tmpl rendered (14:32:05)
+✗ config.zshrc.tmpl error: template: config.zshrc.tmpl:12: unexpected "}" (14:32:08)
+✓ config.zshrc.tmpl rendered (14:32:11)
+```
+
+!!! tip
+    Open the `.tmpl` source and its `.tmpl.rendered` output side by side in your editor for a live preview workflow. Every time you save the template, the rendered file updates automatically.
+
+---
+
 ## tidydots completion
 
 Generate shell autocompletion scripts for tidydots.
@@ -359,7 +418,13 @@ tidydots list-packages
 ### Working with templates
 
 ```bash
-# Preview template rendering
+# Live preview a template while editing
+tidydots preview ./alacritty/alacritty.toml.tmpl
+
+# Live preview all templates in a directory
+tidydots preview ./alacritty
+
+# Preview template rendering (one-shot, no watch)
 tidydots restore -n -v
 
 # Force re-render templates after changing a .tmpl file

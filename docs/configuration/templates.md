@@ -216,6 +216,45 @@ tidydots restore --force-render
 !!! warning
     Using `--force-render` permanently discards any manual edits to `.tmpl.rendered` files. There is no undo.
 
+## Live Preview
+
+The `tidydots preview` command lets you iterate on templates with instant feedback. It watches `.tmpl` files for changes and re-renders them on every save, so you can see the output update in real time.
+
+### Usage
+
+```bash
+# Watch a single template
+tidydots preview ./alacritty/alacritty.toml.tmpl
+
+# Watch all templates in a directory
+tidydots preview ./alacritty
+```
+
+### Recommended Workflow
+
+1. Open a terminal and start the preview watcher:
+
+    ```bash
+    tidydots preview ./alacritty/alacritty.toml.tmpl
+    ```
+
+2. In your editor, open the `.tmpl` source and the `.tmpl.rendered` output side by side.
+3. Edit and save the `.tmpl` file. The rendered output updates automatically.
+4. If you introduce a syntax error, the watcher prints the error but preserves the last good render -- your `.tmpl.rendered` file is never left in a broken state.
+5. Press `Ctrl+C` when you are done.
+
+### How It Differs from Restore
+
+| | `tidydots preview` | `tidydots restore` |
+|---|---|---|
+| **Purpose** | Author and debug templates | Deploy configs |
+| **Watches for changes** | Yes (continuous) | No (one-shot) |
+| **Creates symlinks** | No | Yes |
+| **Updates state DB** | No | Yes |
+| **3-way merge** | No | Yes |
+
+`preview` is a lightweight authoring tool -- it renders templates without touching symlinks or the SQLite state database. Once you are happy with the template, run `tidydots restore` to deploy it.
+
 ## Viewing Template Diffs
 
 If you manually edit a `.tmpl.rendered` file, the TUI shows the entry with a **Modified** status (blue). You can view a diff of your edits and update the template source directly:
