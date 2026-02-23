@@ -146,12 +146,14 @@ func (w *Watcher) Watch(ctx context.Context, path string) error {
 		templateSet[t] = true
 	}
 
+	printWatchSummary(templates)
+
 	// Initial render of all templates.
 	for _, t := range templates {
 		printRenderStatus(t, w.renderTemplate(t))
 	}
 
-	printWatchSummary(templates)
+	_, _ = fmt.Fprintln(os.Stdout)
 
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
