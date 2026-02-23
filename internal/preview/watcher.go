@@ -43,3 +43,44 @@ func (w *Watcher) renderTemplate(path string) error {
 
 	return nil
 }
+
+// discoverTemplates finds all .tmpl files at the given path.
+// If path is a file, it validates it has a .tmpl suffix.
+// If path is a directory, it walks recursively for .tmpl files.
+func (w *Watcher) discoverTemplates(path string) ([]string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("stat %s: %w", path, err)
+	}
+
+	if !info.IsDir() {
+		if !tmpl.IsTemplateFile(path) {
+			return nil, fmt.Errorf("%s is not a template file (must end in .tmpl)", path)
+		}
+
+		return []string{path}, nil
+	}
+
+	var templates []string
+
+	err = filepath.WalkDir(path, func(p string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		if tmpl.IsTemplateFile(p) {
+			templates = append(templates, p)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walking directory %s: %w", path, err)
+	}
+
+	return templates, nil
+}

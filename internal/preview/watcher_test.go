@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/platform"
@@ -101,5 +103,110 @@ func TestRenderTemplate_PlainContent(t *testing.T) {
 
 	if string(got) != content {
 		t.Errorf("rendered content = %q, want %q", string(got), content)
+	}
+}
+
+func TestDiscoverTemplates_SingleFile(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+
+	tmplPath := filepath.Join(dir, "config.tmpl")
+	if err := os.WriteFile(tmplPath, []byte("test"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := w.discoverTemplates(tmplPath)
+	if err != nil {
+		t.Fatalf("discoverTemplates() error: %v", err)
+	}
+
+	if len(got) != 1 || got[0] != tmplPath {
+		t.Errorf("discoverTemplates() = %v, want [%s]", got, tmplPath)
+	}
+}
+
+func TestDiscoverTemplates_Directory(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+
+	tmplPath := filepath.Join(dir, "config.tmpl")
+	txtPath := filepath.Join(dir, "readme.txt")
+	renderedPath := filepath.Join(dir, "config.tmpl.rendered")
+
+	for _, f := range []struct {
+		path    string
+		content string
+	}{
+		{tmplPath, "template"},
+		{txtPath, "plain text"},
+		{renderedPath, "rendered"},
+	} {
+		if err := os.WriteFile(f.path, []byte(f.content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := w.discoverTemplates(dir)
+	if err != nil {
+		t.Fatalf("discoverTemplates() error: %v", err)
+	}
+
+	if len(got) != 1 || got[0] != tmplPath {
+		t.Errorf("discoverTemplates() = %v, want [%s]", got, tmplPath)
+	}
+}
+
+func TestDiscoverTemplates_NestedDirectory(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+
+	subDir := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	tmpl1 := filepath.Join(dir, "root.tmpl")
+	tmpl2 := filepath.Join(subDir, "nested.tmpl")
+	txt := filepath.Join(subDir, "other.txt")
+
+	for _, f := range []struct {
+		path    string
+		content string
+	}{
+		{tmpl1, "root"},
+		{tmpl2, "nested"},
+		{txt, "text"},
+	} {
+		if err := os.WriteFile(f.path, []byte(f.content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := w.discoverTemplates(dir)
+	if err != nil {
+		t.Fatalf("discoverTemplates() error: %v", err)
+	}
+
+	sort.Strings(got)
+	want := []string{tmpl1, tmpl2}
+	sort.Strings(want)
+
+	if !slices.Equal(got, want) {
+		t.Errorf("discoverTemplates() = %v, want %v", got, want)
+	}
+}
+
+func TestDiscoverTemplates_NonTemplateFile(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+
+	txtPath := filepath.Join(dir, "readme.txt")
+	if err := os.WriteFile(txtPath, []byte("text"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := w.discoverTemplates(txtPath)
+	if err == nil {
+		t.Fatal("expected error for non-template file")
 	}
 }
