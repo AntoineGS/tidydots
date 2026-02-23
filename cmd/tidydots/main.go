@@ -15,6 +15,7 @@ import (
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/packages"
 	"github.com/AntoineGS/tidydots/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/preview"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
 	"github.com/AntoineGS/tidydots/internal/tui"
 	"github.com/spf13/cobra"
@@ -151,7 +152,20 @@ Packages are filtered based on their filters (os, hostname, user).`,
 		RunE:  runListPackages,
 	}
 
-	rootCmd.AddCommand(initCmd, restoreCmd, backupCmd, listCmd, installCmd, listPkgsCmd)
+	previewCmd := &cobra.Command{
+		Use:   "preview <path>",
+		Short: "Live preview template rendering",
+		Long: `Watch .tmpl files for changes and render them to .tmpl.rendered in real time.
+
+Open the .tmpl file and its .tmpl.rendered file side by side in your editor
+for a live preview experience. The rendered file updates on each save.
+
+The path can be a single .tmpl file or a directory containing .tmpl files.`,
+		Args: cobra.ExactArgs(1),
+		RunE: runPreview,
+	}
+
+	rootCmd.AddCommand(initCmd, restoreCmd, backupCmd, listCmd, installCmd, listPkgsCmd, previewCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -500,4 +514,26 @@ func convertToPackageManagers(strs []string) []packages.PackageManager {
 		result = append(result, packages.PackageManager(s))
 	}
 	return result
+}
+
+func runPreview(_ *cobra.Command, args []string) error {
+	_, plat, _, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	tmplCtx := tmpl.NewContextFromPlatform(plat)
+	engine := tmpl.NewEngine(tmplCtx)
+
+	logger := slog.Default()
+	if verbose {
+		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	}
+
+	w := preview.New(engine, logger)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	return w.Watch(ctx, args[0])
 }
