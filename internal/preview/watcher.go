@@ -50,6 +50,23 @@ func (w *Watcher) renderTemplate(path string) error {
 	return nil
 }
 
+// renderContent renders template content from a string and writes the output to .tmpl.rendered.
+// Uses the path for the template name (for error messages) and output file location.
+// On error, the rendered file is not written (preserving any previous good render).
+func (w *Watcher) renderContent(path, content string) error {
+	rendered, err := w.engine.RenderString(filepath.Base(path), content)
+	if err != nil {
+		return fmt.Errorf("rendering template %s: %w", path, err)
+	}
+
+	renderedPath := tmpl.RenderedPath(path)
+	if err := os.WriteFile(renderedPath, []byte(rendered), 0o600); err != nil {
+		return fmt.Errorf("writing rendered file %s: %w", renderedPath, err)
+	}
+
+	return nil
+}
+
 // discoverTemplates finds all .tmpl files at the given path.
 // If path is a file, it validates it has a .tmpl suffix.
 // If path is a directory, it walks recursively for .tmpl files.

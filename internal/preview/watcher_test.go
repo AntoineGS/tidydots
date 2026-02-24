@@ -108,6 +108,65 @@ func TestRenderTemplate_PlainContent(t *testing.T) {
 	}
 }
 
+func TestRenderContent_WritesRenderedFile(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+
+	err := w.renderContent(tmplPath, "host={{ .Hostname }}")
+	if err != nil {
+		t.Fatalf("renderContent() error: %v", err)
+	}
+
+	renderedPath := tmpl.RenderedPath(tmplPath)
+	got, err := os.ReadFile(renderedPath)
+	if err != nil {
+		t.Fatalf("reading rendered file: %v", err)
+	}
+
+	want := "host=testhost"
+	if string(got) != want {
+		t.Errorf("rendered content = %q, want %q", string(got), want)
+	}
+}
+
+func TestRenderContent_SyntaxError(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "bad.tmpl")
+
+	err := w.renderContent(tmplPath, "{{ .Invalid")
+	if err == nil {
+		t.Fatal("expected error for invalid template syntax")
+	}
+
+	renderedPath := tmpl.RenderedPath(tmplPath)
+	if _, statErr := os.Stat(renderedPath); !os.IsNotExist(statErr) {
+		t.Error("rendered file should not exist after syntax error")
+	}
+}
+
+func TestRenderContent_PlainContent(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "plain.tmpl")
+
+	content := "no template delimiters here"
+	if err := w.renderContent(tmplPath, content); err != nil {
+		t.Fatalf("renderContent() error: %v", err)
+	}
+
+	renderedPath := tmpl.RenderedPath(tmplPath)
+	got, err := os.ReadFile(renderedPath)
+	if err != nil {
+		t.Fatalf("reading rendered file: %v", err)
+	}
+
+	if string(got) != content {
+		t.Errorf("rendered content = %q, want %q", string(got), content)
+	}
+}
+
 func TestDiscoverTemplates_SingleFile(t *testing.T) {
 	w := testWatcher()
 	dir := t.TempDir()
