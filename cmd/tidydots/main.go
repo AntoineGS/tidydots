@@ -535,5 +535,5 @@ func runPreview(_ *cobra.Command, args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	return w.Watch(ctx, args[0])
+	return w.WatchWithStdin(ctx, args[0], os.Stdin)
 }

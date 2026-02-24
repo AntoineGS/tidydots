@@ -2,6 +2,7 @@ package preview
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -586,5 +587,46 @@ func TestReadStdin_RespectsContextCancellation(t *testing.T) {
 		// success
 	case <-time.After(2 * time.Second):
 		t.Fatal("readStdin did not return after context cancellation")
+	}
+}
+
+func TestWatch_RendersFromStdin(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+
+	tmplPath := filepath.Join(dir, "config.tmpl")
+	if err := os.WriteFile(tmplPath, []byte("host={{ .Hostname }}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	pr, pw := io.Pipe()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- w.WatchWithStdin(ctx, tmplPath, pr)
+	}()
+
+	renderedPath := tmpl.RenderedPath(tmplPath)
+
+	// Wait for initial render from file
+	waitForContent(t, renderedPath, "host=testhost", 2*time.Second)
+
+	// Send new content via stdin
+	_, err := fmt.Fprintln(pw, `{"content":"user={{ .User }}"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait for stdin-driven render
+	waitForContent(t, renderedPath, "user=testuser", 2*time.Second)
+
+	pw.Close()
+	cancel()
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("WatchWithStdin() error: %v", err)
 	}
 }

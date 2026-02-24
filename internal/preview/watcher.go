@@ -184,6 +184,15 @@ func printWatchSummary(templates []string) {
 // then watches for changes and re-renders on .tmpl file modifications.
 // It blocks until ctx is canceled.
 func (w *Watcher) Watch(ctx context.Context, path string) error {
+	return w.WatchWithStdin(ctx, path, nil)
+}
+
+// WatchWithStdin is like Watch but also reads NDJSON render requests from stdin.
+// When stdin is non-nil and exactly one template is being watched, content received
+// on stdin is rendered directly (bypassing file reads). This enables live preview
+// from editors that pipe buffer content on each keystroke.
+// It blocks until ctx is canceled.
+func (w *Watcher) WatchWithStdin(ctx context.Context, path string, stdin io.Reader) error {
 	templates, err := w.discoverTemplates(path)
 	if err != nil {
 		return fmt.Errorf("discovering templates: %w", err)
@@ -207,6 +216,11 @@ func (w *Watcher) Watch(ctx context.Context, path string) error {
 	}
 
 	_, _ = fmt.Fprintln(os.Stdout)
+
+	// Start stdin reader for single-file watches.
+	if stdin != nil && len(templates) == 1 {
+		go w.readStdin(ctx, templates[0], stdin)
+	}
 
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
