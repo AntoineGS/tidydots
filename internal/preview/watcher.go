@@ -1,8 +1,11 @@
 package preview
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -65,6 +68,39 @@ func (w *Watcher) renderContent(path, content string) error {
 	}
 
 	return nil
+}
+
+// stdinRequest represents a JSON message received on stdin for live preview rendering.
+type stdinRequest struct {
+	Content string `json:"content"`
+}
+
+// readStdin reads NDJSON render requests from the given reader and renders each one.
+// It blocks until the reader is exhausted or ctx is canceled.
+// Errors on individual renders are printed to stderr (same as file-watch renders)
+// but do not stop processing.
+func (w *Watcher) readStdin(ctx context.Context, path string, r io.Reader) {
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		var req stdinRequest
+		if err := json.Unmarshal(scanner.Bytes(), &req); err != nil {
+			continue
+		}
+
+		printRenderStatus(path, w.renderContent(path, req.Content))
+	}
+
+	if err := scanner.Err(); err != nil {
+		w.logger.Error("stdin read error", slog.String("error", err.Error()))
+	}
 }
 
 // discoverTemplates finds all .tmpl files at the given path.

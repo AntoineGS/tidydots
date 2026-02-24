@@ -2,11 +2,13 @@ package preview
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -464,5 +466,125 @@ func TestWatch_NoTemplatesError(t *testing.T) {
 	err := w.Watch(ctx, dir)
 	if err == nil {
 		t.Fatal("expected error when no templates found")
+	}
+}
+
+func TestReadStdin_RendersContent(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+
+	if err := os.WriteFile(tmplPath, []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	input := `{"content":"host={{ .Hostname }}"}` + "\n" +
+		`{"content":"user={{ .User }}"}` + "\n"
+	reader := strings.NewReader(input)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w.readStdin(ctx, tmplPath, reader)
+
+	renderedPath := tmpl.RenderedPath(tmplPath)
+	got, err := os.ReadFile(renderedPath)
+	if err != nil {
+		t.Fatalf("reading rendered file: %v", err)
+	}
+
+	want := "user=testuser"
+	if string(got) != want {
+		t.Errorf("rendered content = %q, want %q", string(got), want)
+	}
+}
+
+func TestReadStdin_SyntaxErrorPreservesLastGoodRender(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+
+	if err := os.WriteFile(tmplPath, []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	input := `{"content":"host={{ .Hostname }}"}` + "\n" +
+		`{"content":"{{ .Invalid"}` + "\n"
+	reader := strings.NewReader(input)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w.readStdin(ctx, tmplPath, reader)
+
+	renderedPath := tmpl.RenderedPath(tmplPath)
+	got, err := os.ReadFile(renderedPath)
+	if err != nil {
+		t.Fatalf("reading rendered file: %v", err)
+	}
+
+	want := "host=testhost"
+	if string(got) != want {
+		t.Errorf("rendered content = %q, want %q (should preserve last good render)", string(got), want)
+	}
+}
+
+func TestReadStdin_SkipsMalformedJSON(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+
+	if err := os.WriteFile(tmplPath, []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	input := "not json\n" +
+		`{"content":"host={{ .Hostname }}"}` + "\n"
+	reader := strings.NewReader(input)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w.readStdin(ctx, tmplPath, reader)
+
+	renderedPath := tmpl.RenderedPath(tmplPath)
+	got, err := os.ReadFile(renderedPath)
+	if err != nil {
+		t.Fatalf("reading rendered file: %v", err)
+	}
+
+	want := "host=testhost"
+	if string(got) != want {
+		t.Errorf("rendered content = %q, want %q", string(got), want)
+	}
+}
+
+func TestReadStdin_RespectsContextCancellation(t *testing.T) {
+	w := testWatcher()
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+
+	if err := os.WriteFile(tmplPath, []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	pr, pw := io.Pipe()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		w.readStdin(ctx, tmplPath, pr)
+		close(done)
+	}()
+
+	cancel()
+	pw.Close()
+
+	select {
+	case <-done:
+		// success
+	case <-time.After(2 * time.Second):
+		t.Fatal("readStdin did not return after context cancellation")
 	}
 }
