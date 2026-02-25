@@ -255,6 +255,52 @@ tidydots preview ./alacritty
 
 `preview` is a lightweight authoring tool -- it renders templates without touching symlinks or the SQLite state database. Once you are happy with the template, run `tidydots restore` to deploy it.
 
+### Reverse Editing (Neovim Plugin)
+
+When using the [tidydots.nvim](https://github.com/AntoineGS/tidydots.nvim) plugin, the rendered preview buffer supports **reverse editing** -- you can edit the rendered output directly and have changes propagate back to the template source.
+
+#### Configuration
+
+Reverse editing is enabled by default. To disable it:
+
+```lua
+require("tidydots").setup({
+  reverse_edit = false,
+})
+```
+
+#### Editable vs Read-Only Lines
+
+Not all lines in the rendered buffer are editable:
+
+| Line Type | Editable | Example |
+|-----------|----------|---------|
+| **Text** | Yes | `font_size = 12` (plain text, no template syntax) |
+| **Expression** | No | Lines originating from `{{ .Hostname }}` or `{{ upper .User }}` |
+| **Directive** | N/A | Lines from `{{ if }}`, `{{ end }}`, etc. (not visible in rendered output) |
+
+Read-only lines are highlighted with the `TidydotsReadOnlyLine` highlight group (linked to `Comment` by default). Attempting to edit a read-only line reverts the change immediately.
+
+#### Text Edits
+
+When you modify a text line in the rendered buffer, the change is written directly to the corresponding line in the template source buffer. The mapping uses the source map that tidydots emits during rendering to identify which template line produced each rendered line.
+
+#### Structural Edits
+
+Adding or deleting lines in the rendered buffer triggers a round-trip through the CLI:
+
+1. The plugin detects the structural change (line count differs from last known state).
+2. It sends a `rendered_edit` message to the running `tidydots preview` process via stdin.
+3. The CLI applies the edit to the template source using the reverse source map.
+4. The CLI responds with a `template_update` containing the new template content and a cursor hint.
+5. The plugin updates the template buffer and cursor position.
+
+Only text lines can be deleted through the rendered buffer -- expression and directive lines are protected.
+
+#### Cursor Sync
+
+When you move the cursor in the rendered buffer, the template buffer cursor follows to the corresponding source line. This works in both directions: the existing forward sync (template → rendered) and the reverse sync (rendered → template) keep both buffers aligned.
+
 ## Viewing Template Diffs
 
 If you manually edit a `.tmpl.rendered` file, the TUI shows the entry with a **Modified** status (blue). You can view a diff of your edits and update the template source directly:

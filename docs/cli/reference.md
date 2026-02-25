@@ -340,6 +340,36 @@ Watching 3 template(s)...
 !!! tip
     Open the `.tmpl` source and its `.tmpl.rendered` output side by side in your editor for a live preview workflow. Every time you save the template, the rendered file updates automatically.
 
+### NDJSON Protocol
+
+When watching a single template, `tidydots preview` communicates with editor plugins via NDJSON (newline-delimited JSON) on stdin/stdout.
+
+**Stdout** (CLI → editor): After each render, the CLI emits a source map response:
+
+```json
+{"source_map":{"1":"1","2":"3"},"reverse_map":{"1":"1","3":"2"},"line_types":{"1":"text","2":"directive","3":"expression"},"file":"config.toml.tmpl"}
+```
+
+| Field | Description |
+|-------|-------------|
+| `source_map` | Template line → rendered line (forward mapping) |
+| `reverse_map` | Rendered line → template line (reverse mapping) |
+| `line_types` | Template line → type (`text`, `expression`, or `directive`) |
+| `file` | Path of the template file |
+
+**Stdin** (editor → CLI): The editor can send content updates or structural edits:
+
+```json
+{"content":"updated template content here"}
+{"rendered_edit":{"inserts":[{"after_rendered_line":3,"text":"new line"}],"deletes":[5]}}
+```
+
+**Stdout** (CLI → editor): After a structural edit, the CLI responds with a template update:
+
+```json
+{"template_update":{"content":"updated template source","cursor_line":4}}
+```
+
 ---
 
 ## tidydots completion
