@@ -1,7 +1,9 @@
 package preview
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -628,5 +630,55 @@ func TestWatch_RendersFromStdin(t *testing.T) {
 
 	if err := <-errCh; err != nil {
 		t.Fatalf("WatchWithStdin() error: %v", err)
+	}
+}
+
+func TestRenderContent_EmitsSourceMap(t *testing.T) {
+	w := testWatcher()
+	var stdoutBuf bytes.Buffer
+	w.stdout = &stdoutBuf
+
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+
+	err := w.renderContent(tmplPath, "header\n{{ if eq .OS \"linux\" }}\nlinux\n{{ end }}\nfooter")
+	if err != nil {
+		t.Fatalf("renderContent() error: %v", err)
+	}
+
+	// Verify rendered file content
+	renderedPath := tmpl.RenderedPath(tmplPath)
+	got, err := os.ReadFile(renderedPath)
+	if err != nil {
+		t.Fatalf("reading rendered file: %v", err)
+	}
+	wantOutput := "header\n\nlinux\n\nfooter"
+	if string(got) != wantOutput {
+		t.Errorf("rendered content = %q, want %q", string(got), wantOutput)
+	}
+
+	// Verify source map was emitted on stdout as NDJSON
+	output := stdoutBuf.String()
+	if output == "" {
+		t.Fatal("no source map emitted to stdout")
+	}
+
+	var resp sourceMapResponse
+	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
+		t.Fatalf("failed to parse source map NDJSON: %v (output: %q)", err, output)
+	}
+
+	if resp.File != tmplPath {
+		t.Errorf("source map file = %q, want %q", resp.File, tmplPath)
+	}
+
+	// Verify source map has entries for all 5 template lines
+	if len(resp.SourceMap) != 5 {
+		t.Errorf("source map has %d entries, want 5", len(resp.SourceMap))
+	}
+
+	// Line 1 (header) should map to output line 1
+	if resp.SourceMap["1"] != 1 {
+		t.Errorf("source map[1] = %d, want 1", resp.SourceMap["1"])
 	}
 }

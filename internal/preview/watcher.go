@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -18,10 +19,17 @@ import (
 
 const debounceInterval = 100 * time.Millisecond
 
+// sourceMapResponse is the NDJSON response sent to stdout after each render.
+type sourceMapResponse struct {
+	SourceMap map[string]int `json:"source_map"`
+	File      string         `json:"file"`
+}
+
 // Watcher watches template files and re-renders them on changes.
 type Watcher struct {
 	engine *tmpl.Engine
 	logger *slog.Logger
+	stdout io.Writer
 }
 
 // New creates a new Watcher with the given template engine and logger.
@@ -29,7 +37,25 @@ func New(engine *tmpl.Engine, logger *slog.Logger) *Watcher {
 	return &Watcher{
 		engine: engine,
 		logger: logger,
+		stdout: os.Stdout,
 	}
+}
+
+// emitSourceMap writes a source map response as NDJSON to stdout.
+func (w *Watcher) emitSourceMap(path string, srcMap map[int]int) {
+	resp := sourceMapResponse{
+		SourceMap: make(map[string]int, len(srcMap)),
+		File:      path,
+	}
+	for k, v := range srcMap {
+		resp.SourceMap[strconv.Itoa(k)] = v
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		w.logger.Error("marshaling source map", slog.String("error", err.Error()))
+		return
+	}
+	_, _ = fmt.Fprintf(w.stdout, "%s\n", data)
 }
 
 // renderTemplate reads a .tmpl file, renders it, and writes the output to .tmpl.rendered.
@@ -40,24 +66,7 @@ func (w *Watcher) renderTemplate(path string) error {
 		return fmt.Errorf("reading template %s: %w", path, err)
 	}
 
-	rendered, err := w.engine.RenderBytes(filepath.Base(path), content)
-	if err != nil {
-		return fmt.Errorf("rendering template %s: %w", path, err)
-	}
-
-	renderedPath := tmpl.RenderedPath(path)
-	if err := os.WriteFile(renderedPath, rendered, 0o600); err != nil {
-		return fmt.Errorf("writing rendered file %s: %w", renderedPath, err)
-	}
-
-	return nil
-}
-
-// renderContent renders template content from a string and writes the output to .tmpl.rendered.
-// Uses the path for the template name (for error messages) and output file location.
-// On error, the rendered file is not written (preserving any previous good render).
-func (w *Watcher) renderContent(path, content string) error {
-	rendered, err := w.engine.RenderString(filepath.Base(path), content)
+	rendered, srcMap, err := w.engine.RenderStringWithSourceMap(filepath.Base(path), string(content))
 	if err != nil {
 		return fmt.Errorf("rendering template %s: %w", path, err)
 	}
@@ -66,6 +75,27 @@ func (w *Watcher) renderContent(path, content string) error {
 	if err := os.WriteFile(renderedPath, []byte(rendered), 0o600); err != nil {
 		return fmt.Errorf("writing rendered file %s: %w", renderedPath, err)
 	}
+
+	w.emitSourceMap(path, srcMap)
+
+	return nil
+}
+
+// renderContent renders template content from a string and writes the output to .tmpl.rendered.
+// Uses the path for the template name (for error messages) and output file location.
+// On error, the rendered file is not written (preserving any previous good render).
+func (w *Watcher) renderContent(path, content string) error {
+	rendered, srcMap, err := w.engine.RenderStringWithSourceMap(filepath.Base(path), content)
+	if err != nil {
+		return fmt.Errorf("rendering template %s: %w", path, err)
+	}
+
+	renderedPath := tmpl.RenderedPath(path)
+	if err := os.WriteFile(renderedPath, []byte(rendered), 0o600); err != nil {
+		return fmt.Errorf("writing rendered file %s: %w", renderedPath, err)
+	}
+
+	w.emitSourceMap(path, srcMap)
 
 	return nil
 }
@@ -167,16 +197,16 @@ func printRenderStatus(path string, renderErr error) {
 		_, _ = fmt.Fprintf(os.Stderr, "\u2717 %s error: %v (%s)\n",
 			filepath.Base(path), renderErr, timestamp)
 	} else {
-		_, _ = fmt.Fprintf(os.Stdout, "\u2713 %s rendered (%s)\n",
+		_, _ = fmt.Fprintf(os.Stderr, "\u2713 %s rendered (%s)\n",
 			filepath.Base(path), timestamp)
 	}
 }
 
 // printWatchSummary prints the list of templates being watched.
 func printWatchSummary(templates []string) {
-	_, _ = fmt.Fprintf(os.Stdout, "Watching %d template(s)...\n", len(templates))
+	_, _ = fmt.Fprintf(os.Stderr, "Watching %d template(s)...\n", len(templates))
 	for _, t := range templates {
-		_, _ = fmt.Fprintf(os.Stdout, "  %s\n", filepath.Base(t))
+		_, _ = fmt.Fprintf(os.Stderr, "  %s\n", filepath.Base(t))
 	}
 }
 
@@ -215,7 +245,7 @@ func (w *Watcher) WatchWithStdin(ctx context.Context, path string, stdin io.Read
 		printRenderStatus(t, w.renderTemplate(t))
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout)
+	_, _ = fmt.Fprintln(os.Stderr)
 
 	// Start stdin reader for single-file watches.
 	if stdin != nil && len(templates) == 1 {
