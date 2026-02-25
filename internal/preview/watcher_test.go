@@ -633,6 +633,47 @@ func TestWatch_RendersFromStdin(t *testing.T) {
 	}
 }
 
+func TestRenderContent_EmitsEnrichedSourceMap(t *testing.T) {
+	w := testWatcher()
+	var stdoutBuf bytes.Buffer
+	w.stdout = &stdoutBuf
+
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+
+	err := w.renderContent(tmplPath, "header\n{{ if eq .OS \"linux\" }}\nlinux\n{{ end }}\nfooter")
+	if err != nil {
+		t.Fatalf("renderContent() error: %v", err)
+	}
+
+	var resp sourceMapResponse
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdoutBuf.String())), &resp); err != nil {
+		t.Fatalf("failed to parse source map NDJSON: %v", err)
+	}
+
+	// Verify reverse_map is present
+	if resp.ReverseMap == nil {
+		t.Fatal("reverse_map is nil")
+	}
+	if resp.ReverseMap["1"] != 1 {
+		t.Errorf("reverse_map[1] = %d, want 1", resp.ReverseMap["1"])
+	}
+
+	// Verify line_types is present
+	if resp.LineTypes == nil {
+		t.Fatal("line_types is nil")
+	}
+	if resp.LineTypes["1"] != "text" {
+		t.Errorf("line_types[1] = %q, want \"text\"", resp.LineTypes["1"])
+	}
+	if resp.LineTypes["2"] != "directive" {
+		t.Errorf("line_types[2] = %q, want \"directive\"", resp.LineTypes["2"])
+	}
+	if resp.LineTypes["3"] != "text" {
+		t.Errorf("line_types[3] = %q, want \"text\"", resp.LineTypes["3"])
+	}
+}
+
 func TestRenderContent_EmitsSourceMap(t *testing.T) {
 	w := testWatcher()
 	var stdoutBuf bytes.Buffer

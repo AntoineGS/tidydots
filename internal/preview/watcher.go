@@ -21,8 +21,10 @@ const debounceInterval = 100 * time.Millisecond
 
 // sourceMapResponse is the NDJSON response sent to stdout after each render.
 type sourceMapResponse struct {
-	SourceMap map[string]int `json:"source_map"`
-	File      string         `json:"file"`
+	SourceMap  map[string]int    `json:"source_map"`
+	ReverseMap map[string]int    `json:"reverse_map"`
+	LineTypes  map[string]string `json:"line_types"`
+	File       string            `json:"file"`
 }
 
 // Watcher watches template files and re-renders them on changes.
@@ -42,14 +44,28 @@ func New(engine *tmpl.Engine, logger *slog.Logger) *Watcher {
 }
 
 // emitSourceMap writes a source map response as NDJSON to stdout.
-func (w *Watcher) emitSourceMap(path string, srcMap map[int]int) {
+// It computes reverse_map and line_types from the template content and forward source map.
+func (w *Watcher) emitSourceMap(path, tmplContent string, srcMap map[int]int) {
+	lineTypes := tmpl.ClassifyLineTypes(tmplContent)
+	reverseMap := tmpl.BuildReverseMap(srcMap, lineTypes)
+
 	resp := sourceMapResponse{
-		SourceMap: make(map[string]int, len(srcMap)),
-		File:      path,
+		SourceMap:  make(map[string]int, len(srcMap)),
+		ReverseMap: make(map[string]int, len(reverseMap)),
+		LineTypes:  make(map[string]string, len(lineTypes)),
+		File:       path,
 	}
+
 	for k, v := range srcMap {
 		resp.SourceMap[strconv.Itoa(k)] = v
 	}
+	for k, v := range reverseMap {
+		resp.ReverseMap[strconv.Itoa(k)] = v
+	}
+	for k, v := range lineTypes {
+		resp.LineTypes[strconv.Itoa(k)] = v
+	}
+
 	data, err := json.Marshal(resp)
 	if err != nil {
 		w.logger.Error("marshaling source map", slog.String("error", err.Error()))
@@ -76,7 +92,7 @@ func (w *Watcher) renderTemplate(path string) error {
 		return fmt.Errorf("writing rendered file %s: %w", renderedPath, err)
 	}
 
-	w.emitSourceMap(path, srcMap)
+	w.emitSourceMap(path, string(content), srcMap)
 
 	return nil
 }
@@ -95,7 +111,7 @@ func (w *Watcher) renderContent(path, content string) error {
 		return fmt.Errorf("writing rendered file %s: %w", renderedPath, err)
 	}
 
-	w.emitSourceMap(path, srcMap)
+	w.emitSourceMap(path, content, srcMap)
 
 	return nil
 }
