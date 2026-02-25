@@ -832,23 +832,23 @@ func (m Model) viewApplicationForm() string {
 	if ft == appFieldName {
 		nameLabel = HelpKeyStyle.Render("Name:")
 	}
-	b.WriteString(fmt.Sprintf("  %s\n", nameLabel))
-	b.WriteString(fmt.Sprintf("  %s\n\n", m.renderApplicationFieldValue(appFieldName, "(empty)")))
+	fmt.Fprintf(&b, "  %s\n", nameLabel)
+	fmt.Fprintf(&b, "  %s\n\n", m.renderApplicationFieldValue(appFieldName, "(empty)"))
 
 	// Description field
 	descLabel := "Description:"
 	if ft == appFieldDescription {
 		descLabel = HelpKeyStyle.Render("Description:")
 	}
-	b.WriteString(fmt.Sprintf("  %s\n", descLabel))
-	b.WriteString(fmt.Sprintf("  %s\n\n", m.renderApplicationFieldValue(appFieldDescription, "(optional)")))
+	fmt.Fprintf(&b, "  %s\n", descLabel)
+	fmt.Fprintf(&b, "  %s\n\n", m.renderApplicationFieldValue(appFieldDescription, "(optional)"))
 
 	// Packages section
 	packagesLabel := "Packages:"
 	if ft == appFieldPackages {
 		packagesLabel = HelpKeyStyle.Render("Packages:")
 	}
-	b.WriteString(fmt.Sprintf("  %s\n", packagesLabel))
+	fmt.Fprintf(&b, "  %s\n", packagesLabel)
 
 	if m.applicationForm.editingDeps {
 		// Show deps editing view instead of regular packages section
@@ -900,7 +900,7 @@ func (m Model) viewApplicationForm() string {
 	if ft == appFieldWhen {
 		whenLabel = HelpKeyStyle.Render("When:")
 	}
-	b.WriteString(fmt.Sprintf("  %s\n", whenLabel))
+	fmt.Fprintf(&b, "  %s\n", whenLabel)
 	b.WriteString(renderWhenField(
 		ft == appFieldWhen,
 		m.applicationForm.editingWhen,

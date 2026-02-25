@@ -295,7 +295,7 @@ func copyFile(src, dst string) (err error) {
 		return fmt.Errorf("syncing destination: %w", err)
 	}
 
-	if err = os.Chmod(dst, srcInfo.Mode()); err != nil {
+	if err = os.Chmod(dst, srcInfo.Mode()); err != nil { //nolint:gosec // path from config
 		return fmt.Errorf("setting permissions: %w", err)
 	}
 

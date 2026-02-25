@@ -42,7 +42,7 @@ func generateUnifiedDiff(mt manager.ModifiedTemplate) string {
 	// Build a readable unified diff output
 	var sb strings.Builder
 	sb.WriteString("--- pure render (from DB)\n")
-	sb.WriteString(fmt.Sprintf("+++ edited file (%s)\n", mt.RenderedPath))
+	fmt.Fprintf(&sb, "+++ edited file (%s)\n", mt.RenderedPath)
 	sb.WriteString("\n")
 
 	for _, diff := range diffs {
@@ -76,12 +76,12 @@ func writeTempDiff(diff string) (string, error) {
 
 	if _, err := f.WriteString(diff); err != nil {
 		_ = f.Close()
-		_ = os.Remove(f.Name())
+		_ = os.Remove(f.Name()) //nolint:gosec // temp file created above
 		return "", fmt.Errorf("writing diff to temp file: %w", err)
 	}
 
 	if err := f.Close(); err != nil {
-		_ = os.Remove(f.Name())
+		_ = os.Remove(f.Name()) //nolint:gosec // temp file created above
 		return "", fmt.Errorf("closing temp diff file: %w", err)
 	}
 

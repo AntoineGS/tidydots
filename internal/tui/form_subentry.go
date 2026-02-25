@@ -650,8 +650,8 @@ func (m Model) viewSubEntryForm() string {
 		nameLabel = HelpKeyStyle.Render("Name:")
 	}
 
-	b.WriteString(fmt.Sprintf("  %s\n", nameLabel))
-	b.WriteString(fmt.Sprintf("  %s\n\n", m.renderSubEntryFieldValue(subFieldName, "(empty)")))
+	fmt.Fprintf(&b, "  %s\n", nameLabel)
+	fmt.Fprintf(&b, "  %s\n\n", m.renderSubEntryFieldValue(subFieldName, "(empty)"))
 
 	// Linux target field
 	linuxTargetLabel := "Target (linux):"
@@ -659,8 +659,8 @@ func (m Model) viewSubEntryForm() string {
 		linuxTargetLabel = HelpKeyStyle.Render(linuxTargetLabel)
 	}
 
-	b.WriteString(fmt.Sprintf("  %s\n", linuxTargetLabel))
-	b.WriteString(fmt.Sprintf("  %s\n", m.renderSubEntryFieldValue(subFieldLinux, "(empty)")))
+	fmt.Fprintf(&b, "  %s\n", linuxTargetLabel)
+	fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldLinux, "(empty)"))
 
 	if m.subEntryForm.editingField && ft == subFieldLinux && m.subEntryForm.showSuggestions {
 		b.WriteString(m.renderSubEntrySuggestions())
@@ -674,8 +674,8 @@ func (m Model) viewSubEntryForm() string {
 		windowsTargetLabel = HelpKeyStyle.Render(windowsTargetLabel)
 	}
 
-	b.WriteString(fmt.Sprintf("  %s\n", windowsTargetLabel))
-	b.WriteString(fmt.Sprintf("  %s\n", m.renderSubEntryFieldValue(subFieldWindows, "(empty)")))
+	fmt.Fprintf(&b, "  %s\n", windowsTargetLabel)
+	fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldWindows, "(empty)"))
 
 	if m.subEntryForm.editingField && ft == subFieldWindows && m.subEntryForm.showSuggestions {
 		b.WriteString(m.renderSubEntrySuggestions())
@@ -689,8 +689,8 @@ func (m Model) viewSubEntryForm() string {
 		backupLabel = HelpKeyStyle.Render("Backup path:")
 	}
 
-	b.WriteString(fmt.Sprintf("  %s\n", backupLabel))
-	b.WriteString(fmt.Sprintf("  %s\n", m.renderSubEntryFieldValue(subFieldBackup, "(empty)")))
+	fmt.Fprintf(&b, "  %s\n", backupLabel)
+	fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldBackup, "(empty)"))
 
 	if m.subEntryForm.editingField && ft == subFieldBackup && m.subEntryForm.showSuggestions {
 		b.WriteString(m.renderSubEntrySuggestions())
@@ -711,7 +711,7 @@ func (m Model) viewSubEntryForm() string {
 		filesCheck = CheckboxUnchecked
 	}
 
-	b.WriteString(fmt.Sprintf("  %s  %s Folder  %s Files\n\n", toggleLabel, folderCheck, filesCheck))
+	fmt.Fprintf(&b, "  %s  %s Folder  %s Files\n\n", toggleLabel, folderCheck, filesCheck)
 
 	// Files list (only shown when Files mode is selected)
 	if !m.subEntryForm.isFolder {
@@ -720,7 +720,7 @@ func (m Model) viewSubEntryForm() string {
 			filesLabel = HelpKeyStyle.Render("Files:")
 		}
 
-		b.WriteString(fmt.Sprintf("  %s\n", filesLabel))
+		fmt.Fprintf(&b, "  %s\n", filesLabel)
 
 		// Render file list
 		if len(m.subEntryForm.files) == 0 && !m.subEntryForm.addingFile {
@@ -732,24 +732,24 @@ func (m Model) viewSubEntryForm() string {
 				// Show input if editing this file
 				switch {
 				case m.subEntryForm.editingFile && m.subEntryForm.editingFileIndex == i:
-					b.WriteString(fmt.Sprintf("%s%s\n", prefix, m.subEntryForm.newFileInput.View()))
+					fmt.Fprintf(&b, "%s%s\n", prefix, m.subEntryForm.newFileInput.View())
 				case ft == subFieldFiles && !m.subEntryForm.addingFile && !m.subEntryForm.editingFile && m.subEntryForm.filesCursor == i:
-					b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render("• "+file)))
+					fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render("• "+file))
 				default:
-					b.WriteString(fmt.Sprintf("%s• %s\n", prefix, file))
+					fmt.Fprintf(&b, "%s• %s\n", prefix, file)
 				}
 			}
 		}
 
 		// Add File button or input
 		if m.subEntryForm.addingFile {
-			b.WriteString(fmt.Sprintf("    %s\n", m.subEntryForm.newFileInput.View()))
+			fmt.Fprintf(&b, "    %s\n", m.subEntryForm.newFileInput.View())
 		} else if !m.subEntryForm.editingFile {
 			addFileText := "[+ Add File]"
 			if ft == subFieldFiles && m.subEntryForm.filesCursor == len(m.subEntryForm.files) {
-				b.WriteString(fmt.Sprintf("    %s\n", SelectedMenuItemStyle.Render(addFileText)))
+				fmt.Fprintf(&b, "    %s\n", SelectedMenuItemStyle.Render(addFileText))
 			} else {
-				b.WriteString(fmt.Sprintf("    %s\n", MutedTextStyle.Render(addFileText)))
+				fmt.Fprintf(&b, "    %s\n", MutedTextStyle.Render(addFileText))
 			}
 		}
 
@@ -767,7 +767,7 @@ func (m Model) viewSubEntryForm() string {
 		rootCheck = CheckboxChecked
 	}
 
-	b.WriteString(fmt.Sprintf("  %s  %s Yes\n\n", rootLabel, rootCheck))
+	fmt.Fprintf(&b, "  %s  %s Yes\n\n", rootLabel, rootCheck)
 
 	// Error message
 	if m.subEntryForm.err != "" {
@@ -931,9 +931,9 @@ func (m Model) renderSubEntrySuggestions() string {
 
 	for i, suggestion := range m.subEntryForm.suggestions {
 		if i == m.subEntryForm.suggestionCursor {
-			b.WriteString(fmt.Sprintf("  %s\n", SelectedMenuItemStyle.Render(suggestion)))
+			fmt.Fprintf(&b, "  %s\n", SelectedMenuItemStyle.Render(suggestion))
 		} else {
-			b.WriteString(fmt.Sprintf("  %s\n", MutedTextStyle.Render(suggestion)))
+			fmt.Fprintf(&b, "  %s\n", MutedTextStyle.Render(suggestion))
 		}
 	}
 

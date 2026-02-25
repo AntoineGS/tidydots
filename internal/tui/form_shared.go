@@ -98,20 +98,20 @@ func renderPackagesSection(
 		// Show input if editing this manager's package
 		switch {
 		case editingPackage && packagesCursor == i:
-			b.WriteString(fmt.Sprintf("%s%-8s %s\n", prefix, manager+":", packageNameInput.View()))
+			fmt.Fprintf(&b, "%s%-8s %s\n", prefix, manager+":", packageNameInput.View())
 		case focused && packagesCursor == i:
 			// Focused on this manager
 			if pkgName != "" {
-				b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s %s%s", manager+":", pkgName, depsIndicator))))
+				fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s %s%s", manager+":", pkgName, depsIndicator)))
 			} else {
-				b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s (not set)%s", manager+":", depsIndicator))))
+				fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render(fmt.Sprintf("%-8s (not set)%s", manager+":", depsIndicator)))
 			}
 		default:
 			// Not focused
 			if pkgName != "" {
-				b.WriteString(fmt.Sprintf("%s%-8s %s%s\n", prefix, manager+":", pkgName, depsIndicator))
+				fmt.Fprintf(&b, "%s%-8s %s%s\n", prefix, manager+":", pkgName, depsIndicator)
 			} else {
-				b.WriteString(fmt.Sprintf("%s%-8s %s%s\n", prefix, manager+":", MutedTextStyle.Render("(not set)"), depsIndicator))
+				fmt.Fprintf(&b, "%s%-8s %s%s\n", prefix, manager+":", MutedTextStyle.Render("(not set)"), depsIndicator)
 			}
 		}
 	}
@@ -130,26 +130,26 @@ func renderDepsSection(
 	var b strings.Builder
 	prefix := IndentSpaces
 
-	b.WriteString(fmt.Sprintf("%s%s\n", prefix, HelpKeyStyle.Render(fmt.Sprintf("Dependencies for %s:", manager))))
+	fmt.Fprintf(&b, "%s%s\n", prefix, HelpKeyStyle.Render(fmt.Sprintf("Dependencies for %s:", manager)))
 
 	for i, dep := range deps {
 		if editingItem && cursor == i {
-			b.WriteString(fmt.Sprintf("%s  %s\n", prefix, depInput.View()))
+			fmt.Fprintf(&b, "%s  %s\n", prefix, depInput.View())
 		} else if cursor == i {
-			b.WriteString(fmt.Sprintf("%s  %s\n", prefix, SelectedMenuItemStyle.Render(dep)))
+			fmt.Fprintf(&b, "%s  %s\n", prefix, SelectedMenuItemStyle.Render(dep))
 		} else {
-			b.WriteString(fmt.Sprintf("%s  %s\n", prefix, dep))
+			fmt.Fprintf(&b, "%s  %s\n", prefix, dep)
 		}
 	}
 
 	// Add button
 	addText := "[+ Add dependency]"
 	if editingItem && cursor == len(deps) {
-		b.WriteString(fmt.Sprintf("%s  %s\n", prefix, depInput.View()))
+		fmt.Fprintf(&b, "%s  %s\n", prefix, depInput.View())
 	} else if cursor == len(deps) {
-		b.WriteString(fmt.Sprintf("%s  %s\n", prefix, SelectedMenuItemStyle.Render(addText)))
+		fmt.Fprintf(&b, "%s  %s\n", prefix, SelectedMenuItemStyle.Render(addText))
 	} else {
-		b.WriteString(fmt.Sprintf("%s  %s\n", prefix, MutedTextStyle.Render(addText)))
+		fmt.Fprintf(&b, "%s  %s\n", prefix, MutedTextStyle.Render(addText))
 	}
 
 	return b.String()
@@ -177,9 +177,9 @@ func renderGitPackageSection(
 		// Collapsed: show add button
 		addText := "[+ Add Git Package]"
 		if focused && onGitItem {
-			b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(addText)))
+			fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render(addText))
 		} else {
-			b.WriteString(fmt.Sprintf("%s%s\n", prefix, MutedTextStyle.Render(addText)))
+			fmt.Fprintf(&b, "%s%s\n", prefix, MutedTextStyle.Render(addText))
 		}
 		return b.String()
 	}
@@ -187,9 +187,9 @@ func renderGitPackageSection(
 	// Expanded: show git label and sub-fields
 	gitLabel := "git:"
 	if focused && onGitItem && gitFieldCursor == -1 {
-		b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(gitLabel)))
+		fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render(gitLabel))
 	} else {
-		b.WriteString(fmt.Sprintf("%s%s\n", prefix, gitLabel))
+		fmt.Fprintf(&b, "%s%s\n", prefix, gitLabel)
 	}
 
 	// Sub-fields with deeper indent
@@ -207,9 +207,9 @@ func renderGitPackageSection(
 		sudoText = CheckboxChecked + " Yes"
 	}
 	if onSubFields && gitFieldCursor == GitFieldSudo {
-		b.WriteString(fmt.Sprintf("%sSudo:    %s\n", subPrefix, SelectedMenuItemStyle.Render(sudoText)))
+		fmt.Fprintf(&b, "%sSudo:    %s\n", subPrefix, SelectedMenuItemStyle.Render(sudoText))
 	} else {
-		b.WriteString(fmt.Sprintf("%sSudo:    %s\n", subPrefix, sudoText))
+		fmt.Fprintf(&b, "%sSudo:    %s\n", subPrefix, sudoText)
 	}
 
 	return b.String()
@@ -255,9 +255,9 @@ func renderInstallerPackageSection(
 		// Collapsed: show add button
 		addText := "[+ Add Installer Package]"
 		if focused && onInstallerItem {
-			b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(addText)))
+			fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render(addText))
 		} else {
-			b.WriteString(fmt.Sprintf("%s%s\n", prefix, MutedTextStyle.Render(addText)))
+			fmt.Fprintf(&b, "%s%s\n", prefix, MutedTextStyle.Render(addText))
 		}
 		return b.String()
 	}
@@ -265,9 +265,9 @@ func renderInstallerPackageSection(
 	// Expanded: show installer label and sub-fields
 	installerLabel := "installer:"
 	if focused && onInstallerItem && installerFieldCursor == -1 {
-		b.WriteString(fmt.Sprintf("%s%s\n", prefix, SelectedMenuItemStyle.Render(installerLabel)))
+		fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render(installerLabel))
 	} else {
-		b.WriteString(fmt.Sprintf("%s%s\n", prefix, installerLabel))
+		fmt.Fprintf(&b, "%s%s\n", prefix, installerLabel)
 	}
 
 	// Sub-fields with deeper indent

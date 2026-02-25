@@ -65,7 +65,7 @@ func (m Model) viewDiffPicker() string {
 			style = SelectedListItemStyle
 		}
 
-		b.WriteString(fmt.Sprintf("%s%s\n", cursor, style.Render(mt.RelPath)))
+		fmt.Fprintf(&b, "%s%s\n", cursor, style.Render(mt.RelPath))
 	}
 
 	b.WriteString("\n")

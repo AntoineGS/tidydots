@@ -295,11 +295,11 @@ func waitForFile(t *testing.T, path string, timeout time.Duration) []byte {
 	return nil
 }
 
-// waitForContent polls until the file contains the expected content, or the timeout expires.
-func waitForContent(t *testing.T, path, want string, timeout time.Duration) {
+// waitForContent polls until the file contains the expected content, or a 2-second timeout expires.
+func waitForContent(t *testing.T, path, want string) {
 	t.Helper()
 
-	deadline := time.Now().Add(timeout)
+	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		data, err := os.ReadFile(path)
 		if err == nil && string(data) == want {
@@ -368,7 +368,7 @@ func TestWatch_RerendersOnChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	waitForContent(t, renderedPath, "user=testuser", 2*time.Second)
+	waitForContent(t, renderedPath, "user=testuser")
 
 	cancel()
 
@@ -395,7 +395,7 @@ func TestWatch_SyntaxErrorPreservesLastGoodRender(t *testing.T) {
 	}()
 
 	renderedPath := tmpl.RenderedPath(tmplPath)
-	waitForContent(t, renderedPath, "host=testhost", 2*time.Second)
+	waitForContent(t, renderedPath, "host=testhost")
 
 	// Write invalid template
 	if err := os.WriteFile(tmplPath, []byte("{{ .Invalid"), 0o644); err != nil {
@@ -614,7 +614,7 @@ func TestWatch_RendersFromStdin(t *testing.T) {
 	renderedPath := tmpl.RenderedPath(tmplPath)
 
 	// Wait for initial render from file
-	waitForContent(t, renderedPath, "host=testhost", 2*time.Second)
+	waitForContent(t, renderedPath, "host=testhost")
 
 	// Send new content via stdin
 	_, err := fmt.Fprintln(pw, `{"content":"user={{ .User }}"}`)
@@ -623,7 +623,7 @@ func TestWatch_RendersFromStdin(t *testing.T) {
 	}
 
 	// Wait for stdin-driven render
-	waitForContent(t, renderedPath, "user=testuser", 2*time.Second)
+	waitForContent(t, renderedPath, "user=testuser")
 
 	pw.Close()
 	cancel()

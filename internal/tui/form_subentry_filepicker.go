@@ -97,9 +97,9 @@ func (m Model) viewFileAddModeMenu() string {
 
 	for i, text := range options {
 		if m.subEntryForm.modeMenuCursor == i {
-			b.WriteString(fmt.Sprintf("  %s\n", SelectedMenuItemStyle.Render("→ "+text)))
+			fmt.Fprintf(&b, "  %s\n", SelectedMenuItemStyle.Render("→ "+text))
 		} else {
-			b.WriteString(fmt.Sprintf("    %s\n", text))
+			fmt.Fprintf(&b, "    %s\n", text)
 		}
 	}
 

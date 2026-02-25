@@ -342,7 +342,7 @@ func lookPathSkipWindowsDrives(file string, mounts []string) bool {
 		}
 
 		path := dir + "/" + file
-		if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
+		if fi, err := os.Stat(path); err == nil && !fi.IsDir() { //nolint:gosec // path from PATH env
 			return true
 		}
 	}
