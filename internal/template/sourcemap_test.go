@@ -199,3 +199,73 @@ func TestLineCountingWriter(t *testing.T) {
 		})
 	}
 }
+
+func TestClassifyLineTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		want     map[int]string
+	}{
+		{
+			name:     "all plain text",
+			template: "line one\nline two\nline three",
+			want:     map[int]string{1: "text", 2: "text", 3: "text"},
+		},
+		{
+			name:     "directive only",
+			template: "{{ if .X }}\ncontent\n{{ end }}",
+			want:     map[int]string{1: "directive", 2: "text", 3: "directive"},
+		},
+		{
+			name:     "expression with static text",
+			template: "Hello {{ .User }}",
+			want:     map[int]string{1: "expression"},
+		},
+		{
+			name:     "mixed lines",
+			template: "header\n{{ if eq .OS \"linux\" }}\nHello {{ .User }}\nplain line\n{{ end }}\nfooter",
+			want:     map[int]string{1: "text", 2: "directive", 3: "expression", 4: "text", 5: "directive", 6: "text"},
+		},
+		{
+			name:     "directive with trim markers",
+			template: "{{- if .X }}",
+			want:     map[int]string{1: "directive"},
+		},
+		{
+			name:     "expression with trim markers",
+			template: "name={{- .User }}",
+			want:     map[int]string{1: "expression"},
+		},
+		{
+			name:     "range directive",
+			template: "{{ range .Items }}{{ .Name }}{{ end }}",
+			want:     map[int]string{1: "directive"},
+		},
+		{
+			name:     "single line no delimiters",
+			template: "hello world",
+			want:     map[int]string{1: "text"},
+		},
+		{
+			name:     "empty template",
+			template: "",
+			want:     map[int]string{1: "text"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ClassifyLineTypes(tt.template)
+			for line, wantType := range tt.want {
+				if gotType, ok := got[line]; !ok {
+					t.Errorf("missing line %d", line)
+				} else if gotType != wantType {
+					t.Errorf("line %d = %q, want %q", line, gotType, wantType)
+				}
+			}
+			if len(got) != len(tt.want) {
+				t.Errorf("got %d entries, want %d", len(got), len(tt.want))
+			}
+		})
+	}
+}

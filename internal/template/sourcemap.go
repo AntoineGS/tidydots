@@ -33,6 +33,9 @@ func (w *lineCountingWriter) Line() int {
 	return w.line
 }
 
+// templateActionPattern matches {{ ... }} blocks (including trim markers) for stripping.
+var templateActionPattern = regexp.MustCompile(`\{\{-?\s*.*?\s*-?\}\}`)
+
 // leftTrimPattern matches lines that start with optional whitespace followed by {{-
 var leftTrimPattern = regexp.MustCompile(`^(\s*)\{\{-\s*`)
 
@@ -138,4 +141,29 @@ func (e *Engine) RenderStringWithSourceMap(name, tmplStr string) (string, map[in
 	fillSourceMapGaps(srcMap, totalLines)
 
 	return buf.String(), srcMap, nil
+}
+
+// ClassifyLineTypes classifies each line in a template string by its type:
+//   - "text"       — no {{ delimiters; editable in reverse editing
+//   - "expression" — has {{ with remaining non-whitespace after stripping {{ ... }} blocks; read-only
+//   - "directive"  — has {{ but only whitespace remains after stripping; read-only, no visible output
+func ClassifyLineTypes(tmplStr string) map[int]string {
+	lines := strings.Split(tmplStr, "\n")
+	types := make(map[int]string, len(lines))
+
+	for i, line := range lines {
+		lineNum := i + 1
+		if !strings.Contains(line, "{{") {
+			types[lineNum] = "text"
+			continue
+		}
+		stripped := templateActionPattern.ReplaceAllString(line, "")
+		if strings.TrimSpace(stripped) == "" {
+			types[lineNum] = "directive"
+		} else {
+			types[lineNum] = "expression"
+		}
+	}
+
+	return types
 }
