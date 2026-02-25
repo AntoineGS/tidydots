@@ -143,6 +143,37 @@ func (e *Engine) RenderStringWithSourceMap(name, tmplStr string) (string, map[in
 	return buf.String(), srcMap, nil
 }
 
+// lineTypePriority maps line types to priority values for reverse map selection.
+// Lower values are preferred when multiple template lines map to the same rendered line.
+var lineTypePriority = map[string]int{"text": 0, "expression": 1, "directive": 2}
+
+// BuildReverseMap inverts a forward source map (template line -> rendered line)
+// into a reverse map (rendered line -> template line).
+// When multiple template lines map to the same rendered line, the one with
+// the highest-priority line type is chosen (text > expression > directive).
+func BuildReverseMap(forwardMap map[int]int, lineTypes map[int]string) map[int]int {
+	candidates := make(map[int][]int)
+	for tmplLine, renderedLine := range forwardMap {
+		candidates[renderedLine] = append(candidates[renderedLine], tmplLine)
+	}
+
+	reverseMap := make(map[int]int, len(candidates))
+	for renderedLine, tmplLines := range candidates {
+		best := tmplLines[0]
+		bestPri := lineTypePriority[lineTypes[best]]
+		for _, tl := range tmplLines[1:] {
+			p := lineTypePriority[lineTypes[tl]]
+			if p < bestPri {
+				best = tl
+				bestPri = p
+			}
+		}
+		reverseMap[renderedLine] = best
+	}
+
+	return reverseMap
+}
+
 // ClassifyLineTypes classifies each line in a template string by its type:
 //   - "text"       — no {{ delimiters; editable in reverse editing
 //   - "expression" — has {{ with remaining non-whitespace after stripping {{ ... }} blocks; read-only

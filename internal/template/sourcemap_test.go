@@ -200,6 +200,68 @@ func TestLineCountingWriter(t *testing.T) {
 	}
 }
 
+func TestBuildReverseMap(t *testing.T) {
+	tests := []struct {
+		name       string
+		forwardMap map[int]int
+		lineTypes  map[int]string
+		want       map[int]int
+	}{
+		{
+			name:       "identity mapping all text",
+			forwardMap: map[int]int{1: 1, 2: 2, 3: 3},
+			lineTypes:  map[int]string{1: "text", 2: "text", 3: "text"},
+			want:       map[int]int{1: 1, 2: 2, 3: 3},
+		},
+		{
+			name:       "prefers text over directive",
+			forwardMap: map[int]int{1: 1, 2: 1, 3: 2, 4: 2, 5: 3},
+			lineTypes:  map[int]string{1: "text", 2: "directive", 3: "text", 4: "directive", 5: "text"},
+			want:       map[int]int{1: 1, 2: 3, 3: 5},
+		},
+		{
+			name:       "prefers expression over directive",
+			forwardMap: map[int]int{1: 1, 2: 1, 3: 2},
+			lineTypes:  map[int]string{1: "directive", 2: "expression", 3: "text"},
+			want:       map[int]int{1: 2, 2: 3},
+		},
+		{
+			name:       "prefers text over expression",
+			forwardMap: map[int]int{1: 1, 2: 1},
+			lineTypes:  map[int]string{1: "expression", 2: "text"},
+			want:       map[int]int{1: 2},
+		},
+		{
+			name:       "directive only for a rendered line",
+			forwardMap: map[int]int{1: 1, 2: 1},
+			lineTypes:  map[int]string{1: "directive", 2: "directive"},
+			want:       map[int]int{1: 1},
+		},
+		{
+			name:       "single line",
+			forwardMap: map[int]int{1: 1},
+			lineTypes:  map[int]string{1: "text"},
+			want:       map[int]int{1: 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BuildReverseMap(tt.forwardMap, tt.lineTypes)
+			for renderedLine, wantTmplLine := range tt.want {
+				if gotTmplLine, ok := got[renderedLine]; !ok {
+					t.Errorf("missing rendered line %d", renderedLine)
+				} else if gotTmplLine != wantTmplLine {
+					t.Errorf("reverse[%d] = %d, want %d", renderedLine, gotTmplLine, wantTmplLine)
+				}
+			}
+			if len(got) != len(tt.want) {
+				t.Errorf("got %d entries, want %d", len(got), len(tt.want))
+			}
+		})
+	}
+}
+
 func TestClassifyLineTypes(t *testing.T) {
 	tests := []struct {
 		name     string
