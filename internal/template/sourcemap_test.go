@@ -58,6 +58,81 @@ func TestInstrumentTemplate(t *testing.T) {
 	}
 }
 
+func TestRenderStringWithSourceMap(t *testing.T) {
+	ctx := &Context{
+		OS:       "linux",
+		Distro:   "arch",
+		Hostname: "testhost",
+		User:     "testuser",
+	}
+	engine := NewEngine(ctx)
+
+	tests := []struct {
+		name       string
+		template   string
+		wantOutput string
+		wantMap    map[int]int
+	}{
+		{
+			name:       "plain text identity mapping",
+			template:   "line one\nline two\nline three",
+			wantOutput: "line one\nline two\nline three",
+			wantMap:    map[int]int{1: 1, 2: 2, 3: 3},
+		},
+		{
+			name:       "if block taken",
+			template:   "header\n{{ if eq .OS \"linux\" }}\nlinux line\n{{ end }}\nfooter",
+			wantOutput: "header\n\nlinux line\n\nfooter",
+			wantMap:    map[int]int{1: 1, 2: 2, 3: 3, 4: 4, 5: 5},
+		},
+		{
+			name:       "if block untaken",
+			template:   "header\n{{ if eq .OS \"windows\" }}\nwindows line\n{{ end }}\nfooter",
+			wantOutput: "header\n\nfooter",
+			wantMap:    map[int]int{1: 1, 2: 2, 3: 2, 4: 2, 5: 3},
+		},
+		{
+			name:       "trim markers preserve output",
+			template:   "header\n{{- if eq .OS \"linux\" }}\nlinux line\n{{- end }}\nfooter",
+			wantOutput: "header\nlinux line\nfooter",
+			wantMap:    map[int]int{1: 1, 2: 1, 3: 2, 4: 2, 5: 3},
+		},
+		{
+			name:       "mixed content and action",
+			template:   "user={{ .User }}",
+			wantOutput: "user=testuser",
+			wantMap:    map[int]int{1: 1},
+		},
+		{
+			name:       "variable substitution",
+			template:   "OS is {{ .OS }}\nDistro is {{ .Distro }}",
+			wantOutput: "OS is linux\nDistro is arch",
+			wantMap:    map[int]int{1: 1, 2: 2},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, srcMap, err := engine.RenderStringWithSourceMap("test", tt.template)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if output != tt.wantOutput {
+				t.Errorf("output =\n%q\nwant:\n%q", output, tt.wantOutput)
+			}
+
+			for tmplLine, wantRendered := range tt.wantMap {
+				if got, ok := srcMap[tmplLine]; !ok {
+					t.Errorf("source map missing template line %d", tmplLine)
+				} else if got != wantRendered {
+					t.Errorf("source map[%d] = %d, want %d", tmplLine, got, wantRendered)
+				}
+			}
+		})
+	}
+}
+
 func TestLineCountingWriter(t *testing.T) {
 	tests := []struct {
 		name      string
