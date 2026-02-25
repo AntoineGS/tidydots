@@ -29,9 +29,11 @@ type sourceMapResponse struct {
 
 // Watcher watches template files and re-renders them on changes.
 type Watcher struct {
-	engine *tmpl.Engine
-	logger *slog.Logger
-	stdout io.Writer
+	engine      *tmpl.Engine
+	logger      *slog.Logger
+	stdout      io.Writer
+	lastContent string
+	lastSrcMap  map[int]int
 }
 
 // New creates a new Watcher with the given template engine and logger.
@@ -113,12 +115,16 @@ func (w *Watcher) renderContent(path, content string) error {
 
 	w.emitSourceMap(path, content, srcMap)
 
+	w.lastContent = content
+	w.lastSrcMap = srcMap
+
 	return nil
 }
 
-// stdinRequest represents a JSON message received on stdin for live preview rendering.
-type stdinRequest struct {
-	Content string `json:"content"`
+// stdinMessage is a union type for all stdin NDJSON messages.
+type stdinMessage struct {
+	Content      string               `json:"content,omitempty"`
+	RenderedEdit *renderedEditPayload `json:"rendered_edit,omitempty"`
 }
 
 // readStdin reads NDJSON render requests from the given reader and renders each one.
@@ -136,17 +142,60 @@ func (w *Watcher) readStdin(ctx context.Context, path string, r io.Reader) {
 		default:
 		}
 
-		var req stdinRequest
-		if err := json.Unmarshal(scanner.Bytes(), &req); err != nil {
+		var msg stdinMessage
+		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
 			continue
 		}
 
-		printRenderStatus(path, w.renderContent(path, req.Content))
+		switch {
+		case msg.RenderedEdit != nil:
+			printRenderStatus(path, w.handleRenderedEdit(path, *msg.RenderedEdit))
+		case msg.Content != "":
+			printRenderStatus(path, w.renderContent(path, msg.Content))
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		w.logger.Error("stdin read error", slog.String("error", err.Error()))
 	}
+}
+
+// handleRenderedEdit applies structural edits from the rendered buffer back to the template.
+// It uses the last known template state (content + source map) to map rendered lines back
+// to template lines, applies the edits, emits a template_update response, and re-renders.
+func (w *Watcher) handleRenderedEdit(path string, edit renderedEditPayload) error {
+	if w.lastContent == "" || w.lastSrcMap == nil {
+		return fmt.Errorf("no template state available for rendered edit")
+	}
+
+	lineTypes := tmpl.ClassifyLineTypes(w.lastContent)
+	reverseMap := tmpl.BuildReverseMap(w.lastSrcMap, lineTypes)
+
+	updated, cursorLine, err := ApplyRenderedEdit(w.lastContent, reverseMap, lineTypes, edit)
+	if err != nil {
+		return fmt.Errorf("applying rendered edit: %w", err)
+	}
+
+	w.emitTemplateUpdate(updated, cursorLine)
+
+	return w.renderContent(path, updated)
+}
+
+// emitTemplateUpdate writes a template_update NDJSON response to stdout.
+// This tells the editor what the new template content is and where to place the cursor.
+func (w *Watcher) emitTemplateUpdate(content string, cursorLine int) {
+	resp := templateUpdateResponse{
+		TemplateUpdate: templateUpdatePayload{
+			Content:    content,
+			CursorLine: cursorLine,
+		},
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		w.logger.Error("marshaling template update", slog.String("error", err.Error()))
+		return
+	}
+	_, _ = fmt.Fprintf(w.stdout, "%s\n", data)
 }
 
 // discoverTemplates finds all .tmpl files at the given path.

@@ -674,6 +674,79 @@ func TestRenderContent_EmitsEnrichedSourceMap(t *testing.T) {
 	}
 }
 
+func TestReadStdin_HandlesRenderedEdit(t *testing.T) {
+	w := testWatcher()
+	var stdoutBuf bytes.Buffer
+	w.stdout = &stdoutBuf
+
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+	if err := os.WriteFile(tmplPath, []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// First send content to establish state, then a rendered_edit
+	input := `{"content":"header\nfooter"}` + "\n" +
+		`{"rendered_edit":{"inserts":[{"after_rendered_line":1,"text":"middle"}]}}` + "\n"
+	reader := strings.NewReader(input)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w.readStdin(ctx, tmplPath, reader)
+
+	// Verify template_update was emitted
+	lines := strings.Split(strings.TrimSpace(stdoutBuf.String()), "\n")
+	foundUpdate := false
+	for _, line := range lines {
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			continue
+		}
+		if _, ok := raw["template_update"]; ok {
+			foundUpdate = true
+			var resp templateUpdateResponse
+			if err := json.Unmarshal([]byte(line), &resp); err != nil {
+				t.Fatalf("failed to parse template_update: %v", err)
+			}
+			want := "header\nmiddle\nfooter"
+			if resp.TemplateUpdate.Content != want {
+				t.Errorf("template_update content = %q, want %q", resp.TemplateUpdate.Content, want)
+			}
+		}
+	}
+	if !foundUpdate {
+		t.Error("no template_update message found in stdout")
+	}
+}
+
+func TestReadStdin_StateTracking(t *testing.T) {
+	w := testWatcher()
+	var stdoutBuf bytes.Buffer
+	w.stdout = &stdoutBuf
+
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+	if err := os.WriteFile(tmplPath, []byte("initial"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	input := `{"content":"header\nfooter"}` + "\n"
+	reader := strings.NewReader(input)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w.readStdin(ctx, tmplPath, reader)
+
+	if w.lastContent != "header\nfooter" {
+		t.Errorf("lastContent = %q, want %q", w.lastContent, "header\nfooter")
+	}
+	if w.lastSrcMap == nil {
+		t.Error("lastSrcMap is nil after renderContent")
+	}
+}
+
 func TestRenderContent_EmitsSourceMap(t *testing.T) {
 	w := testWatcher()
 	var stdoutBuf bytes.Buffer

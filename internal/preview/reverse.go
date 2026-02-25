@@ -31,13 +31,6 @@ type templateUpdatePayload struct {
 	CursorLine int    `json:"cursor_line"`
 }
 
-// Ensure types are referenced so the linter doesn't flag them as unused.
-// They will be used by the stdin dispatcher in a subsequent task.
-var (
-	_ = templateUpdateResponse{}
-	_ = templateUpdatePayload{}
-)
-
 // ApplyRenderedEdit modifies a template source based on structural edits
 // (inserts/deletes) from the rendered buffer.
 // Returns the updated template source and a cursor line hint.
