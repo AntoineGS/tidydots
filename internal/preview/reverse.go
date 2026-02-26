@@ -42,8 +42,12 @@ func ApplyRenderedEdit(
 ) (string, int, error) {
 	lines := strings.Split(tmplSource, "\n")
 
-	lines = applyDeletes(lines, edit.Deletes, reverseMap, lineTypes)
+	lines, deleteCursor := applyDeletes(lines, edit.Deletes, reverseMap, lineTypes)
 	lines, cursorLine := applyInserts(lines, edit.Inserts, reverseMap)
+
+	if len(edit.Inserts) == 0 && deleteCursor > 0 {
+		cursorLine = deleteCursor
+	}
 
 	cursorLine = clamp(cursorLine, 1, len(lines))
 
@@ -52,7 +56,8 @@ func ApplyRenderedEdit(
 
 // applyDeletes removes text lines from the template based on rendered line deletions.
 // Only lines classified as "text" are deletable; directive and expression lines are skipped.
-func applyDeletes(lines []string, deletes []int, reverseMap map[int]int, lineTypes map[int]string) []string {
+// Returns the modified lines and a cursor line hint (1-based, the line before the first deletion).
+func applyDeletes(lines []string, deletes []int, reverseMap map[int]int, lineTypes map[int]string) ([]string, int) {
 	deleteSet := collectDeletableIndices(deletes, reverseMap, lineTypes, len(lines))
 
 	indices := make([]int, 0, len(deleteSet))
@@ -62,11 +67,18 @@ func applyDeletes(lines []string, deletes []int, reverseMap map[int]int, lineTyp
 
 	slices.SortFunc(indices, func(a, b int) int { return b - a })
 
+	// Cursor goes to the line before the first deletion (ascending order).
+	cursorLine := 0
+	if len(indices) > 0 {
+		firstIdx := indices[len(indices)-1] // smallest index (sorted descending)
+		cursorLine = max(firstIdx+1, 1)     // 1-based, same position (lines above shift down)
+	}
+
 	for _, idx := range indices {
 		lines = slices.Delete(lines, idx, idx+1)
 	}
 
-	return lines
+	return lines, cursorLine
 }
 
 // collectDeletableIndices maps rendered delete lines to 0-based template line indices,

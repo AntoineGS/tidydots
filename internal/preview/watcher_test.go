@@ -747,6 +747,55 @@ func TestReadStdin_StateTracking(t *testing.T) {
 	}
 }
 
+func TestRenderTemplate_EstablishesStateForRenderedEdit(t *testing.T) {
+	w := testWatcher()
+	var stdoutBuf bytes.Buffer
+	w.stdout = &stdoutBuf
+
+	dir := t.TempDir()
+	tmplPath := filepath.Join(dir, "config.tmpl")
+	if err := os.WriteFile(tmplPath, []byte("header\nfooter"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Initial render from file (no content message via stdin)
+	if err := w.renderTemplate(tmplPath); err != nil {
+		t.Fatalf("renderTemplate() error: %v", err)
+	}
+
+	stdoutBuf.Reset()
+
+	// Send a rendered_edit directly — no preceding content message
+	input := `{"rendered_edit":{"inserts":[{"after_rendered_line":1,"text":"middle"}]}}` + "\n"
+	reader := strings.NewReader(input)
+
+	w.readStdin(t.Context(), tmplPath, reader)
+
+	// Verify template_update was emitted (not an error)
+	lines := strings.Split(strings.TrimSpace(stdoutBuf.String()), "\n")
+	foundUpdate := false
+	for _, line := range lines {
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			continue
+		}
+		if _, ok := raw["template_update"]; ok {
+			foundUpdate = true
+			var resp templateUpdateResponse
+			if err := json.Unmarshal([]byte(line), &resp); err != nil {
+				t.Fatalf("failed to parse template_update: %v", err)
+			}
+			want := "header\nmiddle\nfooter"
+			if resp.TemplateUpdate.Content != want {
+				t.Errorf("template_update content = %q, want %q", resp.TemplateUpdate.Content, want)
+			}
+		}
+	}
+	if !foundUpdate {
+		t.Error("no template_update message found — renderTemplate did not establish state for rendered edits")
+	}
+}
+
 func TestRenderContent_EmitsSourceMap(t *testing.T) {
 	w := testWatcher()
 	var stdoutBuf bytes.Buffer

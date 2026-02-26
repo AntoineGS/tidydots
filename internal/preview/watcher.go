@@ -96,6 +96,9 @@ func (w *Watcher) renderTemplate(path string) error {
 
 	w.emitSourceMap(path, string(content), srcMap)
 
+	w.lastContent = string(content)
+	w.lastSrcMap = srcMap
+
 	return nil
 }
 
