@@ -258,23 +258,13 @@ func collectWatchDirs(templates []string) []string {
 	return dirs
 }
 
-// printRenderStatus prints a success or error message for a template render.
+// printRenderStatus prints an error message when a template render fails.
+// Successful renders are silent.
 func printRenderStatus(path string, renderErr error) {
-	timestamp := time.Now().Format("15:04:05")
 	if renderErr != nil {
+		timestamp := time.Now().Format("15:04:05")
 		_, _ = fmt.Fprintf(os.Stderr, "\u2717 %s error: %v (%s)\n",
 			filepath.Base(path), renderErr, timestamp)
-	} else {
-		_, _ = fmt.Fprintf(os.Stderr, "\u2713 %s rendered (%s)\n",
-			filepath.Base(path), timestamp)
-	}
-}
-
-// printWatchSummary prints the list of templates being watched.
-func printWatchSummary(templates []string) {
-	_, _ = fmt.Fprintf(os.Stderr, "Watching %d template(s)...\n", len(templates))
-	for _, t := range templates {
-		_, _ = fmt.Fprintf(os.Stderr, "  %s\n", filepath.Base(t))
 	}
 }
 
@@ -306,14 +296,10 @@ func (w *Watcher) WatchWithStdin(ctx context.Context, path string, stdin io.Read
 		templateSet[t] = true
 	}
 
-	printWatchSummary(templates)
-
 	// Initial render of all templates.
 	for _, t := range templates {
 		printRenderStatus(t, w.renderTemplate(t))
 	}
-
-	_, _ = fmt.Fprintln(os.Stderr)
 
 	// Start stdin reader for single-file watches.
 	if stdin != nil && len(templates) == 1 {
