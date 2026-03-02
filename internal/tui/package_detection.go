@@ -9,7 +9,7 @@ import (
 )
 
 // isPackageInstalledFromPackage checks if a package is installed using the packages package
-func isPackageInstalledFromPackage(pkg *config.EntryPackage, method, entryName string) bool {
+func isPackageInstalledFromPackage(pkg *config.EntryPackage, method, entryName, osType string) bool {
 	if pkg == nil {
 		return false
 	}
@@ -18,6 +18,14 @@ func isPackageInstalledFromPackage(pkg *config.EntryPackage, method, entryName s
 	if method == TypeInstaller {
 		if val, ok := pkg.Managers[method]; ok && val.IsInstaller() {
 			return packages.IsInstallerInstalled(val.Installer.Binary)
+		}
+		return false
+	}
+
+	// Handle git packages via target directory check
+	if method == TypeGit {
+		if val, ok := pkg.Managers[method]; ok && val.IsGit() {
+			return packages.IsGitInstalled(val.Git.Targets, osType)
 		}
 		return false
 	}

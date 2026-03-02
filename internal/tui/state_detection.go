@@ -45,7 +45,7 @@ func (m Model) checkPackageStatesCmd() tea.Cmd {
 			method := getPackageInstallMethodFromPackage(pkg, osType)
 			installed := false
 			if method != TypeNone {
-				installed = isPackageInstalledFromPackage(pkg, method, name)
+				installed = isPackageInstalledFromPackage(pkg, method, name, osType)
 			}
 			return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
 		})
@@ -98,7 +98,7 @@ func (m Model) checkUncheckedPackageStatesCmd() tea.Cmd {
 			method := getPackageInstallMethodFromPackage(pkg, osType)
 			installed := false
 			if method != TypeNone {
-				installed = isPackageInstalledFromPackage(pkg, method, name)
+				installed = isPackageInstalledFromPackage(pkg, method, name, osType)
 			}
 			return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
 		})
@@ -130,7 +130,7 @@ func (m Model) checkFilteredStatesCmd() tea.Cmd {
 				method := getPackageInstallMethodFromPackage(pkg, osType)
 				installed := false
 				if method != TypeNone {
-					installed = isPackageInstalledFromPackage(pkg, method, name)
+					installed = isPackageInstalledFromPackage(pkg, method, name, osType)
 				}
 				return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
 			})
