@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -107,6 +109,30 @@ func IsInstallerInstalled(binary string) bool {
 	}
 
 	return platform.IsCommandAvailable(binary)
+}
+
+// IsGitInstalled checks whether a git repository has been cloned at the
+// OS-specific target path. It returns true if the target directory contains
+// a .git subdirectory.
+func IsGitInstalled(targets map[string]string, osType string) bool {
+	target, ok := targets[osType]
+	if !ok || target == "" {
+		return false
+	}
+
+	// Expand ~ (git clone doesn't do shell tilde expansion)
+	if strings.HasPrefix(target, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			target = filepath.Join(home, target[2:])
+		}
+	} else if target == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			target = home
+		}
+	}
+
+	_, err := os.Stat(filepath.Join(target, ".git"))
+	return err == nil
 }
 
 // CanInstall checks if a package can be installed on this system.

@@ -2141,6 +2141,64 @@ func TestBuildCommand(t *testing.T) {
 	}
 }
 
+func TestBuildCommand_GitExpandsTildeInTarget(t *testing.T) {
+	t.Parallel()
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("could not get home directory: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		target     string
+		wantTarget string
+	}{
+		{
+			name:       "tilde-slash prefix is expanded to home",
+			target:     "~/.local/share/catppuccin/lazygit",
+			wantTarget: filepath.Join(home, ".local/share/catppuccin/lazygit"),
+		},
+		{
+			name:       "bare tilde is expanded to home",
+			target:     "~",
+			wantTarget: home,
+		},
+		{
+			name:       "absolute path is passed through unchanged",
+			target:     "/opt/repo",
+			wantTarget: "/opt/repo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			pkg := Package{
+				Name: "git-pkg",
+				Managers: map[PackageManager]ManagerValue{
+					Git: {Git: &GitConfig{
+						URL:     "https://github.com/example/repo.git",
+						Targets: map[string]string{"linux": tt.target},
+					}},
+				},
+			}
+
+			cmd := BuildCommand(context.Background(), pkg, string(Git), "linux")
+			if cmd == nil {
+				t.Fatal("BuildCommand() returned nil")
+			}
+
+			// Last arg is always the target path for git clone
+			gotTarget := cmd.Args[len(cmd.Args)-1]
+			if gotTarget != tt.wantTarget {
+				t.Errorf("git clone target = %q, want %q", gotTarget, tt.wantTarget)
+			}
+		})
+	}
+}
+
 func TestInstall_DryRun_WithDeps(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -2301,6 +2359,85 @@ func TestInstall_DryRun_DepFailure(t *testing.T) {
 
 			if !strings.Contains(result.Message, "Dependency") {
 				t.Errorf("Expected 'Dependency' in failure message, got: %s", result.Message)
+			}
+		})
+	}
+}
+
+func TestIsGitInstalled(t *testing.T) {
+	t.Parallel()
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("could not get home dir: %v", err)
+	}
+
+	// Create a real temp dir with a .git subdirectory
+	clonedDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(clonedDir, ".git"), 0755); err != nil {
+		t.Fatalf("could not create .git dir: %v", err)
+	}
+
+	// A temp dir that exists but has no .git
+	bareDir := t.TempDir()
+
+	// Create a temp dir under home so tilde expansion maps back to it
+	tildeDir, err := os.MkdirTemp(home, ".tidydots-test-*")
+	if err != nil {
+		t.Fatalf("could not create tilde test dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tildeDir) })
+	if err := os.Mkdir(filepath.Join(tildeDir, ".git"), 0755); err != nil {
+		t.Fatalf("could not create .git in tilde test dir: %v", err)
+	}
+
+	// Build a tilde path that maps to the tilde dir (which is under home)
+	tildeCloned := "~" + strings.TrimPrefix(tildeDir, home)
+
+	tests := []struct {
+		name    string
+		targets map[string]string
+		osType  string
+		want    bool
+	}{
+		{
+			name:    "cloned repo with .git exists",
+			targets: map[string]string{"linux": clonedDir},
+			osType:  "linux",
+			want:    true,
+		},
+		{
+			name:    "dir exists but no .git",
+			targets: map[string]string{"linux": bareDir},
+			osType:  "linux",
+			want:    false,
+		},
+		{
+			name:    "target dir does not exist",
+			targets: map[string]string{"linux": "/tmp/tidydots-does-not-exist-xyz"},
+			osType:  "linux",
+			want:    false,
+		},
+		{
+			name:    "no target for this os",
+			targets: map[string]string{"windows": clonedDir},
+			osType:  "linux",
+			want:    false,
+		},
+		{
+			name:    "tilde path expansion - cloned",
+			targets: map[string]string{"linux": tildeCloned},
+			osType:  "linux",
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := IsGitInstalled(tt.targets, tt.osType)
+			if got != tt.want {
+				t.Errorf("IsGitInstalled() = %v, want %v", got, tt.want)
 			}
 		})
 	}
