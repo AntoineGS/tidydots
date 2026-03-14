@@ -1081,6 +1081,66 @@ func TestGetInstallerPackage_NilManagers(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsTraversalPaths(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+version: 3
+
+applications:
+  - name: "evil"
+    entries:
+      - name: "bad-backup"
+        backup: "../../../etc/shadow"
+        targets:
+          linux: "~/.config/nvim"
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	_, err := Load(configPath)
+	if err == nil {
+		t.Fatal("Load() should return error for path with traversal")
+	}
+
+	if !strings.Contains(err.Error(), "traversal") {
+		t.Errorf("Error should mention traversal, got: %v", err)
+	}
+}
+
+func TestLoadAcceptsTemplatePaths(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+version: 3
+
+applications:
+  - name: "nvim"
+    entries:
+      - name: "nvim-config"
+        backup: "./{{ .Hostname }}/../nvim"
+        targets:
+          linux: "~/.config/{{ .Hostname }}/../nvim"
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() should accept template paths, got error: %v", err)
+	}
+
+	if len(cfg.Applications) != 1 {
+		t.Errorf("len(Applications) = %d, want 1", len(cfg.Applications))
+	}
+}
+
 func TestLoad_FileHandleClosed(t *testing.T) {
 	// Create temp config file
 	tmpDir := t.TempDir()

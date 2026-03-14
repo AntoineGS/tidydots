@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -46,6 +47,10 @@ func Load(path string) (*Config, error) {
 
 	if cfg.Version != 3 {
 		return nil, fmt.Errorf("unsupported config version %d (expected 3)", cfg.Version)
+	}
+
+	if validationErrs := ValidateConfig(&cfg); len(validationErrs) > 0 {
+		return nil, fmt.Errorf("validating config: %w", errors.Join(validationErrs...))
 	}
 
 	return &cfg, nil

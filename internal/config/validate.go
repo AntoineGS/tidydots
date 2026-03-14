@@ -21,6 +21,64 @@ func ValidatePath(path string) error {
 	return nil
 }
 
+// isTemplatePath returns true if the path contains Go template delimiters,
+// meaning it will be rendered later and should not be validated now.
+func isTemplatePath(path string) bool {
+	return strings.Contains(path, "{{")
+}
+
+// validateEntryPaths validates all path fields on a sub-entry, skipping
+// paths that contain template expressions (they will be rendered later).
+func validateEntryPaths(appName string, entry SubEntry) []error {
+	var errs []error
+
+	// Validate backup path
+	if entry.Backup != "" && !isTemplatePath(entry.Backup) {
+		if err := ValidatePath(entry.Backup); err != nil {
+			errs = append(errs, NewFieldError(
+				fmt.Sprintf("%s/%s", appName, entry.Name),
+				"backup", entry.Backup, err,
+			))
+		}
+	}
+
+	// Validate target paths
+	for os, target := range entry.Targets {
+		if target == "" || isTemplatePath(target) {
+			continue
+		}
+
+		if err := ValidatePath(target); err != nil {
+			errs = append(errs, NewFieldError(
+				fmt.Sprintf("%s/%s", appName, entry.Name),
+				fmt.Sprintf("targets[%s]", os), target, err,
+			))
+		}
+	}
+
+	return errs
+}
+
+// validateGitPackagePaths validates target paths on a git package configuration.
+func validateGitPackagePaths(appName string, gitPkg *GitPackage) []error {
+	var errs []error
+
+	for os, target := range gitPkg.Targets {
+		if target == "" || isTemplatePath(target) {
+			continue
+		}
+
+		if err := ValidatePath(target); err != nil {
+			errs = append(errs, NewFieldError(
+				appName,
+				fmt.Sprintf("package.managers.git.targets[%s]", os), target, err,
+			))
+		}
+	}
+
+	return errs
+}
+
 // ValidateConfig validates the entire config including all applications
 func ValidateConfig(cfg *Config) []error {
 	var errs []error
@@ -60,6 +118,16 @@ func ValidateConfig(cfg *Config) []error {
 			}
 
 			subNames[entry.Name] = true
+
+			// Validate paths on each entry
+			errs = append(errs, validateEntryPaths(app.Name, entry)...)
+		}
+
+		// Validate git package target paths
+		if app.Package != nil {
+			if gitPkg, ok := app.Package.GetGitPackage(); ok {
+				errs = append(errs, validateGitPackagePaths(app.Name, gitPkg)...)
+			}
 		}
 	}
 

@@ -241,6 +241,176 @@ func TestValidateConfig(t *testing.T) {
 			},
 			wantCount: 0,
 		},
+		{
+			name: "invalid backup path with traversal",
+			config: &Config{
+				Version: 3,
+				Applications: []Application{
+					{
+						Name: "nvim",
+						Entries: []SubEntry{
+							{Name: "config", Backup: "../../../etc/shadow"},
+						},
+					},
+				},
+			},
+			wantCount: 1,
+			checkErrs: func(t *testing.T, errs []error) {
+				t.Helper()
+
+				var fe *FieldError
+				if !errors.As(errs[0], &fe) {
+					t.Errorf("expected FieldError, got %T: %v", errs[0], errs[0])
+				}
+			},
+		},
+		{
+			name: "invalid target path with null byte",
+			config: &Config{
+				Version: 3,
+				Applications: []Application{
+					{
+						Name: "nvim",
+						Entries: []SubEntry{
+							{
+								Name:   "config",
+								Backup: "./nvim",
+								Targets: map[string]string{
+									"linux": "/home/user/\x00config",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCount: 1,
+			checkErrs: func(t *testing.T, errs []error) {
+				t.Helper()
+
+				var fe *FieldError
+				if !errors.As(errs[0], &fe) {
+					t.Errorf("expected FieldError, got %T: %v", errs[0], errs[0])
+				}
+			},
+		},
+		{
+			name: "template paths are skipped",
+			config: &Config{
+				Version: 3,
+				Applications: []Application{
+					{
+						Name: "nvim",
+						Entries: []SubEntry{
+							{
+								Name:   "config",
+								Backup: "./{{ .Hostname }}/../nvim",
+								Targets: map[string]string{
+									"linux": "~/.config/{{ .Hostname }}/../nvim",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCount: 0,
+		},
+		{
+			name: "multiple invalid paths accumulate errors",
+			config: &Config{
+				Version: 3,
+				Applications: []Application{
+					{
+						Name: "nvim",
+						Entries: []SubEntry{
+							{
+								Name:   "config",
+								Backup: "../../bad",
+								Targets: map[string]string{
+									"linux":   "../../also-bad",
+									"windows": "~/.config/good",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCount: 2, // backup + linux target
+		},
+		{
+			name: "git package target with traversal",
+			config: &Config{
+				Version: 3,
+				Applications: []Application{
+					{
+						Name: "plugins",
+						Package: &EntryPackage{
+							Managers: map[string]ManagerValue{
+								"git": {Git: &GitPackage{
+									URL: "https://github.com/user/repo.git",
+									Targets: map[string]string{
+										"linux": "../../etc/shadow",
+									},
+								}},
+							},
+						},
+					},
+				},
+			},
+			wantCount: 1,
+			checkErrs: func(t *testing.T, errs []error) {
+				t.Helper()
+
+				var fe *FieldError
+				if !errors.As(errs[0], &fe) {
+					t.Errorf("expected FieldError, got %T: %v", errs[0], errs[0])
+				}
+			},
+		},
+		{
+			name: "git package template target is skipped",
+			config: &Config{
+				Version: 3,
+				Applications: []Application{
+					{
+						Name: "plugins",
+						Package: &EntryPackage{
+							Managers: map[string]ManagerValue{
+								"git": {Git: &GitPackage{
+									URL: "https://github.com/user/repo.git",
+									Targets: map[string]string{
+										"linux": "~/.local/{{ .Hostname }}/../share",
+									},
+								}},
+							},
+						},
+					},
+				},
+			},
+			wantCount: 0,
+		},
+		{
+			name: "valid git package targets pass validation",
+			config: &Config{
+				Version: 3,
+				Applications: []Application{
+					{
+						Name: "plugins",
+						Package: &EntryPackage{
+							Managers: map[string]ManagerValue{
+								"git": {Git: &GitPackage{
+									URL: "https://github.com/user/repo.git",
+									Targets: map[string]string{
+										"linux":   "~/.local/share/nvim/plugins",
+										"windows": "~/AppData/Local/nvim/plugins",
+									},
+								}},
+							},
+						},
+					},
+				},
+			},
+			wantCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
