@@ -213,7 +213,7 @@ func Save(cfg *Config, path string) error {
 }
 
 // marshalYAML encodes a value to YAML with 2-space indentation.
-func marshalYAML(v interface{}) ([]byte, error) {
+func marshalYAML(v any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)

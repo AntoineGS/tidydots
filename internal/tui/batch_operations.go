@@ -1,8 +1,9 @@
 package tui
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
@@ -246,8 +247,8 @@ func (m Model) executeBatchDelete() tea.Cmd {
 
 	// Sort items in reverse order (highest index first) to avoid index shifting
 	// Use stable sort to maintain order within same app
-	sort.SliceStable(items, func(i, j int) bool {
-		return items[i].sortKey > items[j].sortKey
+	slices.SortStableFunc(items, func(a, b deleteItem) int {
+		return cmp.Compare(b.sortKey, a.sortKey)
 	})
 
 	// Execute deletions

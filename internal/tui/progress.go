@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -79,8 +79,8 @@ func (m *Model) initApplicationItems() {
 	}
 
 	// Sort applications alphabetically by name
-	sort.Slice(m.Applications, func(i, j int) bool {
-		return m.Applications[i].Application.Name < m.Applications[j].Application.Name
+	slices.SortFunc(m.Applications, func(a, b ApplicationItem) int {
+		return strings.Compare(a.Application.Name, b.Application.Name)
 	})
 
 	// Initialize table model with the loaded applications

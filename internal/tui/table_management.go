@@ -2,7 +2,7 @@ package tui
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -50,23 +50,23 @@ func (m *Model) sortTableRows() {
 	// Sort sub-entries within each app
 	for _, group := range groups {
 		if len(group.subEntries) > 0 {
-			sort.SliceStable(group.subEntries, func(i, j int) bool {
-				var less bool
+			slices.SortStableFunc(group.subEntries, func(a, b TableRow) int {
+				var cmp int
 				switch m.sortColumn {
 				case SortColumnName:
-					less = strings.ToLower(group.subEntries[i].Data[0]) < strings.ToLower(group.subEntries[j].Data[0])
+					cmp = strings.Compare(strings.ToLower(a.Data[0]), strings.ToLower(b.Data[0]))
 				case SortColumnStatus:
-					less = strings.ToLower(group.subEntries[i].Data[1]) < strings.ToLower(group.subEntries[j].Data[1])
+					cmp = strings.Compare(strings.ToLower(a.Data[1]), strings.ToLower(b.Data[1]))
 				case SortColumnPath:
-					less = strings.ToLower(group.subEntries[i].Data[3]) < strings.ToLower(group.subEntries[j].Data[3])
+					cmp = strings.Compare(strings.ToLower(a.Data[3]), strings.ToLower(b.Data[3]))
 				default:
-					less = strings.ToLower(group.subEntries[i].Data[0]) < strings.ToLower(group.subEntries[j].Data[0])
+					cmp = strings.Compare(strings.ToLower(a.Data[0]), strings.ToLower(b.Data[0]))
 				}
 
-				if m.sortAscending {
-					return less
+				if !m.sortAscending {
+					return -cmp
 				}
-				return !less
+				return cmp
 			})
 		}
 	}
@@ -129,20 +129,20 @@ func (m *Model) initTableModel() {
 
 	// Sort applications before flattening (only if sort column applies to apps)
 	if m.sortColumn == SortColumnName || m.sortColumn == SortColumnStatus {
-		sort.SliceStable(filtered, func(i, j int) bool {
-			var less bool
+		slices.SortStableFunc(filtered, func(a, b ApplicationItem) int {
+			var cmp int
 			if m.sortColumn == SortColumnName {
-				less = strings.ToLower(filtered[i].Application.Name) < strings.ToLower(filtered[j].Application.Name)
+				cmp = strings.Compare(strings.ToLower(a.Application.Name), strings.ToLower(b.Application.Name))
 			} else { // SortColumnStatus
-				statusI := getApplicationStatus(filtered[i])
-				statusJ := getApplicationStatus(filtered[j])
-				less = strings.ToLower(statusI) < strings.ToLower(statusJ)
+				statusA := getApplicationStatus(a)
+				statusB := getApplicationStatus(b)
+				cmp = strings.Compare(strings.ToLower(statusA), strings.ToLower(statusB))
 			}
 
-			if m.sortAscending {
-				return less
+			if !m.sortAscending {
+				return -cmp
 			}
-			return !less
+			return cmp
 		})
 	}
 
