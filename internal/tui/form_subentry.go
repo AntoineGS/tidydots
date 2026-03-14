@@ -1168,9 +1168,11 @@ func (m *Model) updateSubEntry(appIdx, subIdx int, subEntry config.SubEntry) err
 	}
 
 	// Update SubEntry
+	original := app.Entries[subIdx]
 	app.Entries[subIdx] = subEntry
 
 	if err := config.Save(m.Config, m.ConfigPath); err != nil {
+		app.Entries[subIdx] = original // Rollback
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 

@@ -445,12 +445,14 @@ func (m *Model) saveEditedApplication(appIdx int, name, description, when string
 	}
 
 	// Update Application metadata
+	origName, origDesc, origWhen, origPkg := app.Name, app.Description, app.When, app.Package
 	app.Name = name
 	app.Description = description
 	app.When = when
 	app.Package = pkg
 
 	if err := config.Save(m.Config, m.ConfigPath); err != nil {
+		app.Name, app.Description, app.When, app.Package = origName, origDesc, origWhen, origPkg
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
