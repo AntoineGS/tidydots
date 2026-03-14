@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/AntoineGS/tidydots/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -55,37 +56,19 @@ const (
 	MethodURL = "url"
 )
 
-// GitConfig represents git-specific package configuration.
-// It contains the repository URL, optional branch, and OS-specific clone destinations.
-type GitConfig struct {
-	URL     string            `yaml:"url"`
-	Branch  string            `yaml:"branch,omitempty"`
-	Targets map[string]string `yaml:"targets"`
-	Sudo    bool              `yaml:"sudo,omitempty"`
-}
+// Type aliases pointing to canonical definitions in the config package.
+// These eliminate duplication while preserving backward compatibility for
+// code that references these types via the packages package.
+type (
+	// GitConfig is an alias for config.GitPackage.
+	GitConfig = config.GitPackage
 
-// InstallerConfig represents installer-specific package configuration.
-// It contains OS-specific shell commands and an optional binary name for install checks.
-type InstallerConfig struct {
-	Command map[string]string `yaml:"command"`
-	Binary  string            `yaml:"binary,omitempty"`
-}
+	// InstallerConfig is an alias for config.InstallerPackage.
+	InstallerConfig = config.InstallerPackage
 
-// ManagerValue represents a typed value for a package manager entry.
-// It holds either a package name string (for traditional managers like pacman, apt),
-// a GitConfig (for git repositories), or an InstallerConfig (for shell command-based installation).
-type ManagerValue struct {
-	PackageName string
-	Git         *GitConfig
-	Installer   *InstallerConfig
-	Deps        []string
-}
-
-// IsGit returns true if this manager value represents a git package configuration.
-func (v ManagerValue) IsGit() bool { return v.Git != nil }
-
-// IsInstaller returns true if this manager value represents an installer package configuration.
-func (v ManagerValue) IsInstaller() bool { return v.Installer != nil }
+	// ManagerValue is an alias for config.ManagerValue.
+	ManagerValue = config.ManagerValue
+)
 
 // Package represents a package to install with multiple installation methods.
 // A package can be installed via a package manager (Managers), a custom shell
@@ -174,14 +157,8 @@ func (p *Package) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// URLInstall represents installation from a URL with download and command execution.
-// The URL field specifies where to download the installer file, and the Command
-// field specifies the shell command to run after download. Use {file} as a
-// placeholder in Command to reference the downloaded file path.
-type URLInstall struct {
-	URL     string `yaml:"url"`
-	Command string `yaml:"command"` // Command to run after download, use {file} as placeholder
-}
+// URLInstall is an alias for config.URLInstallSpec.
+type URLInstall = config.URLInstallSpec
 
 // Config holds the packages configuration including the list of packages
 // to manage, default package manager settings, and priority ordering for manager

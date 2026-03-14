@@ -20,36 +20,17 @@ func FilterPackages(packages []Package, renderer config.PathRenderer) []Package 
 
 // convertPackage converts a config.EntryPackage into Package fields (managers, custom, url).
 // This is the shared conversion logic used by FromApplication and FromPackageSpec.
+// Since GitConfig, InstallerConfig, ManagerValue, and URLInstall are now type aliases
+// for the config package types, no field-by-field copying is needed.
 func convertPackage(pkg *config.EntryPackage) (map[PackageManager]ManagerValue, map[string]string, map[string]URLInstall) {
-	managers := make(map[PackageManager]ManagerValue)
+	managers := make(map[PackageManager]ManagerValue, len(pkg.Managers))
 	for k, v := range pkg.Managers {
-		// Convert config.GitPackage to packages.GitConfig
-		if k == "git" && v.IsGit() {
-			managers[Git] = ManagerValue{Git: &GitConfig{
-				URL:     v.Git.URL,
-				Branch:  v.Git.Branch,
-				Targets: v.Git.Targets,
-				Sudo:    v.Git.Sudo,
-			}}
-			continue
-		}
-		// Convert config.InstallerPackage to packages.InstallerConfig
-		if k == "installer" && v.IsInstaller() {
-			managers[Installer] = ManagerValue{Installer: &InstallerConfig{
-				Command: v.Installer.Command,
-				Binary:  v.Installer.Binary,
-			}}
-			continue
-		}
-		managers[PackageManager(k)] = ManagerValue{PackageName: v.PackageName, Deps: v.Deps}
+		managers[PackageManager(k)] = v
 	}
 
-	urlInstalls := make(map[string]URLInstall)
+	urlInstalls := make(map[string]URLInstall, len(pkg.URL))
 	for k, v := range pkg.URL {
-		urlInstalls[k] = URLInstall{
-			URL:     v.URL,
-			Command: v.Command,
-		}
+		urlInstalls[k] = v
 	}
 
 	return managers, pkg.Custom, urlInstalls
