@@ -142,9 +142,9 @@ func TestPathExists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := pathExists(tt.path)
+			got := PathExists(tt.path)
 			if got != tt.want {
-				t.Errorf("pathExists(%q) = %v, want %v", tt.path, got, tt.want)
+				t.Errorf("PathExists(%q) = %v, want %v", tt.path, got, tt.want)
 			}
 		})
 	}
@@ -201,11 +201,11 @@ func TestCopyDir(t *testing.T) {
 	}
 
 	// Check files exist
-	if !pathExists(filepath.Join(dstDir, "file1.txt")) {
+	if !PathExists(filepath.Join(dstDir, "file1.txt")) {
 		t.Error("file1.txt not copied")
 	}
 
-	if !pathExists(filepath.Join(dstDir, "subdir", "file2.txt")) {
+	if !PathExists(filepath.Join(dstDir, "subdir", "file2.txt")) {
 		t.Error("subdir/file2.txt not copied")
 	}
 
@@ -230,7 +230,7 @@ func TestRemoveAll(t *testing.T) {
 		t.Fatalf("removeAll(regular file) error = %v", err)
 	}
 
-	if pathExists(regularFile) {
+	if PathExists(regularFile) {
 		t.Error("Regular file still exists after removeAll")
 	}
 
@@ -247,7 +247,7 @@ func TestRemoveAll(t *testing.T) {
 		t.Fatalf("removeAll(dir) error = %v", err)
 	}
 
-	if pathExists(dir) {
+	if PathExists(dir) {
 		t.Error("Directory still exists after removeAll")
 	}
 
@@ -265,7 +265,7 @@ func TestRemoveAll(t *testing.T) {
 		t.Fatalf("removeAll(symlink) error = %v", err)
 	}
 
-	if !pathExists(symlink) {
+	if !PathExists(symlink) {
 		t.Error("Symlink should not be removed by removeAll")
 	}
 
@@ -406,8 +406,8 @@ func TestPathExistsWithSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !pathExists(symlink) {
-		t.Error("pathExists() should return true for symlink")
+	if !PathExists(symlink) {
+		t.Error("PathExists() should return true for symlink")
 	}
 
 	// Test with broken symlink
@@ -417,8 +417,8 @@ func TestPathExistsWithSymlink(t *testing.T) {
 	}
 
 	// Broken symlinks still "exist" in terms of Lstat
-	if !pathExists(brokenLink) {
-		t.Error("pathExists() should return true for broken symlink (Lstat behavior)")
+	if !PathExists(brokenLink) {
+		t.Error("PathExists() should return true for broken symlink (Lstat behavior)")
 	}
 }
 

@@ -70,12 +70,12 @@ func TestRestore_IgnoresGitEntries(t *testing.T) {
 	}
 
 	// Verify config entry was processed (symlink created)
-	if !pathExists(configTarget) {
+	if !PathExists(configTarget) {
 		t.Error("Expected config target to be created")
 	}
 
 	// Verify git entry was NOT processed (directory not created)
-	if pathExists(gitTarget) {
+	if PathExists(gitTarget) {
 		t.Error("Did not expect git target to be created (git entries should be ignored)")
 	}
 }

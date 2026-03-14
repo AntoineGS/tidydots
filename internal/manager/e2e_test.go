@@ -226,7 +226,7 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 	nvimBackup := filepath.Join(repoDir, "nvim")
 
 	backupInitLua := filepath.Join(nvimBackup, "init.lua")
-	if !pathExists(backupInitLua) {
+	if !PathExists(backupInitLua) {
 		t.Errorf("nvim config should have been adopted to backup")
 	}
 
@@ -252,7 +252,7 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 
 	// Verify: .bashrc was adopted
 	bashBackup := filepath.Join(repoDir, "bash", ".bashrc")
-	if !pathExists(bashBackup) {
+	if !PathExists(bashBackup) {
 		t.Errorf(".bashrc should have been adopted to backup")
 	}
 
@@ -342,12 +342,12 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 
 	// Verify backup was created
 	backedUpInit := filepath.Join(repoDir, "nvim", "init.lua")
-	if !pathExists(backedUpInit) {
+	if !PathExists(backedUpInit) {
 		t.Errorf("nvim backup should exist at %s", backedUpInit)
 	}
 
 	backedUpZshrc := filepath.Join(repoDir, "zsh", ".zshrc")
-	if !pathExists(backedUpZshrc) {
+	if !PathExists(backedUpZshrc) {
 		t.Errorf("zsh backup should exist at %s", backedUpZshrc)
 	}
 
@@ -567,7 +567,7 @@ func TestE2E_SymlinkModification(t *testing.T) {
 
 	// Verify: new file exists in backup
 	backupNewFile := filepath.Join(nvimBackup, "new.lua")
-	if !pathExists(backupNewFile) {
+	if !PathExists(backupNewFile) {
 		t.Errorf("New file should exist in backup")
 	}
 
@@ -742,12 +742,12 @@ func TestE2E_DryRunNoChanges(t *testing.T) {
 
 	// Verify: target directory should NOT exist
 	nvimTarget := filepath.Join(homeDir, ".config", "nvim")
-	if pathExists(nvimTarget) {
+	if PathExists(nvimTarget) {
 		t.Errorf("Target should not exist in dry-run mode")
 	}
 
 	// Verify: home directory should NOT exist
-	if pathExists(homeDir) {
+	if PathExists(homeDir) {
 		t.Errorf("Home directory should not be created in dry-run mode")
 	}
 }
@@ -820,7 +820,7 @@ func TestE2E_AdoptDryRunPreservesOriginal(t *testing.T) {
 
 	// Verify: backup was NOT created
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	if pathExists(nvimBackup) {
+	if PathExists(nvimBackup) {
 		t.Errorf("Backup should NOT be created in dry-run")
 	}
 }
@@ -951,7 +951,7 @@ func TestE2E_MultipleOSTargets(t *testing.T) {
 	}
 
 	windowsTarget := filepath.Join(windowsHome, "AppData", "Local", "nvim")
-	if pathExists(windowsTarget) {
+	if PathExists(windowsTarget) {
 		t.Errorf("Windows target should NOT exist when running on Linux")
 	}
 }
@@ -1226,7 +1226,7 @@ func TestE2E_V3BackupThenRestore(t *testing.T) {
 
 	// Verify backup was created
 	backedUpInit := filepath.Join(repoDir, "nvim", "init.lua")
-	if !pathExists(backedUpInit) {
+	if !PathExists(backedUpInit) {
 		t.Error("backup should exist")
 	}
 

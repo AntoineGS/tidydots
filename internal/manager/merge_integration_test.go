@@ -126,7 +126,7 @@ func verifyTrackedFiles(t *testing.T, nvimBackup string, trackedFiles map[string
 	t.Helper()
 	for relPath, expectedContent := range trackedFiles {
 		fullPath := filepath.Join(nvimBackup, relPath)
-		if !pathExists(fullPath) {
+		if !PathExists(fullPath) {
 			t.Errorf("Tracked file %q should still exist in backup", relPath)
 			continue
 		}
@@ -148,7 +148,7 @@ func verifyMergedFiles(t *testing.T, nvimBackup string, localFiles map[string]st
 	t.Helper()
 	for relPath, expectedContent := range localFiles {
 		fullPath := filepath.Join(nvimBackup, relPath)
-		if !pathExists(fullPath) {
+		if !PathExists(fullPath) {
 			t.Errorf("Local file %q should be merged into backup", relPath)
 			continue
 		}
@@ -226,7 +226,7 @@ func verifyDirectoryStructure(t *testing.T, nvimBackup string) {
 
 	for _, dir := range expectedDirs {
 		fullPath := filepath.Join(nvimBackup, dir)
-		if !pathExists(fullPath) {
+		if !PathExists(fullPath) {
 			t.Errorf("Directory %q should exist in backup", dir)
 		}
 	}
@@ -333,7 +333,7 @@ func TestMergeIntegration_WithNoMergeFlag(t *testing.T) {
 	}
 
 	// Assert: Target still has original content
-	if !pathExists(filepath.Join(targetNvim, "local.lua")) {
+	if !PathExists(filepath.Join(targetNvim, "local.lua")) {
 		t.Error("Target content should be preserved when restore fails")
 	}
 
@@ -386,7 +386,7 @@ func TestMergeIntegration_DryRunMode(t *testing.T) {
 	}
 
 	// Assert: Target file still exists (not actually merged)
-	if !pathExists(targetFile) {
+	if !PathExists(targetFile) {
 		t.Error("Target file should still exist in dry-run mode")
 	}
 
@@ -396,7 +396,7 @@ func TestMergeIntegration_DryRunMode(t *testing.T) {
 	}
 
 	// Assert: Backup doesn't have merged file (dry-run doesn't merge)
-	if pathExists(filepath.Join(nvimBackup, "local.lua")) {
+	if PathExists(filepath.Join(nvimBackup, "local.lua")) {
 		t.Error("Backup should not have merged file in dry-run mode")
 	}
 }

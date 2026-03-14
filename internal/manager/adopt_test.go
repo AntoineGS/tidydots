@@ -39,7 +39,7 @@ func TestAdoptFolder(t *testing.T) {
 
 	// Check that backup now exists with the content
 	backupFile := filepath.Join(backupDir, "settings.json")
-	if !pathExists(backupFile) {
+	if !PathExists(backupFile) {
 		t.Error("Backup file should exist after adopt")
 	}
 
@@ -93,7 +93,7 @@ func TestAdoptFiles(t *testing.T) {
 	// Check that backup files now exist
 	for _, file := range subEntry.Files {
 		backupFile := filepath.Join(backupDir, file)
-		if !pathExists(backupFile) {
+		if !PathExists(backupFile) {
 			t.Errorf("Backup file %s should exist after adopt", file)
 		}
 
@@ -183,7 +183,7 @@ func TestAdoptDryRun(t *testing.T) {
 	}
 
 	// Backup should NOT be created in dry run
-	if pathExists(backupDir) {
+	if PathExists(backupDir) {
 		t.Error("Backup should not be created in dry run mode")
 	}
 
@@ -193,7 +193,7 @@ func TestAdoptDryRun(t *testing.T) {
 	}
 
 	// Original target content should still exist
-	if !pathExists(filepath.Join(targetDir, "settings.json")) {
+	if !PathExists(filepath.Join(targetDir, "settings.json")) {
 		t.Error("Original target content should still exist in dry run")
 	}
 }
@@ -268,7 +268,7 @@ func TestAdoptIntegration(t *testing.T) {
 
 	// Check nvim was adopted
 	nvimBackup := filepath.Join(backupRoot, "nvim")
-	if !pathExists(filepath.Join(nvimBackup, "init.lua")) {
+	if !PathExists(filepath.Join(nvimBackup, "init.lua")) {
 		t.Error("nvim config should be adopted to backup")
 	}
 
@@ -278,7 +278,7 @@ func TestAdoptIntegration(t *testing.T) {
 
 	// Check .bashrc was adopted
 	bashBackup := filepath.Join(backupRoot, "bash", ".bashrc")
-	if !pathExists(bashBackup) {
+	if !PathExists(bashBackup) {
 		t.Error(".bashrc should be adopted to backup")
 	}
 

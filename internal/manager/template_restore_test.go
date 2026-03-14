@@ -123,7 +123,7 @@ func TestRestoreFolderWithTemplates_MixedFiles(t *testing.T) {
 
 	// Verify rendered file exists
 	renderedPath := filepath.Join(backupDir, ".zshrc.tmpl.rendered")
-	if !pathExists(renderedPath) {
+	if !PathExists(renderedPath) {
 		t.Fatal("rendered file should exist")
 	}
 	renderedContent, _ := os.ReadFile(renderedPath) //nolint:gosec
@@ -382,7 +382,7 @@ func TestRestoreFolderWithTemplates_Conflict(t *testing.T) {
 	}
 
 	// Conflict file should exist
-	if !pathExists(conflictPath) {
+	if !PathExists(conflictPath) {
 		t.Fatal("conflict file should exist")
 	}
 	conflictContent, _ := os.ReadFile(conflictPath) //nolint:gosec
@@ -469,7 +469,7 @@ func TestRestoreFolderWithTemplates_DryRun(t *testing.T) {
 
 	// No rendered file should be created
 	renderedPath := filepath.Join(backupDir, "file.tmpl.rendered")
-	if pathExists(renderedPath) {
+	if PathExists(renderedPath) {
 		t.Error("dry run should not create rendered file")
 	}
 
@@ -713,7 +713,7 @@ func TestRestoreFolderWithTemplates_SubDirectories(t *testing.T) {
 
 	// Verify nested template was rendered
 	renderedPath := filepath.Join(subDir, "nested.tmpl.rendered")
-	if !pathExists(renderedPath) {
+	if !PathExists(renderedPath) {
 		t.Fatal("nested rendered file should exist")
 	}
 

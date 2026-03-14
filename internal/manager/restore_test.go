@@ -199,7 +199,7 @@ func TestRestoreDryRun(t *testing.T) {
 	}
 
 	// Target should NOT be created in dry run mode
-	if pathExists(targetDir) {
+	if PathExists(targetDir) {
 		t.Error("Target was created despite dry run mode")
 	}
 }
@@ -863,7 +863,7 @@ func TestRestoreV3_FolderSubEntry_Adoption(t *testing.T) {
 
 	// Check target was adopted into backup
 	adoptedFile := filepath.Join(backupPath, "existing.txt")
-	if !pathExists(adoptedFile) {
+	if !PathExists(adoptedFile) {
 		t.Error("existing.txt was not adopted into backup")
 	}
 
@@ -920,7 +920,7 @@ func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
 
 	// Check file was adopted
 	adoptedFile := filepath.Join(backupPath, ".bashrc")
-	if !pathExists(adoptedFile) {
+	if !PathExists(adoptedFile) {
 		t.Error(".bashrc was not adopted into backup")
 	}
 
@@ -1180,7 +1180,7 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 
 	// Old file should exist at backup (merged from target)
 	oldFileBackup := filepath.Join(backupPath, "old.lua")
-	if !pathExists(oldFileBackup) {
+	if !PathExists(oldFileBackup) {
 		t.Error("old.lua should exist in backup (merged from target)")
 	}
 	content, _ := os.ReadFile(oldFileBackup) //nolint:gosec // test file
@@ -1190,7 +1190,7 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 
 	// Old file should be accessible through symlink (points to backup)
 	oldFile := filepath.Join(targetDir, "old.lua")
-	if !pathExists(oldFile) {
+	if !PathExists(oldFile) {
 		t.Error("old.lua should be accessible through symlink")
 	}
 
@@ -1243,7 +1243,7 @@ func TestRestoreV3_SkipsWrongOS(t *testing.T) {
 
 	// Target should not be created (wrong OS)
 	targetDir := filepath.Join(tmpDir, "target")
-	if pathExists(targetDir) {
+	if PathExists(targetDir) {
 		t.Error("target should not exist for wrong OS")
 	}
 }
@@ -1278,7 +1278,7 @@ func TestRestoreFiles_SourceMissing(t *testing.T) {
 
 	// No symlink should be created (source doesn't exist)
 	targetFile := filepath.Join(targetDir, "missing.txt")
-	if pathExists(targetFile) {
+	if PathExists(targetFile) {
 		t.Error("symlink should not be created for missing source")
 	}
 }
@@ -1309,7 +1309,7 @@ func TestRestoreFolder_SourceMissing(t *testing.T) {
 	}
 
 	// Target should not be created (source doesn't exist)
-	if pathExists(targetDir) {
+	if PathExists(targetDir) {
 		t.Error("target should not be created when source is missing")
 	}
 }
@@ -1409,7 +1409,7 @@ func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 
 	// No symlink should be created
 	targetFile := filepath.Join(targetDir, "file.txt")
-	if pathExists(targetFile) {
+	if PathExists(targetFile) {
 		t.Error("symlink should not be created for missing source")
 	}
 }
@@ -1460,7 +1460,7 @@ func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
 	}
 
 	// Target should not be created
-	if pathExists(targetDir) {
+	if PathExists(targetDir) {
 		t.Error("target should not be created when source is missing")
 	}
 }
@@ -1646,18 +1646,18 @@ func TestRestoreFolder_MergesExistingContent(t *testing.T) {
 
 	// Backup should contain merged files
 	mergedFile1 := filepath.Join(backupDir, "local.json")
-	if !pathExists(mergedFile1) {
+	if !PathExists(mergedFile1) {
 		t.Error("local.json should be merged into backup")
 	}
 
 	mergedFile2 := filepath.Join(backupDir, "cache.json")
-	if !pathExists(mergedFile2) {
+	if !PathExists(mergedFile2) {
 		t.Error("cache.json should be merged into backup")
 	}
 
 	// Original backup file should still exist
 	originalFile := filepath.Join(backupDir, "config.json")
-	if !pathExists(originalFile) {
+	if !PathExists(originalFile) {
 		t.Error("original backup file should still exist")
 	}
 }
@@ -1703,7 +1703,7 @@ func TestRestoreFolder_ConflictsRenamed(t *testing.T) {
 
 	// Original backup file should still exist with original content
 	originalFile := filepath.Join(backupDir, "config.json")
-	if !pathExists(originalFile) {
+	if !PathExists(originalFile) {
 		t.Error("original backup file should still exist")
 	}
 
@@ -1792,7 +1792,7 @@ func TestRestoreFiles_OnlyMergesListedFiles(t *testing.T) {
 	if isSymlink(unlistedFile) {
 		t.Error("other.txt should not be a symlink")
 	}
-	if !pathExists(unlistedFile) {
+	if !PathExists(unlistedFile) {
 		t.Error("other.txt should still exist")
 	}
 	content, _ := os.ReadFile(unlistedFile) //nolint:gosec // test file

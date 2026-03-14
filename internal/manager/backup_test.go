@@ -50,7 +50,7 @@ func TestBackupFolder(t *testing.T) {
 
 	// Check files were copied
 	copiedFile := filepath.Join(backupDir, "settings.json")
-	if !pathExists(copiedFile) {
+	if !PathExists(copiedFile) {
 		t.Error("File was not backed up")
 	}
 
@@ -153,7 +153,7 @@ func TestBackupFiles(t *testing.T) {
 	// Check files were copied
 	for _, file := range files {
 		backupFile := filepath.Join(backupDir, file)
-		if !pathExists(backupFile) {
+		if !PathExists(backupFile) {
 			t.Errorf("File %s was not backed up", file)
 		}
 	}
@@ -205,7 +205,7 @@ func TestBackupFilesSkipsSymlinks(t *testing.T) {
 
 	// Symlink should not have been backed up
 	backupFile := filepath.Join(backupDir, "symlink.txt")
-	if pathExists(backupFile) {
+	if PathExists(backupFile) {
 		t.Error("Symlink should not be backed up")
 	}
 }
@@ -248,7 +248,7 @@ func TestBackupDryRun(t *testing.T) {
 
 	// File should NOT be copied in dry run mode
 	backupFile := filepath.Join(backupDir, "config.txt")
-	if pathExists(backupFile) {
+	if PathExists(backupFile) {
 		t.Error("File was copied despite dry run mode")
 	}
 }
@@ -324,13 +324,13 @@ func TestBackupIntegration(t *testing.T) {
 
 	// Check nvim was backed up (as folder)
 	backedUpInit := filepath.Join(backupRoot, "nvim", "init.lua")
-	if !pathExists(backedUpInit) {
+	if !PathExists(backedUpInit) {
 		t.Error("nvim/init.lua was not backed up")
 	}
 
 	// Check bashrc was backed up
 	backedUpBashrc := filepath.Join(backupRoot, "bash", ".bashrc")
-	if !pathExists(backedUpBashrc) {
+	if !PathExists(backedUpBashrc) {
 		t.Error(".bashrc was not backed up")
 	}
 
@@ -391,7 +391,7 @@ func TestBackupV3Application(t *testing.T) {
 
 	// Check file was backed up
 	backedUpInit := filepath.Join(backupRoot, "nvim", "init.lua")
-	if !pathExists(backedUpInit) {
+	if !PathExists(backedUpInit) {
 		t.Errorf("nvim/init.lua was not backed up at %s", backedUpInit)
 		// List what actually exists
 		entries, _ := os.ReadDir(filepath.Join(backupRoot, "nvim"))
@@ -578,7 +578,7 @@ func TestBackupWithContext(t *testing.T) {
 	}
 
 	backedUpInit := filepath.Join(backupRoot, "nvim", "init.lua")
-	if !pathExists(backedUpInit) {
+	if !PathExists(backedUpInit) {
 		t.Error("nvim/init.lua was not backed up")
 	}
 }
@@ -636,11 +636,11 @@ func TestBackupV3_WithFiles(t *testing.T) {
 	backedUpBashrc := filepath.Join(backupRoot, "bash", ".bashrc")
 	backedUpProfile := filepath.Join(backupRoot, "bash", ".profile")
 
-	if !pathExists(backedUpBashrc) {
+	if !PathExists(backedUpBashrc) {
 		t.Error(".bashrc was not backed up")
 	}
 
-	if !pathExists(backedUpProfile) {
+	if !PathExists(backedUpProfile) {
 		t.Error(".profile was not backed up")
 	}
 
@@ -703,11 +703,11 @@ func TestBackupV3_FolderSubEntry(t *testing.T) {
 	backedUpConfig := filepath.Join(backupRoot, "app", "config.json")
 	backedUpSettings := filepath.Join(backupRoot, "app", "settings.json")
 
-	if !pathExists(backedUpConfig) {
+	if !PathExists(backedUpConfig) {
 		t.Error("config.json was not backed up")
 	}
 
-	if !pathExists(backedUpSettings) {
+	if !PathExists(backedUpSettings) {
 		t.Error("settings.json was not backed up")
 	}
 }
@@ -785,13 +785,13 @@ func TestBackupV3_MultipleApplications(t *testing.T) {
 
 	// Check nvim was backed up
 	backedUpNvim := filepath.Join(backupRoot, "nvim", "init.lua")
-	if !pathExists(backedUpNvim) {
+	if !PathExists(backedUpNvim) {
 		t.Error("nvim/init.lua was not backed up")
 	}
 
 	// Check bash was backed up
 	backedUpBash := filepath.Join(backupRoot, "bash", ".bashrc")
-	if !pathExists(backedUpBash) {
+	if !PathExists(backedUpBash) {
 		t.Error(".bashrc was not backed up")
 	}
 }
@@ -846,7 +846,7 @@ func TestBackupV3_SkipsWrongOS(t *testing.T) {
 
 	// Nothing should be backed up (wrong OS)
 	backedUpFile := filepath.Join(backupRoot, "bash", ".bashrc")
-	if pathExists(backedUpFile) {
+	if PathExists(backedUpFile) {
 		t.Error(".bashrc should not be backed up for wrong OS")
 	}
 }
@@ -901,7 +901,7 @@ func TestBackupV3_DryRun(t *testing.T) {
 
 	// Nothing should be backed up in dry-run mode
 	backedUpFile := filepath.Join(backupRoot, "bash", ".bashrc")
-	if pathExists(backedUpFile) {
+	if PathExists(backedUpFile) {
 		t.Error(".bashrc should not be backed up in dry-run mode")
 	}
 }
@@ -949,7 +949,7 @@ func TestBackupFilesSubEntry_SourceMissing(t *testing.T) {
 
 	// Nothing should be backed up
 	backedUpFile := filepath.Join(backupPath, "missing.txt")
-	if pathExists(backedUpFile) {
+	if PathExists(backedUpFile) {
 		t.Error("file should not be backed up when target doesn't exist")
 	}
 }
@@ -996,7 +996,7 @@ func TestBackupFolderSubEntry_SourceMissing(t *testing.T) {
 	}
 
 	// Backup should not be created
-	if pathExists(backupPath) {
+	if PathExists(backupPath) {
 		t.Error("backup should not be created when target doesn't exist")
 	}
 }
@@ -1053,11 +1053,11 @@ func TestBackupFilesSubEntry_MissingFile(t *testing.T) {
 	backedUpExists := filepath.Join(backupPath, "exists.txt")
 	backedUpMissing := filepath.Join(backupPath, "missing.txt")
 
-	if !pathExists(backedUpExists) {
+	if !PathExists(backedUpExists) {
 		t.Error("exists.txt should be backed up")
 	}
 
-	if pathExists(backedUpMissing) {
+	if PathExists(backedUpMissing) {
 		t.Error("missing.txt should not be backed up")
 	}
 }
@@ -1142,7 +1142,7 @@ func TestBackup_SkipsGitEntries(t *testing.T) {
 	}
 
 	// Backup directory should not be created (git entry was skipped)
-	if pathExists(backupRoot) {
+	if PathExists(backupRoot) {
 		entries, _ := os.ReadDir(backupRoot)
 		if len(entries) != 0 {
 			t.Error("Expected no backup files for git entry")
