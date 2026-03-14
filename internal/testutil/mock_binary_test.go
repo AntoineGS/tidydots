@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,7 +61,7 @@ func TestCreateMockBinary(t *testing.T) {
 			path := CreateMockBinary(t, dir, tt.binName, tt.exitCode, tt.stdout, tt.stderr)
 
 			// Verify file exists
-			if _, err := os.Stat(path); os.IsNotExist(err) {
+			if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("mock binary was not created at %s", path)
 			}
 

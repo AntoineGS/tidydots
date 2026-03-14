@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -72,7 +73,7 @@ func (m *Manager) InitStateStore() error {
 	backupRoot := config.ExpandPath(m.Config.BackupRoot, m.Platform.EnvVars)
 	dbPath := filepath.Join(backupRoot, ".tidydots.db")
 
-	store, err := state.Open(dbPath)
+	store, err := state.Open(m.ctx, dbPath)
 	if err != nil {
 		return fmt.Errorf("opening state store: %w", err)
 	}
@@ -338,7 +339,7 @@ func copyDir(src, dst string) error {
 func removeAll(path string) error {
 	info, err := os.Lstat(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -101,7 +102,7 @@ func TestGetConfigDir(t *testing.T) {
 		hadConfig = true
 	}
 	// Remove config file to test "app config not found" case
-	if err := os.Remove(appConfigPath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(appConfigPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

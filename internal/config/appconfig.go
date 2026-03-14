@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,7 +34,7 @@ func LoadAppConfig() (*AppConfig, error) {
 
 	data, err := os.ReadFile(configPath) //nolint:gosec // path is from user home dir, intentional
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("app config not found at %s - run 'tidydots init' or create it manually", configPath)
 		}
 
@@ -53,7 +54,7 @@ func LoadAppConfig() (*AppConfig, error) {
 	cfg.ConfigDir = ExpandPath(cfg.ConfigDir, nil)
 
 	// Verify the directory exists
-	if _, err := os.Stat(cfg.ConfigDir); os.IsNotExist(err) {
+	if _, err := os.Stat(cfg.ConfigDir); errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("configurations directory does not exist: %s", cfg.ConfigDir)
 	}
 

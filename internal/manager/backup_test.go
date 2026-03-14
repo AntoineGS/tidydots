@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -518,7 +519,7 @@ func TestBackup_DryRunNoChanges(t *testing.T) {
 	}
 
 	// Verify no backup created
-	if _, err := os.Stat(backupPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(backupPath); !errors.Is(err, os.ErrNotExist) {
 		t.Error("dry-run created backup directory")
 	}
 

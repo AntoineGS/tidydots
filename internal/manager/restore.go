@@ -107,7 +107,7 @@ func symlinkPointsTo(path, expectedTarget string) bool {
 func createSymlink(ctx context.Context, source, target string, useSudo bool) error {
 	// Validate source exists
 	if _, err := os.Stat(source); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return NewPathError("restore", source, fmt.Errorf("symlink source does not exist"))
 		}
 

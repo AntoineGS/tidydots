@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -74,7 +75,7 @@ func TestRenderTemplate_SyntaxError(t *testing.T) {
 	}
 
 	renderedPath := tmpl.RenderedPath(tmplPath)
-	if _, statErr := os.Stat(renderedPath); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(renderedPath); !errors.Is(statErr, os.ErrNotExist) {
 		t.Error("rendered file should not exist after syntax error")
 	}
 }
@@ -146,7 +147,7 @@ func TestRenderContent_SyntaxError(t *testing.T) {
 	}
 
 	renderedPath := tmpl.RenderedPath(tmplPath)
-	if _, statErr := os.Stat(renderedPath); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(renderedPath); !errors.Is(statErr, os.ErrNotExist) {
 		t.Error("rendered file should not exist after syntax error")
 	}
 }

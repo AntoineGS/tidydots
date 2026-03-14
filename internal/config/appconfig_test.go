@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -40,7 +41,7 @@ func TestSaveAppConfig(t *testing.T) {
 
 	// Verify file was created
 	configPath := filepath.Join(tmpDir, appConfigDir, appConfigFile)
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+	if _, err := os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
 		t.Fatal("Config file was not created")
 	}
 

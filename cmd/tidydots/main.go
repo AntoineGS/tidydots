@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -186,8 +187,8 @@ func runInit(_ *cobra.Command, args []string) error {
 
 	// Check directory exists
 	info, err := os.Stat(absPath)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("directory does not exist: %s", absPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("directory does not exist %s: %w", absPath, err)
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("not a directory: %s", absPath)
@@ -195,7 +196,7 @@ func runInit(_ *cobra.Command, args []string) error {
 
 	// Check for tidydots.yaml in the repo
 	repoConfig := filepath.Join(absPath, "tidydots.yaml")
-	if _, err := os.Stat(repoConfig); os.IsNotExist(err) {
+	if _, err := os.Stat(repoConfig); errors.Is(err, os.ErrNotExist) {
 		fmt.Printf("Warning: %s not found in %s\n", "tidydots.yaml", absPath)
 		fmt.Println("You'll need to create it before using tidydots.")
 	}
