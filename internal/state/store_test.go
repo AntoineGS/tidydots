@@ -11,7 +11,7 @@ const testTemplate = "test.tmpl"
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), ".tidydots.db")
-	store, err := Open(dbPath)
+	store, err := Open(context.Background(), dbPath)
 	if err != nil {
 		t.Fatalf("failed to open store: %v", err)
 	}
@@ -21,7 +21,7 @@ func newTestStore(t *testing.T) *Store {
 
 func TestOpen_CreatesDBAndSchema(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "subdir", ".tidydots.db")
-	store, err := Open(dbPath)
+	store, err := Open(context.Background(), dbPath)
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
 	}
@@ -42,13 +42,13 @@ func TestOpen_Idempotent(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), ".tidydots.db")
 
 	// Open twice - should not error
-	store1, err := Open(dbPath)
+	store1, err := Open(context.Background(), dbPath)
 	if err != nil {
 		t.Fatalf("first Open failed: %v", err)
 	}
 	_ = store1.Close() //nolint:errcheck // cleanup is best-effort
 
-	store2, err := Open(dbPath)
+	store2, err := Open(context.Background(), dbPath)
 	if err != nil {
 		t.Fatalf("second Open failed: %v", err)
 	}
@@ -66,16 +66,17 @@ func TestOpen_Idempotent(t *testing.T) {
 
 func TestSaveAndGetLatestRender(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
 	tmplPath := "zsh/.zshrc.tmpl"
 	content := []byte("export EDITOR=nvim\n")
 	hash := "abc123"
 
-	if err := store.SaveRender(tmplPath, content, hash, "linux", "myhost"); err != nil {
+	if err := store.SaveRender(ctx, tmplPath, content, hash, "linux", "myhost"); err != nil {
 		t.Fatalf("SaveRender failed: %v", err)
 	}
 
-	record, err := store.GetLatestRender(tmplPath)
+	record, err := store.GetLatestRender(ctx, tmplPath)
 	if err != nil {
 		t.Fatalf("GetLatestRender failed: %v", err)
 	}
@@ -102,8 +103,9 @@ func TestSaveAndGetLatestRender(t *testing.T) {
 
 func TestGetLatestRender_NoRecord(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
-	record, err := store.GetLatestRender("nonexistent.tmpl")
+	record, err := store.GetLatestRender(ctx, "nonexistent.tmpl")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -114,16 +116,17 @@ func TestGetLatestRender_NoRecord(t *testing.T) {
 
 func TestGetLatestRender_ReturnsNewest(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
 	tmplPath := testTemplate
-	if err := store.SaveRender(tmplPath, []byte("v1"), "hash1", "linux", "host"); err != nil {
+	if err := store.SaveRender(ctx, tmplPath, []byte("v1"), "hash1", "linux", "host"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveRender(tmplPath, []byte("v2"), "hash2", "linux", "host"); err != nil {
+	if err := store.SaveRender(ctx, tmplPath, []byte("v2"), "hash2", "linux", "host"); err != nil {
 		t.Fatal(err)
 	}
 
-	record, err := store.GetLatestRender(tmplPath)
+	record, err := store.GetLatestRender(ctx, tmplPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,16 +140,17 @@ func TestGetLatestRender_ReturnsNewest(t *testing.T) {
 
 func TestGetRenderHistory(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
 	tmplPath := testTemplate
 	for i := range 5 {
-		if err := store.SaveRender(tmplPath, []byte("v"+string(rune('0'+i))), "hash", "linux", "host"); err != nil {
+		if err := store.SaveRender(ctx, tmplPath, []byte("v"+string(rune('0'+i))), "hash", "linux", "host"); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// Get last 3
-	records, err := store.GetRenderHistory(tmplPath, 3)
+	records, err := store.GetRenderHistory(ctx, tmplPath, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,17 +166,18 @@ func TestGetRenderHistory(t *testing.T) {
 
 func TestGetRenderByID(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
-	if err := store.SaveRender(testTemplate, []byte("content"), "hash", "linux", "host"); err != nil {
+	if err := store.SaveRender(ctx, testTemplate, []byte("content"), "hash", "linux", "host"); err != nil {
 		t.Fatal(err)
 	}
 
-	latest, err := store.GetLatestRender(testTemplate)
+	latest, err := store.GetLatestRender(ctx, testTemplate)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	record, err := store.GetRenderByID(latest.ID)
+	record, err := store.GetRenderByID(ctx, latest.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,8 +191,9 @@ func TestGetRenderByID(t *testing.T) {
 
 func TestGetRenderByID_NotFound(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
-	record, err := store.GetRenderByID(9999)
+	record, err := store.GetRenderByID(ctx, 9999)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,19 +204,20 @@ func TestGetRenderByID_NotFound(t *testing.T) {
 
 func TestPruneHistory(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
 	tmplPath := testTemplate
 	for range 10 {
-		if err := store.SaveRender(tmplPath, []byte("content"), "hash", "linux", "host"); err != nil {
+		if err := store.SaveRender(ctx, tmplPath, []byte("content"), "hash", "linux", "host"); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if err := store.PruneHistory(tmplPath, 3); err != nil {
+	if err := store.PruneHistory(ctx, tmplPath, 3); err != nil {
 		t.Fatal(err)
 	}
 
-	records, err := store.GetRenderHistory(tmplPath, 100)
+	records, err := store.GetRenderHistory(ctx, tmplPath, 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,20 +228,21 @@ func TestPruneHistory(t *testing.T) {
 
 func TestRemoveTemplate(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
 	tmplPath := testTemplate
-	if err := store.SaveRender(tmplPath, []byte("v1"), "h1", "linux", "host"); err != nil {
+	if err := store.SaveRender(ctx, tmplPath, []byte("v1"), "h1", "linux", "host"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveRender(tmplPath, []byte("v2"), "h2", "linux", "host"); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := store.RemoveTemplate(tmplPath); err != nil {
+	if err := store.SaveRender(ctx, tmplPath, []byte("v2"), "h2", "linux", "host"); err != nil {
 		t.Fatal(err)
 	}
 
-	record, err := store.GetLatestRender(tmplPath)
+	if err := store.RemoveTemplate(ctx, tmplPath); err != nil {
+		t.Fatal(err)
+	}
+
+	record, err := store.GetLatestRender(ctx, tmplPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,19 +253,20 @@ func TestRemoveTemplate(t *testing.T) {
 
 func TestRemoveTemplate_DoesNotAffectOthers(t *testing.T) {
 	store := newTestStore(t)
+	ctx := context.Background()
 
-	if err := store.SaveRender("a.tmpl", []byte("a"), "h", "linux", "host"); err != nil {
+	if err := store.SaveRender(ctx, "a.tmpl", []byte("a"), "h", "linux", "host"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveRender("b.tmpl", []byte("b"), "h", "linux", "host"); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := store.RemoveTemplate("a.tmpl"); err != nil {
+	if err := store.SaveRender(ctx, "b.tmpl", []byte("b"), "h", "linux", "host"); err != nil {
 		t.Fatal(err)
 	}
 
-	record, err := store.GetLatestRender("b.tmpl")
+	if err := store.RemoveTemplate(ctx, "a.tmpl"); err != nil {
+		t.Fatal(err)
+	}
+
+	record, err := store.GetLatestRender(ctx, "b.tmpl")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,14 +277,15 @@ func TestRemoveTemplate_DoesNotAffectOthers(t *testing.T) {
 
 func TestSchemaMigration_Version0To1(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), ".tidydots.db")
+	ctx := context.Background()
 
 	// Open creates schema from scratch (version 0 -> 1)
-	store, err := Open(dbPath)
+	store, err := Open(ctx, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	version := store.getSchemaVersion()
+	version := store.getSchemaVersion(ctx)
 	if version != 1 {
 		t.Errorf("expected version 1, got %d", version)
 	}
@@ -283,13 +293,13 @@ func TestSchemaMigration_Version0To1(t *testing.T) {
 	_ = store.Close() //nolint:errcheck // cleanup is best-effort
 
 	// Re-open should not re-run migrations
-	store2, err := Open(dbPath)
+	store2, err := Open(ctx, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = store2.Close() }() //nolint:errcheck // cleanup is best-effort
 
-	version = store2.getSchemaVersion()
+	version = store2.getSchemaVersion(ctx)
 	if version != 1 {
 		t.Errorf("expected version 1 after re-open, got %d", version)
 	}

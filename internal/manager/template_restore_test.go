@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,7 +39,7 @@ func setupTemplateTest(t *testing.T) (string, string, *Manager, *state.Store) {
 	mgr := New(cfg, plat)
 
 	dbPath := filepath.Join(backupRoot, ".tidydots.db")
-	store, err := state.Open(dbPath)
+	store, err := state.Open(context.Background(), dbPath)
 	if err != nil {
 		t.Fatalf("failed to open state store: %v", err)
 	}
@@ -254,7 +255,7 @@ func TestRestoreFolderWithTemplates_ReRenderWithUserEdits(t *testing.T) {
 	}
 
 	// Verify DB stores pure render (not merged result)
-	record, _ := store.GetLatestRender(".zshrc.tmpl")
+	record, _ := store.GetLatestRender(context.Background(), ".zshrc.tmpl")
 	if record == nil {
 		t.Fatal("expected render record in DB")
 	}
@@ -473,7 +474,7 @@ func TestRestoreFolderWithTemplates_DryRun(t *testing.T) {
 	}
 
 	// No DB records
-	record, _ := store.GetLatestRender("file.tmpl")
+	record, _ := store.GetLatestRender(context.Background(), "file.tmpl")
 	if record != nil {
 		t.Error("dry run should not create DB records")
 	}

@@ -30,7 +30,7 @@ type Store struct {
 }
 
 // Open opens or creates the SQLite database at the given path and runs migrations.
-func Open(dbPath string) (*Store, error) {
+func Open(ctx context.Context, dbPath string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0750); err != nil {
 		return nil, fmt.Errorf("creating database directory: %w", err)
 	}
@@ -40,15 +40,17 @@ func Open(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
+	// SQLite supports one writer at a time
+	db.SetMaxOpenConns(1)
+
 	// Enable WAL mode for better concurrent access
-	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {
 		_ = db.Close() //nolint:errcheck,gosec // best-effort cleanup on error path
 		return nil, fmt.Errorf("setting journal mode: %w", err)
 	}
 
 	s := &Store{db: db}
-	if err := s.migrate(); err != nil {
+	if err := s.migrate(ctx); err != nil {
 		_ = db.Close() //nolint:errcheck,gosec // best-effort cleanup on error path
 		return nil, fmt.Errorf("running migrations: %w", err)
 	}
@@ -83,8 +85,8 @@ func scanRenderRow(row *sql.Row, context string) (*RenderRecord, error) {
 
 // GetLatestRender returns the most recent render record for the given template path.
 // Returns nil if no render exists.
-func (s *Store) GetLatestRender(templatePath string) (*RenderRecord, error) {
-	row := s.db.QueryRowContext(context.Background(), `
+func (s *Store) GetLatestRender(ctx context.Context, templatePath string) (*RenderRecord, error) {
+	row := s.db.QueryRowContext(ctx, `
 		SELECT id, template_path, pure_render, template_hash, rendered_at, platform_os, platform_host
 		FROM template_renders
 		WHERE template_path = ?
@@ -96,8 +98,7 @@ func (s *Store) GetLatestRender(templatePath string) (*RenderRecord, error) {
 }
 
 // SaveRender stores a new render record for the given template.
-func (s *Store) SaveRender(templatePath string, pureRender []byte, templateHash, platformOS, hostname string) error {
-	ctx := context.Background()
+func (s *Store) SaveRender(ctx context.Context, templatePath string, pureRender []byte, templateHash, platformOS, hostname string) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO template_renders (template_path, pure_render, template_hash, platform_os, platform_host)
 		VALUES (?, ?, ?, ?, ?)
@@ -110,8 +111,7 @@ func (s *Store) SaveRender(templatePath string, pureRender []byte, templateHash,
 }
 
 // GetRenderHistory returns the N most recent render records for the given template.
-func (s *Store) GetRenderHistory(templatePath string, limit int) ([]RenderRecord, error) {
-	ctx := context.Background()
+func (s *Store) GetRenderHistory(ctx context.Context, templatePath string, limit int) ([]RenderRecord, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, template_path, pure_render, template_hash, rendered_at, platform_os, platform_host
 		FROM template_renders
@@ -145,8 +145,8 @@ func (s *Store) GetRenderHistory(templatePath string, limit int) ([]RenderRecord
 }
 
 // GetRenderByID returns a specific render record by ID.
-func (s *Store) GetRenderByID(id int64) (*RenderRecord, error) {
-	row := s.db.QueryRowContext(context.Background(), `
+func (s *Store) GetRenderByID(ctx context.Context, id int64) (*RenderRecord, error) {
+	row := s.db.QueryRowContext(ctx, `
 		SELECT id, template_path, pure_render, template_hash, rendered_at, platform_os, platform_host
 		FROM template_renders
 		WHERE id = ?
@@ -156,8 +156,7 @@ func (s *Store) GetRenderByID(id int64) (*RenderRecord, error) {
 }
 
 // PruneHistory keeps only the N most recent renders per template, deleting older ones.
-func (s *Store) PruneHistory(templatePath string, keepN int) error {
-	ctx := context.Background()
+func (s *Store) PruneHistory(ctx context.Context, templatePath string, keepN int) error {
 	_, err := s.db.ExecContext(ctx, `
 		DELETE FROM template_renders
 		WHERE template_path = ?
@@ -176,8 +175,7 @@ func (s *Store) PruneHistory(templatePath string, keepN int) error {
 }
 
 // RemoveTemplate deletes all render records for the given template.
-func (s *Store) RemoveTemplate(templatePath string) error {
-	ctx := context.Background()
+func (s *Store) RemoveTemplate(ctx context.Context, templatePath string) error {
 	_, err := s.db.ExecContext(ctx, `
 		DELETE FROM template_renders WHERE template_path = ?
 	`, templatePath)
@@ -189,21 +187,20 @@ func (s *Store) RemoveTemplate(templatePath string) error {
 }
 
 // migrate runs schema migrations.
-func (s *Store) migrate() error {
-	currentVersion := s.getSchemaVersion()
+func (s *Store) migrate(ctx context.Context) error {
+	currentVersion := s.getSchemaVersion(ctx)
 
-	migrations := []func(*sql.Tx) error{
+	migrations := []func(context.Context, *sql.Tx) error{
 		migrateV1,
 	}
 
-	ctx := context.Background()
 	for i := currentVersion; i < len(migrations); i++ {
 		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("beginning migration %d: %w", i+1, err)
 		}
 
-		if err := migrations[i](tx); err != nil {
+		if err := migrations[i](ctx, tx); err != nil {
 			_ = tx.Rollback() //nolint:errcheck,gosec // rollback best-effort on migration failure
 			return fmt.Errorf("migration %d failed: %w", i+1, err)
 		}
@@ -227,8 +224,7 @@ func (s *Store) migrate() error {
 }
 
 // getSchemaVersion returns the current schema version, or 0 if the schema_version table doesn't exist.
-func (s *Store) getSchemaVersion() int {
-	ctx := context.Background()
+func (s *Store) getSchemaVersion(ctx context.Context) int {
 	// Check if schema_version table exists
 	var tableName string
 	err := s.db.QueryRowContext(ctx, `SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'`).Scan(&tableName)
@@ -260,7 +256,7 @@ func parseTime(s string) (time.Time, error) {
 }
 
 // migrateV1 creates the initial schema.
-func migrateV1(tx *sql.Tx) error {
+func migrateV1(ctx context.Context, tx *sql.Tx) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS schema_version (
 			version INTEGER NOT NULL
@@ -278,7 +274,6 @@ func migrateV1(tx *sql.Tx) error {
 			ON template_renders(template_path, id DESC)`,
 	}
 
-	ctx := context.Background()
 	for _, stmt := range stmts {
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("executing %q: %w", stmt[:40], err)

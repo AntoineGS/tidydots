@@ -48,7 +48,7 @@ func (m *Manager) walkTemplateFiles(backupDir string, fn templateWalkFunc) error
 			return nil
 		}
 
-		record, lookupErr := m.stateStore.GetLatestRender(relPath)
+		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath)
 		if lookupErr != nil {
 			return nil
 		}
