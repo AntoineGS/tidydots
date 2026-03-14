@@ -2,11 +2,17 @@ package tui
 
 import (
 	"context"
+	"time"
 
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/packages"
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
+
+// packageCheckTimeout is the maximum time allowed for a package status check
+// command to complete. This prevents the TUI from hanging indefinitely when
+// a package manager is locked or a sudo prompt is waiting.
+const packageCheckTimeout = 10 * time.Second
 
 // isPackageInstalledFromPackage checks if a package is installed using the packages package
 func isPackageInstalledFromPackage(pkg *config.EntryPackage, method, entryName, osType string) bool {
@@ -42,7 +48,10 @@ func isPackageInstalledFromPackage(pkg *config.EntryPackage, method, entryName, 
 		pkgName = entryName
 	}
 
-	return packages.IsInstalled(context.Background(), pkgName, method)
+	ctx, cancel := context.WithTimeout(context.Background(), packageCheckTimeout)
+	defer cancel()
+
+	return packages.IsInstalled(ctx, pkgName, method)
 }
 
 // getPackageInstallMethodFromPackage determines how a package would be installed
