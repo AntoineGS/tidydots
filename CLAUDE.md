@@ -128,10 +128,10 @@ applications:
 
   # System-level application with sudo
   - name: "system-config"
-    sudo: true
     when: '{{ eq .Distro "arch" }}'
-    configs:
+    entries:
       - name: "hosts"
+        sudo: true
         backup: "./system/hosts"
         targets:
           linux: "/etc/hosts"
@@ -142,16 +142,17 @@ applications:
 Git repositories can be installed as packages by adding git to the managers map:
 
 ```yaml
-packages:
+applications:
   - name: "dotfiles"
-    managers:
-      git:
-        url: "https://github.com/user/dotfiles.git"
-        branch: "main"  # Optional
-        targets:
-          linux: "~/.dotfiles"
-          windows: "~/dotfiles"
-        sudo: false  # Optional, use true for system-level installs
+    package:
+      managers:
+        git:
+          url: "https://github.com/user/dotfiles.git"
+          branch: "main"  # Optional
+          targets:
+            linux: "~/.dotfiles"
+            windows: "~/dotfiles"
+          sudo: false  # Optional, use true for system-level installs
 ```
 
 **Fields:**

@@ -1,53 +1,137 @@
 # tidydots configuration example
-# Place this file as 'tidydots.yaml' in the root of your configurations repository
+# Place this file as 'tidydots.yaml' in the root of your dotfiles repository
+#
+# Version 3 organizes configs and packages under named applications,
+# with conditional inclusion via Go template `when` expressions.
 
-version: 1
+version: 3
 
-# Regular user paths (used when not running as root)
-paths:
-  # Example: Neovim configuration (entire folder)
-  - name: "neovim"
-    files: []  # empty = entire folder
-    backup: "./Both/Neovim/nvim"
-    targets:
-      linux: "~/.config/nvim"
-      windows: "~/AppData/Local/nvim"
+# Optional: preferred package manager and fallback order
+default_manager: "pacman"
+manager_priority:
+  - pacman
+  - apt
+  - brew
 
-  # Example: Shell config files (specific files)
-  - name: "bash"
-    files: [".bashrc", ".bash_profile"]
-    backup: "./Linux/Bash"
-    targets:
-      linux: "~"
+applications:
+  # ── Neovim (entire folder, cross-platform) ─────────────────────────
+  - name: "nvim"
+    description: "Neovim text editor"
+    when: '{{ or (eq .OS "linux") (eq .OS "windows") }}'
 
-  # Example: Cross-platform config
+    entries:
+      - name: "nvim-config"
+        files: []  # empty = symlink the entire folder
+        backup: "./Both/Neovim/nvim"
+        targets:
+          linux: "~/.config/nvim"
+          windows: "~/AppData/Local/nvim"
+
+    package:
+      managers:
+        pacman: "neovim"
+        apt: "neovim"
+        brew: "neovim"
+
+  # ── Shell configs (specific files, Linux only) ─────────────────────
+  - name: "zsh"
+    description: "Zsh shell configuration"
+    when: '{{ eq .OS "linux" }}'
+
+    entries:
+      - name: "zsh-dotfiles"
+        files: [".zshrc", ".zprofile"]
+        backup: "./Linux/Zsh"
+        targets:
+          linux: "~"
+
+    package:
+      managers:
+        pacman: "zsh"
+        apt: "zsh"
+        brew: "zsh"
+
+  # ── Git package (clone a repo as a "package") ─────────────────────
+  - name: "zsh-plugins"
+    description: "Zsh plugin manager and plugins"
+    when: '{{ eq .OS "linux" }}'
+
+    entries: []
+
+    package:
+      managers:
+        git:
+          url: "https://github.com/zsh-users/zsh-autosuggestions.git"
+          branch: "master"
+          targets:
+            linux: "~/.local/share/zsh/plugins/zsh-autosuggestions"
+
+  # ── Cross-platform tool with multiple manager formats ──────────────
   - name: "starship"
-    files: ["starship.toml"]
-    backup: "./Both/Starship"
-    targets:
-      linux: "~/.config"
-      windows: "~/.config"
+    description: "Cross-shell prompt"
 
-# Root paths (used when running as root/sudo)
-root_paths:
-  - name: "pacman-hooks"
-    files: ["my-hook.hook"]
-    backup: "./Linux/pacman"
-    targets:
-      linux: "/usr/share/libalpm/hooks"
+    entries:
+      - name: "starship-config"
+        files: ["starship.toml"]
+        backup: "./Both/Starship"
+        targets:
+          linux: "~/.config"
+          windows: "~/.config"
 
-# Post-restore hooks (optional)
-hooks:
-  post_restore:
-    linux:
-      # Clone zsh plugins on non-Arch systems
-      - type: "zsh-plugins"
-        skip_on_arch: true
-        plugins:
-          - name: "oh-my-zsh"
-            repo: "https://github.com/ohmyzsh/ohmyzsh.git"
-            path: "/usr/share/oh-my-zsh"
+    package:
+      managers:
+        pacman: "starship"
+        brew: "starship"
+        winget: "Starship.Starship"
 
-      # Install terminfo
-      - type: "ghostty-terminfo"
-        source: "./Linux/ghostty/xterm-ghostty.terminfo"
+  # ── Sudo entry (system-level config requiring root) ────────────────
+  - name: "pacman"
+    description: "Pacman configuration and hooks"
+    when: '{{ eq .Distro "arch" }}'
+
+    entries:
+      - name: "pacman-conf"
+        backup: "./Linux/Pacman"
+        files: ["pacman.conf"]
+        targets:
+          linux: "/etc"
+        sudo: true
+
+      - name: "pacman-hooks"
+        backup: "./Linux/Pacman/hooks"
+        files: ["cleanup.hook"]
+        targets:
+          linux: "/usr/share/libalpm/hooks"
+        sudo: true
+
+  # ── Template path example (host-specific config) ───────────────────
+  - name: "hyprland"
+    description: "Hyprland window manager (per-host)"
+    when: '{{ and (eq .OS "linux") .HasDisplay }}'
+
+    entries:
+      - name: "hyprland-config"
+        files: []
+        backup: "./Linux/Hyprland"
+        targets:
+          linux: "~/.config/{{ .Hostname }}/hypr"
+
+    package:
+      managers:
+        pacman: "hyprland"
+
+  # ── Installer-based package (shell script install) ─────────────────
+  - name: "rustup"
+    description: "Rust toolchain installer"
+
+    entries: []
+
+    package:
+      managers:
+        pacman: "rustup"
+        apt: "rustup"
+        installer:
+          command:
+            linux: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+            windows: "iwr https://win.rustup.rs -OutFile rustup-init.exe; ./rustup-init.exe -y"
+          binary: "rustup"
