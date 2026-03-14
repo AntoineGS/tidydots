@@ -228,8 +228,10 @@ func setupScrollMiddle(m *Model) {
 	m.Screen = ScreenResults
 	m.Operation = OpList
 
-	// Position cursor at row 20 (middle) - renderTable() will center it in viewport
+	// Position cursor at row 20 (middle) and compute scroll offset
+	// (mirrors what Update() does after cursor movement)
 	m.tableCursor = 20
+	m.updateScrollOffset()
 }
 
 // setupScrollBottom creates a long list with cursor at the bottom.
@@ -259,8 +261,10 @@ func setupScrollBottom(m *Model) {
 	m.Screen = ScreenResults
 	m.Operation = OpList
 
-	// Position cursor at last app - renderTable() will auto-scroll to show it
+	// Position cursor at last app and compute scroll offset
+	// (mirrors what Update() does after cursor movement)
 	m.tableCursor = 39
+	m.updateScrollOffset()
 }
 
 func setupScrollBottomThenUp(m *Model) {

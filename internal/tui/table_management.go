@@ -324,7 +324,9 @@ func (m *Model) updateScrollOffset() {
 
 // renderTable renders the table using lipgloss with custom styling.
 // availableHeight is the number of lines available for the entire table (including borders/headers).
-func (m *Model) renderTable(availableHeight int) string {
+// Uses a value receiver because View must be pure (no state mutation).
+// Scroll offset is pre-computed by updateScrollOffset() in the Update path.
+func (m Model) renderTable(availableHeight int) string {
 	if len(m.tableRows) == 0 {
 		return SubtitleStyle.Render("No entries found")
 	}
@@ -360,43 +362,18 @@ func (m *Model) renderTable(availableHeight int) string {
 
 	totalRows := len(m.tableRows)
 
-	// Implement smooth incremental scrolling with buffer zone (like vim's scrolloff)
+	// Use scroll offset already computed by updateScrollOffset() in the Update path.
 	scrollOffset := m.scrollOffset
 
-	// Ensure scroll offset is valid
+	// Clamp to valid range for defensive rendering (read-only, no state mutation).
 	if scrollOffset < 0 {
 		scrollOffset = 0
 	}
-	if scrollOffset > totalRows-maxVisibleRows && totalRows > maxVisibleRows {
+	if totalRows <= maxVisibleRows {
+		scrollOffset = 0
+	} else if scrollOffset > totalRows-maxVisibleRows {
 		scrollOffset = totalRows - maxVisibleRows
 	}
-	if totalRows <= maxVisibleRows {
-		scrollOffset = 0 // Show all rows if they fit
-	}
-
-	// Calculate cursor position relative to viewport
-	cursorPosInViewport := m.tableCursor - scrollOffset
-
-	// Smooth scrolling: keep cursor within buffer zone from edges
-	if cursorPosInViewport < ScrollOffsetMargin {
-		// Cursor too close to top - scroll up to maintain buffer
-		scrollOffset = m.tableCursor - ScrollOffsetMargin
-		if scrollOffset < 0 {
-			scrollOffset = 0
-		}
-	} else if cursorPosInViewport >= maxVisibleRows-ScrollOffsetMargin {
-		// Cursor too close to bottom - scroll down to maintain buffer
-		scrollOffset = m.tableCursor - maxVisibleRows + ScrollOffsetMargin + 1
-		if scrollOffset+maxVisibleRows > totalRows {
-			scrollOffset = totalRows - maxVisibleRows
-			if scrollOffset < 0 {
-				scrollOffset = 0
-			}
-		}
-	}
-
-	// Save scroll offset for next render
-	m.scrollOffset = scrollOffset
 
 	// Calculate visible range
 	visibleStart := scrollOffset
@@ -525,7 +502,7 @@ func cellAttentionStyle(tr TableRow, col int) lipgloss.Style {
 
 // buildVisibleRowsWithIndicators builds the visible table rows with scroll
 // indicators embedded as the first/last rows when scrolling
-func (m *Model) buildVisibleRowsWithIndicators(
+func (m Model) buildVisibleRowsWithIndicators(
 	visibleStart, visibleEnd int,
 	hasMoreAbove, hasMoreBelow bool,
 	showBackupColumn bool,
