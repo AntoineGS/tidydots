@@ -23,7 +23,7 @@ func (m *Manager) RestoreFolderWithTemplates(subEntry config.SubEntry, source, t
 	}
 
 	// Step 2: Render templates and create relative symlinks in backup dir
-	if !pathExists(source) {
+	if !PathExists(source) {
 		return nil
 	}
 
@@ -82,7 +82,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath)
 		if lookupErr != nil {
 			m.logger.Warn("failed to query render history", slog.String("error", lookupErr.Error()))
-		} else if record != nil && record.TemplateHash == hash && pathExists(renderedAbsPath) {
+		} else if record != nil && record.TemplateHash == hash && PathExists(renderedAbsPath) {
 			// Template unchanged and rendered file exists - just ensure relative symlink
 			m.logger.Debug("template unchanged, skipping re-render",
 				slog.String("template", relPath))
@@ -118,7 +118,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 			base := string(record.PureRender)
 
 			var theirs string
-			if pathExists(renderedAbsPath) {
+			if PathExists(renderedAbsPath) {
 				theirsBytes, readErr := os.ReadFile(renderedAbsPath) //nolint:gosec // generated file
 				if readErr != nil {
 					m.logger.Warn("could not read current rendered file",
@@ -148,7 +148,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 			}
 
 			finalContent = []byte(mergeResult.Content)
-		} else if pathExists(renderedAbsPath) {
+		} else if PathExists(renderedAbsPath) {
 			// First render but rendered file exists (orphaned) - back it up
 			bakPath := renderedAbsPath + ".bak"
 			m.logger.Warn("backing up orphaned rendered file",
@@ -207,7 +207,7 @@ func (m *Manager) ensureRelativeSymlink(symlinkPath, target string) error {
 	}
 
 	// Remove existing file or incorrect symlink
-	if pathExists(symlinkPath) || isSymlink(symlinkPath) {
+	if PathExists(symlinkPath) || isSymlink(symlinkPath) {
 		m.logger.Info("removing existing file/symlink for relative symlink",
 			slog.String("path", symlinkPath))
 		if !m.DryRun {

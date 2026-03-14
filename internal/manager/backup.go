@@ -93,7 +93,7 @@ func (m *Manager) backupSubEntry(appName string, subEntry config.SubEntry, targe
 
 func (m *Manager) backupFolderSubEntry(_ string, subEntry config.SubEntry, backup, target string) error {
 	// Similar to existing backupFolder logic
-	if !pathExists(target) {
+	if !PathExists(target) {
 		m.logger.Debug("target folder does not exist", slog.String("path", target))
 		return nil
 	}
@@ -127,7 +127,7 @@ func (m *Manager) backupFolderSubEntry(_ string, subEntry config.SubEntry, backu
 
 func (m *Manager) backupFilesSubEntry(_ string, subEntry config.SubEntry, backup, target string) error {
 	// Similar to existing backupFiles logic
-	if !pathExists(target) {
+	if !PathExists(target) {
 		m.logger.Debug("target directory does not exist", slog.String("path", target))
 		return nil
 	}
@@ -142,7 +142,7 @@ func (m *Manager) backupFilesSubEntry(_ string, subEntry config.SubEntry, backup
 		srcFile := filepath.Join(target, file)
 		dstFile := filepath.Join(backup, file)
 
-		if !pathExists(srcFile) {
+		if !PathExists(srcFile) {
 			m.logger.Debug("source file does not exist", slog.String("path", srcFile))
 			continue
 		}

@@ -250,7 +250,9 @@ func isSymlink(path string) bool {
 	return false
 }
 
-func pathExists(path string) bool {
+// PathExists reports whether the path exists on the filesystem.
+// It uses os.Lstat so that broken symlinks are still reported as existing.
+func PathExists(path string) bool {
 	_, err := os.Lstat(path)
 	return err == nil
 }

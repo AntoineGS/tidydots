@@ -670,8 +670,8 @@ func detectConfigState(backupPath, targetPath string, isFolder bool, files []str
 			}
 		}
 
-		backupExists := pathExists(backupPath)
-		targetExists := pathExists(targetPath)
+		backupExists := manager.PathExists(backupPath)
+		targetExists := manager.PathExists(targetPath)
 
 		if backupExists {
 			return StateReady
@@ -694,7 +694,7 @@ func detectConfigState(backupPath, targetPath string, isFolder bool, files []str
 		srcFile := filepath.Join(backupPath, file)
 		dstFile := filepath.Join(targetPath, file)
 
-		if !pathExists(srcFile) {
+		if !manager.PathExists(srcFile) {
 			continue
 		}
 
@@ -776,11 +776,6 @@ func (m *Model) dispatchFilteredStates() tea.Cmd {
 	cmd, count := m.checkFilteredStatesCmd()
 	m.pendingStateChecks += count
 	return cmd
-}
-
-func pathExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
 
 // handleMouseEvent processes mouse events for the TUI.

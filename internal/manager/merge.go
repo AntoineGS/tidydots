@@ -108,15 +108,15 @@ func mergeFile(targetFile, backupDir, relativePath string, useSudo bool, summary
 	backupFile := filepath.Join(backupDir, relativePath)
 
 	// Check if file exists in backup (conflict)
-	if pathExists(backupFile) {
+	if PathExists(backupFile) {
 		// CONFLICT: Rename target file and move to backup
 		filename := filepath.Base(relativePath)
 		conflictName := generateConflictNameWithDate(filename)
 		conflictPath := filepath.Join(filepath.Dir(backupFile), conflictName)
 
 		slog.Warn("Conflict detected during merge",
-			"file", relativePath,
-			"renamed_to", conflictName)
+			slog.String("file", relativePath),
+			slog.String("renamed_to", conflictName))
 
 		// Try to rename first (faster if same device)
 		if err := os.Rename(targetFile, conflictPath); err != nil {
@@ -152,7 +152,7 @@ func mergeFile(targetFile, backupDir, relativePath string, useSudo bool, summary
 	}
 
 	slog.Info("Merged file into backup",
-		"file", relativePath)
+		slog.String("file", relativePath))
 
 	summary.AddMerged(relativePath)
 	return nil
@@ -185,9 +185,9 @@ func MergeFolder(backupDir, targetDir string, useSudo bool, summary *MergeSummar
 		relativePath, err := filepath.Rel(targetDir, path)
 		if err != nil {
 			slog.Error("Failed to calculate relative path",
-				"path", path,
-				"target_dir", targetDir,
-				"error", err)
+				slog.String("path", path),
+				slog.String("target_dir", targetDir),
+				slog.Any("error", err))
 			summary.AddFailed(path, err.Error())
 			return nil // Continue walking
 		}
@@ -195,8 +195,8 @@ func MergeFolder(backupDir, targetDir string, useSudo bool, summary *MergeSummar
 		// Merge the file
 		if err := mergeFile(path, backupDir, relativePath, useSudo, summary); err != nil {
 			slog.Error("Failed to merge file",
-				"file", relativePath,
-				"error", err)
+				slog.String("file", relativePath),
+				slog.Any("error", err))
 			summary.AddFailed(relativePath, err.Error())
 			return nil // Continue walking
 		}
@@ -250,8 +250,8 @@ func removeEmptyDirs(rootDir string) error {
 			// Log other errors at debug level
 			if !errors.Is(err, syscall.ENOTEMPTY) {
 				slog.Debug("Failed to remove directory",
-					"dir", dir,
-					"error", err)
+					slog.String("dir", dir),
+					slog.Any("error", err))
 			}
 		}
 	}

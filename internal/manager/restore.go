@@ -157,7 +157,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 	}
 
 	// Handle merge case: both source and target exist
-	if pathExists(source) && pathExists(target) && !isSymlink(target) {
+	if PathExists(source) && PathExists(target) && !isSymlink(target) {
 		if m.NoMerge {
 			if !m.ForceDelete {
 				// List files and return error
@@ -223,14 +223,14 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 		}
 	}
 
-	if !pathExists(source) && pathExists(target) {
+	if !PathExists(source) && PathExists(target) {
 		m.logger.Info("adopting folder",
 			slog.String("from", target),
 			slog.String("to", source))
 
 		if !m.DryRun {
 			backupParent := filepath.Dir(source)
-			if !pathExists(backupParent) {
+			if !PathExists(backupParent) {
 				if err := os.MkdirAll(backupParent, DirPerms); err != nil {
 					return NewPathError("adopt", source, fmt.Errorf("creating backup parent: %w", err))
 				}
@@ -249,7 +249,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 		}
 	}
 
-	if !pathExists(source) {
+	if !PathExists(source) {
 		if m.DryRun {
 			m.logger.Info("source folder does not exist (dry-run, skipping)", slog.String("path", source))
 			return nil
@@ -259,7 +259,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 	}
 
 	parentDir := filepath.Dir(target)
-	if !pathExists(parentDir) {
+	if !PathExists(parentDir) {
 		m.logger.Info("creating directory", slog.String("path", parentDir))
 
 		if !m.DryRun {
@@ -276,7 +276,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 		}
 	}
 
-	if pathExists(target) && !isSymlink(target) {
+	if PathExists(target) && !isSymlink(target) {
 		m.logger.Info("removing folder", slog.String("path", target))
 
 		if !m.DryRun {
@@ -308,7 +308,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 //
 //nolint:gocyclo // complexity acceptable for restore logic
 func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) error {
-	if !pathExists(source) {
+	if !PathExists(source) {
 		if !m.DryRun {
 			if err := os.MkdirAll(source, DirPerms); err != nil {
 				return NewPathError("restore", source, fmt.Errorf("creating backup directory: %w", err))
@@ -316,7 +316,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 		}
 	}
 
-	if !pathExists(target) {
+	if !PathExists(target) {
 		m.logger.Info("creating directory", slog.String("path", target))
 
 		if !m.DryRun {
@@ -354,7 +354,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 		}
 
 		// Handle merge case: both source and target file exist
-		if pathExists(srcFile) && pathExists(dstFile) && !isSymlink(dstFile) {
+		if PathExists(srcFile) && PathExists(dstFile) && !isSymlink(dstFile) {
 			if m.NoMerge {
 				if !m.ForceDelete {
 					return NewPathError("restore", dstFile, fmt.Errorf(
@@ -391,7 +391,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 			}
 		}
 
-		if !pathExists(srcFile) && pathExists(dstFile) {
+		if !PathExists(srcFile) && PathExists(dstFile) {
 			m.logger.Info("adopting file",
 				slog.String("from", dstFile),
 				slog.String("to", srcFile))
@@ -416,7 +416,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 			}
 		}
 
-		if !pathExists(srcFile) {
+		if !PathExists(srcFile) {
 			if m.DryRun {
 				m.logger.Info("source file does not exist (dry-run, skipping)", slog.String("path", srcFile))
 				continue
@@ -425,7 +425,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 			return NewPathError("restore", srcFile, fmt.Errorf("source file does not exist"))
 		}
 
-		if pathExists(dstFile) && !isSymlink(dstFile) {
+		if PathExists(dstFile) && !isSymlink(dstFile) {
 			m.logger.Info("removing file", slog.String("path", dstFile))
 
 			if !m.DryRun {
@@ -459,7 +459,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 // hasTemplateFiles returns true if the directory contains any .tmpl files.
 // It walks the directory tree and returns early on the first match.
 func hasTemplateFiles(dir string) bool {
-	if !pathExists(dir) {
+	if !PathExists(dir) {
 		return false
 	}
 
