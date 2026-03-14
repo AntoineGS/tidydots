@@ -419,7 +419,7 @@ func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 			// When turning filter OFF, scan any filtered apps that haven't been checked yet
 			if wasEnabled {
-				return m, m.checkFilteredStatesCmd()
+				return m, m.dispatchFilteredStates()
 			}
 
 			return m, nil

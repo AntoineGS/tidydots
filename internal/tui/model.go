@@ -253,6 +253,11 @@ type Model struct {
 	batchCurrentIndex int            // Current item index (0-based)
 	batchSuccessCount int            // Count of successful operations
 	batchFailCount    int            // Count of failed operations
+
+	// Pending async state check counter — avoids rebuilding the table on
+	// every single pkgCheckResultMsg / stateCheckResultMsg.  The table is
+	// rebuilt only once when the counter reaches 0.
+	pendingStateChecks int
 }
 
 // PackageItem represents a package to be installed, including its name,
@@ -333,16 +338,27 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	// Initialize applications for hierarchical view
 	m.initApplicationItems()
 
+	// Pre-calculate the number of async state checks that Init() will dispatch.
+	// Init() uses a value receiver and cannot persist state mutations, so we
+	// compute the count here while we still have a mutable model.
+	m.pendingStateChecks = m.countInitialStateChecks()
+
 	return m
 }
 
 // Init initializes the TUI model and returns any initial commands to run.
 // This is part of the Bubble Tea model interface.
 func (m Model) Init() tea.Cmd {
+	pkgCmd, _ := m.checkPackageStatesCmd()
+	subCmd, _ := m.checkSubEntryStatesCmd()
+
+	// pendingStateChecks is pre-calculated in NewModel() because Init()
+	// uses a value receiver and cannot persist state mutations.
+
 	return tea.Batch(
 		m.spinner.Tick,
-		m.checkPackageStatesCmd(),
-		m.checkSubEntryStatesCmd(),
+		pkgCmd,
+		subCmd,
 	)
 }
 
@@ -719,7 +735,7 @@ func (m Model) handlePkgCheckResult(msg pkgCheckResultMsg) (tea.Model, tea.Cmd) 
 			m.Applications[msg.appIndex].PkgInstalled = &installed
 		}
 	}
-	m.initTableModel()
+	m.decrementPendingAndRebuild()
 	return m, nil
 }
 
@@ -728,8 +744,38 @@ func (m Model) handleStateCheckResult(msg stateCheckResultMsg) (tea.Model, tea.C
 	if msg.appIndex < len(m.Applications) && msg.subIndex < len(m.Applications[msg.appIndex].SubItems) {
 		m.Applications[msg.appIndex].SubItems[msg.subIndex].State = msg.state
 	}
-	m.initTableModel()
+	m.decrementPendingAndRebuild()
 	return m, nil
+}
+
+// decrementPendingAndRebuild decrements the pending state check counter and
+// rebuilds the table only when all pending checks have completed.  If the
+// counter is already 0 (e.g. a manual refresh or ad-hoc check), the table is
+// rebuilt immediately.
+func (m *Model) decrementPendingAndRebuild() {
+	if m.pendingStateChecks > 0 {
+		m.pendingStateChecks--
+	}
+	if m.pendingStateChecks == 0 {
+		m.initTableModel()
+	}
+}
+
+// dispatchUncheckedPackageStates dispatches async package checks and tracks
+// the pending count on the model.  Designed for use in value-receiver Update
+// handlers where the modified Model is returned.
+func (m *Model) dispatchUncheckedPackageStates() tea.Cmd {
+	cmd, count := m.checkUncheckedPackageStatesCmd()
+	m.pendingStateChecks += count
+	return cmd
+}
+
+// dispatchFilteredStates dispatches async state checks for filtered (hidden)
+// apps and tracks the pending count on the model.
+func (m *Model) dispatchFilteredStates() tea.Cmd {
+	cmd, count := m.checkFilteredStatesCmd()
+	m.pendingStateChecks += count
+	return cmd
 }
 
 func pathExists(path string) bool {

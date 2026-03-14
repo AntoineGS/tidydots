@@ -387,7 +387,7 @@ func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
-		return m, m.checkUncheckedPackageStatesCmd()
+		return m, m.dispatchUncheckedPackageStates()
 	}
 
 	// Clear error when navigating
@@ -543,7 +543,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
-		return m, m.checkUncheckedPackageStatesCmd()
+		return m, m.dispatchUncheckedPackageStates()
 	}
 
 	return m, nil
@@ -688,7 +688,7 @@ func (m Model) updateDepsList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
-		return m, m.checkUncheckedPackageStatesCmd()
+		return m, m.dispatchUncheckedPackageStates()
 	}
 
 	return m, nil

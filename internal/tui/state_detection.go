@@ -28,9 +28,27 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 	return st
 }
 
+// countInitialStateChecks counts how many async state checks Init() will dispatch.
+// This mirrors the filtering logic in checkPackageStatesCmd and checkSubEntryStatesCmd
+// so that pendingStateChecks can be set before Init() runs.
+func (m Model) countInitialStateChecks() int {
+	count := 0
+	for _, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
+		if app.Application.HasPackage() {
+			count++
+		}
+		count += len(app.SubItems)
+	}
+	return count
+}
+
 // checkPackageStatesCmd returns a tea.Cmd that detects package methods and checks install statuses.
 // Each package gets its own concurrent command so results stream in individually.
-func (m Model) checkPackageStatesCmd() tea.Cmd {
+// It also returns the number of checks dispatched so the caller can track pending work.
+func (m Model) checkPackageStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
 	osType := m.Platform.OS
 
@@ -51,13 +69,14 @@ func (m Model) checkPackageStatesCmd() tea.Cmd {
 		})
 	}
 
-	return tea.Batch(cmds...)
+	return tea.Batch(cmds...), len(cmds)
 }
 
 // checkSubEntryStatesCmd returns a tea.Cmd that checks all sub-entry states.
 // Each sub-entry gets its own concurrent command so results stream in individually.
 // Filtered apps are skipped; use checkFilteredStatesCmd when the filter is toggled off.
-func (m Model) checkSubEntryStatesCmd() tea.Cmd {
+// It also returns the number of checks dispatched so the caller can track pending work.
+func (m Model) checkSubEntryStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
 	plat := m.Platform
 	cfg := m.Config
@@ -78,12 +97,13 @@ func (m Model) checkSubEntryStatesCmd() tea.Cmd {
 		}
 	}
 
-	return tea.Batch(cmds...)
+	return tea.Batch(cmds...), len(cmds)
 }
 
 // checkUncheckedPackageStatesCmd triggers async checks for apps whose package state hasn't been resolved yet.
 // Called after saving a new or edited application to resolve "Loading..." status.
-func (m Model) checkUncheckedPackageStatesCmd() tea.Cmd {
+// It also returns the number of checks dispatched so the caller can track pending work.
+func (m Model) checkUncheckedPackageStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
 	osType := m.Platform.OS
 
@@ -104,12 +124,13 @@ func (m Model) checkUncheckedPackageStatesCmd() tea.Cmd {
 		})
 	}
 
-	return tea.Batch(cmds...)
+	return tea.Batch(cmds...), len(cmds)
 }
 
 // checkFilteredStatesCmd triggers async checks for filtered apps that haven't been scanned yet.
 // Called when the user toggles the filter off, revealing previously-hidden apps.
-func (m Model) checkFilteredStatesCmd() tea.Cmd {
+// It also returns the number of checks dispatched so the caller can track pending work.
+func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
 	osType := m.Platform.OS
 	plat := m.Platform
@@ -151,7 +172,7 @@ func (m Model) checkFilteredStatesCmd() tea.Cmd {
 		}
 	}
 
-	return tea.Batch(cmds...)
+	return tea.Batch(cmds...), len(cmds)
 }
 
 // detectSubEntryStateStatic determines the state of a sub-entry item without using Model receiver.
