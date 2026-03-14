@@ -165,6 +165,11 @@ func BuildCommand(ctx context.Context, pkg Package, method, osType string) *exec
 	// Package managers (pacman, yay, apt, etc.)
 	if mc, ok := managerCmds[pm]; ok {
 		if val, exists := pkg.Managers[pm]; exists {
+			// Validate package name before constructing command to prevent flag injection
+			if err := ValidatePackageName(val.PackageName); err != nil {
+				return nil
+			}
+
 			args := expandArgs(mc.install, val.PackageName)
 			return exec.CommandContext(ctx, args[0], args[1:]...) //nolint:gosec // args from trusted lookup table
 		}
@@ -174,6 +179,10 @@ func BuildCommand(ctx context.Context, pkg Package, method, osType string) *exec
 	case string(Git):
 		gitVal, ok := pkg.Managers[Git]
 		if !ok || !gitVal.IsGit() {
+			return nil
+		}
+		if err := validateURLScheme(gitVal.Git.URL); err != nil {
+			slog.Warn("git URL rejected", slog.String("error", err.Error()))
 			return nil
 		}
 		target := gitVal.Git.Targets[osType]
@@ -222,23 +231,30 @@ func BuildCommand(ctx context.Context, pkg Package, method, osType string) *exec
 		if !ok {
 			return nil
 		}
+		if err := validateURLScheme(urlInstall.URL); err != nil {
+			slog.Warn("URL rejected", slog.String("error", err.Error()))
+			return nil
+		}
 		if osType == platform.OSWindows {
+			escapedURL := escapePowerShellSingleQuote(urlInstall.URL)
+			escapedCmd := escapePowerShellSingleQuote(urlInstall.Command)
 			script := fmt.Sprintf(`
 				$tmpFile = [System.IO.Path]::GetTempFileName()
 				Invoke-WebRequest -Uri '%s' -OutFile $tmpFile
 				$command = '%s' -replace '\{file\}', $tmpFile
 				Invoke-Expression $command
 				Remove-Item $tmpFile -ErrorAction SilentlyContinue
-			`, urlInstall.URL, urlInstall.Command)
+			`, escapedURL, escapedCmd)
 			return exec.CommandContext(ctx, "powershell", "-Command", script) //nolint:gosec // intentional command from user config
 		}
+		escapedURL := escapeShellSingleQuote(urlInstall.URL)
 		script := fmt.Sprintf(`
 			tmpfile=$(mktemp)
 			trap "rm -f $tmpfile" EXIT
 			curl -fsSL -o "$tmpfile" '%s' && \
 			chmod +x "$tmpfile" && \
 			%s
-		`, urlInstall.URL, strings.ReplaceAll(urlInstall.Command, "{file}", "$tmpfile"))
+		`, escapedURL, strings.ReplaceAll(urlInstall.Command, "{file}", "$tmpfile"))
 		return exec.CommandContext(ctx, "sh", "-c", script) //nolint:gosec // intentional command from user config
 	}
 

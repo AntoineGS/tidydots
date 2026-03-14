@@ -12,6 +12,14 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
+// shellEscape wraps a string in single quotes for safe interpolation into shell
+// commands. Any embedded single quotes are escaped using the '\” idiom, which
+// ends the current single-quoted segment, adds a literal single quote via
+// backslash, and starts a new single-quoted segment.
+func shellEscape(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // Editor mode constants returned by detectEditorMode.
 const (
 	editorModeNvim     = "nvim"
@@ -139,10 +147,13 @@ func buildEditorCmd(diffPath, templatePath string) *exec.Cmd {
 		// Inside tmux: open template for editing in a new split pane, view diff read-only in current pane.
 		// The current pane shows the diff; when the user closes the split pane editor, they close the diff too.
 		editor := getEditor()
+		safeEditor := shellEscape(editor)
+		safeTemplate := shellEscape(templatePath)
+		safeDiff := shellEscape(diffPath)
 		script := fmt.Sprintf(
-			`tmux split-window -h "%s %s" && %s -R %s`,
-			editor, templatePath,
-			editor, diffPath,
+			`tmux split-window -h %s %s && %s -R %s`,
+			safeEditor, safeTemplate,
+			safeEditor, safeDiff,
 		)
 		return exec.CommandContext(context.Background(), "sh", "-c", script) //nolint:gosec // intentional editor launch
 

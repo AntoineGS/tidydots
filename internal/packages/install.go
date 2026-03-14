@@ -18,6 +18,15 @@ import (
 func (m *Manager) Install(pkg Package) InstallResult {
 	result := InstallResult{Package: pkg.Name}
 
+	// Validate all package names before executing any commands to prevent flag injection
+	if method, msg, ok := validatePackageNames(pkg); !ok {
+		result.Method = method
+		result.Success = false
+		result.Message = msg
+
+		return result
+	}
+
 	// Phase 1: Install dependencies across all managers
 	if method, msg, ok := m.installDeps(pkg); !ok {
 		result.Method = method
@@ -87,6 +96,31 @@ func (m *Manager) Install(pkg Package) InstallResult {
 	result.Message = "No installation method available for this OS/system"
 
 	return result
+}
+
+// validatePackageNames checks that all package names and dependency names in the
+// package are safe for use as CLI arguments. It returns the manager method, an
+// error message, and false if any name is invalid.
+func validatePackageNames(pkg Package) (string, string, bool) {
+	for mgr, val := range pkg.Managers {
+		if mgr == Git || mgr == Installer {
+			continue
+		}
+
+		if val.PackageName != "" {
+			if err := ValidatePackageName(val.PackageName); err != nil {
+				return string(mgr), fmt.Sprintf("Invalid package name: %v", err), false
+			}
+		}
+
+		for _, dep := range val.Deps {
+			if err := ValidatePackageName(dep); err != nil {
+				return string(mgr), fmt.Sprintf("Invalid dependency name: %v", err), false
+			}
+		}
+	}
+
+	return "", "", true
 }
 
 // installDeps installs all dependencies for a package across its managers.
@@ -163,6 +197,10 @@ func (m *Manager) installWithManager(mgr PackageManager, pkgName string) (bool, 
 
 // installGitPackage clones or updates a git repository.
 func (m *Manager) installGitPackage(gitCfg GitConfig) (bool, string) {
+	if err := validateURLScheme(gitCfg.URL); err != nil {
+		return false, fmt.Sprintf("Git URL rejected: %v", err)
+	}
+
 	// Get target path for current OS
 	targetPath, ok := gitCfg.Targets[m.OS]
 	if !ok {
@@ -297,6 +335,10 @@ func (m *Manager) runCustomCommand(command string) (bool, string) {
 // specified in the user's configuration file. Users should only use configurations
 // they trust, as malicious configs could download and execute harmful code.
 func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
+	if err := validateURLScheme(urlInstall.URL); err != nil {
+		return false, fmt.Sprintf("URL rejected: %v", err)
+	}
+
 	if m.DryRun {
 		return true, fmt.Sprintf("Would download %s and run: %s", urlInstall.URL, urlInstall.Command)
 	}
@@ -321,8 +363,8 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 
 	if m.OS == platform.OSWindows {
 		// Escape single quotes in URL and path for PowerShell
-		escapedURL := strings.ReplaceAll(urlInstall.URL, "'", "''")
-		escapedPath := strings.ReplaceAll(tmpPath, "'", "''")
+		escapedURL := escapePowerShellSingleQuote(urlInstall.URL)
+		escapedPath := escapePowerShellSingleQuote(tmpPath)
 		downloadCmd = exec.CommandContext(m.ctx, "powershell", "-Command", //nolint:gosec // intentional download command
 			fmt.Sprintf("Invoke-WebRequest -Uri '%s' -OutFile '%s'", escapedURL, escapedPath))
 	} else {
