@@ -5,11 +5,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
+	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
@@ -182,15 +181,7 @@ func BuildCommand(ctx context.Context, pkg Package, method, osType string) *exec
 			return nil
 		}
 		// Expand ~ since git clone doesn't do shell tilde expansion
-		if strings.HasPrefix(target, "~/") {
-			if home, err := os.UserHomeDir(); err == nil {
-				target = filepath.Join(home, target[2:])
-			}
-		} else if target == "~" {
-			if home, err := os.UserHomeDir(); err == nil {
-				target = home
-			}
-		}
+		target = config.ExpandPath(target, nil)
 		args := []string{"clone"}
 		if gitVal.Git.Branch != "" {
 			args = append(args, "-b", gitVal.Git.Branch)

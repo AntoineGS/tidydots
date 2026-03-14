@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
@@ -168,14 +169,8 @@ func (m *Manager) installGitPackage(gitCfg GitConfig) (bool, string) {
 		return false, fmt.Sprintf("No git target path defined for OS: %s", m.OS)
 	}
 
-	// Expand path (handle ~)
-	if strings.HasPrefix(targetPath, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return false, fmt.Sprintf("Failed to get home directory: %v", err)
-		}
-		targetPath = filepath.Join(home, targetPath[1:])
-	}
+	// Expand path (handle ~ and env vars)
+	targetPath = config.ExpandPath(targetPath, nil)
 
 	// Check if already cloned
 	gitDir := filepath.Join(targetPath, ".git")

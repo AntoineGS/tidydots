@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
@@ -121,15 +122,7 @@ func IsGitInstalled(targets map[string]string, osType string) bool {
 	}
 
 	// Expand ~ (git clone doesn't do shell tilde expansion)
-	if strings.HasPrefix(target, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			target = filepath.Join(home, target[2:])
-		}
-	} else if target == "~" {
-		if home, err := os.UserHomeDir(); err == nil {
-			target = home
-		}
-	}
+	target = config.ExpandPath(target, nil)
 
 	_, err := os.Stat(filepath.Join(target, ".git"))
 	return err == nil

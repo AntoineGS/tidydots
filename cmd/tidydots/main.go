@@ -176,13 +176,7 @@ func runInit(_ *cobra.Command, args []string) error {
 	path := args[0]
 
 	// Expand ~ if present
-	if len(path) > 0 && path[0] == '~' {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("getting home directory: %w", err)
-		}
-		path = filepath.Join(home, path[1:])
-	}
+	path = config.ExpandPath(path, nil)
 
 	// Make absolute
 	absPath, err := filepath.Abs(path)
