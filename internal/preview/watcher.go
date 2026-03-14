@@ -90,7 +90,7 @@ func (w *Watcher) renderTemplate(path string) error {
 	}
 
 	renderedPath := tmpl.RenderedPath(path)
-	if err := os.WriteFile(renderedPath, []byte(rendered), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Clean(renderedPath), []byte(rendered), 0o600); err != nil { //nolint:gosec // path is from user config
 		return fmt.Errorf("writing rendered file %s: %w", renderedPath, err)
 	}
 
@@ -112,7 +112,7 @@ func (w *Watcher) renderContent(path, content string) error {
 	}
 
 	renderedPath := tmpl.RenderedPath(path)
-	if err := os.WriteFile(renderedPath, []byte(rendered), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Clean(renderedPath), []byte(rendered), 0o600); err != nil { //nolint:gosec // path is from user config
 		return fmt.Errorf("writing rendered file %s: %w", renderedPath, err)
 	}
 

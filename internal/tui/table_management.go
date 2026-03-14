@@ -215,15 +215,67 @@ func (m *Model) formatHeaderWithShortcut(text string, shortcut rune, columnName 
 	return result
 }
 
-// updateScrollOffset recalculates scrollOffset based on current cursor position.
-// This should be called after cursor movements in Update() to maintain scroll state.
-func (m *Model) updateScrollOffset() {
-	// Estimate available rows: height minus chrome (header, borders, help, etc.)
-	// Using a conservative estimate that matches typical rendering
-	maxVisibleRows := m.height - 12 // Account for header, borders, help, filter line, etc.
+// computeMaxVisibleRows calculates the exact number of data rows the table
+// can display, accounting for all dynamic UI elements (filter banner, help
+// footer, result messages, detail panel, diff picker, padding, table borders).
+// All scroll/layout code must use this to stay in sync.
+// Uses a value receiver for compatibility with View() chain.
+func (m Model) computeMaxVisibleRows() int {
+	linesAboveTable := 1 // filter banner (always 1 line)
+
+	linesAfterTable := 1 // blank line or multi-select banner after table
+
+	// Detail panel (currently returns "" but will have height when implemented)
+	if m.showingDetail {
+		appIdx, subIdx := m.getApplicationAtCursorFromTable()
+		if appIdx >= 0 {
+			var detailContent string
+			if subIdx >= 0 {
+				detailContent = m.renderSubEntryInlineDetail(
+					&m.Applications[appIdx].SubItems[subIdx], m.width)
+			} else {
+				filtered := m.getSearchedApplications()
+				if appIdx < len(filtered) {
+					detailContent = m.renderApplicationInlineDetail(&filtered[appIdx], m.width)
+				}
+			}
+			if detailContent != "" {
+				linesAfterTable += strings.Count(detailContent, "\n") + 1
+			}
+		}
+	}
+
+	// Diff picker panel
+	if m.showingDiffPicker {
+		diffPickerContent := m.viewDiffPicker()
+		linesAfterTable += strings.Count(diffPickerContent, "\n") + 1
+	}
+
+	// Result message (blank line + result text = 2 lines)
+	if len(m.results) > 0 {
+		linesAfterTable += 2
+	}
+
+	// Help footer (blank line + help text)
+	helpText := m.renderHelpForCurrentState()
+	helpLines := strings.Count(helpText, "\n") + 1
+	linesAfterTable += 1 + helpLines
+
+	// Available height for table = total - above - after - BaseStyle padding(2)
+	availableForTable := m.height - linesAboveTable - linesAfterTable - 2
+
+	// Table structure uses 4 lines (top border, header, separator, bottom border)
+	maxVisibleRows := availableForTable - 4
 	if maxVisibleRows < 3 {
 		maxVisibleRows = 3
 	}
+	return maxVisibleRows
+}
+
+// updateScrollOffset recalculates scrollOffset based on current cursor position.
+// This should be called after cursor movements in Update() to maintain scroll state.
+func (m *Model) updateScrollOffset() {
+	maxVisibleRows := m.computeMaxVisibleRows()
 
 	totalRows := len(m.tableRows)
 	if totalRows == 0 {

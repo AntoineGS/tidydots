@@ -802,10 +802,7 @@ func (m Model) handleMouseClick(mouseY int, toggleSelect bool) (tea.Model, tea.C
 	}
 
 	// Detect scroll indicator rows to avoid selecting hidden rows
-	maxVisibleRows := m.height - 12
-	if maxVisibleRows < 3 {
-		maxVisibleRows = 3
-	}
+	maxVisibleRows := m.computeMaxVisibleRows()
 
 	totalRows := len(m.tableRows)
 	visibleEnd := m.scrollOffset + maxVisibleRows

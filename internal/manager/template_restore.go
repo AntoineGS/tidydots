@@ -166,7 +166,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 		return NewPathError("restore", renderedAbsPath, fmt.Errorf("creating rendered dir: %w", mkdirErr))
 	}
 
-	if writeErr := os.WriteFile(renderedAbsPath, finalContent, FilePerms); writeErr != nil {
+	if writeErr := os.WriteFile(filepath.Clean(renderedAbsPath), finalContent, FilePerms); writeErr != nil { //nolint:gosec // path is from user config
 		return NewPathError("restore", renderedAbsPath, fmt.Errorf("writing rendered file: %w", writeErr))
 	}
 

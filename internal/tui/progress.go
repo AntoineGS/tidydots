@@ -868,7 +868,6 @@ func (m Model) renderHelpForCurrentState() string {
 //nolint:gocyclo // UI rendering with many states
 func (m Model) viewListTable() string {
 	var b strings.Builder
-	linesUsed := 0
 
 	// Filter banner (always shown) with search input right-aligned on the same line
 	highlightedF := lipgloss.NewStyle().
@@ -907,18 +906,18 @@ func (m Model) viewListTable() string {
 
 	b.WriteString(filterBanner)
 	b.WriteString("\n")
-	linesUsed++
 
 	// Table should already be initialized via Update()/initTableModel()
 	// Do not call initTableModel() from View() — mutating state in View is a Bubble Tea anti-pattern
 
-	// Count lines after table
-	linesAfterTable := 1 // Blank line or multi-select banner after table
+	// Calculate available height using shared method (keeps Update and View in sync).
+	// No minimum override — trust computeMaxVisibleRows() which clamps to 3 data rows.
+	// TODO: computeMaxVisibleRows() also renders help/detail/diff to measure heights,
+	// causing double computation. Acceptable while detail stubs return "".
+	maxVisibleRows := m.computeMaxVisibleRows()
+	availableForTable := maxVisibleRows + 4 // Add back table border lines
 
-	// Add line for multi-select banner if active
-	// (The banner replaces the blank line, so no additional line needed)
-
-	// Detail panel
+	// Derive content needed below the table for rendering
 	appIdx, subIdx := m.getApplicationAtCursorFromTable()
 	var detailContent string
 	if m.showingDetail && appIdx >= 0 {
@@ -930,34 +929,14 @@ func (m Model) viewListTable() string {
 				detailContent = m.renderApplicationInlineDetail(&filtered[appIdx], m.width)
 			}
 		}
-		if detailContent != "" {
-			linesAfterTable += strings.Count(detailContent, "\n") + 1
-		}
 	}
 
-	// Diff picker panel
 	var diffPickerContent string
 	if m.showingDiffPicker {
 		diffPickerContent = m.viewDiffPicker()
-		linesAfterTable += strings.Count(diffPickerContent, "\n") + 1
 	}
 
-	// Result message
-	if len(m.results) > 0 {
-		linesAfterTable += 2 // Blank line + result
-	}
-
-	// Help footer - measure it
 	helpText := m.renderHelpForCurrentState()
-	helpLines := strings.Count(helpText, "\n") + 1
-	linesAfterTable += 1 + helpLines // Blank line + help
-
-	// Calculate available height for table
-	// Subtract 2 for BaseStyle vertical padding (1 top + 1 bottom)
-	availableForTable := m.height - linesUsed - linesAfterTable - 2
-	if availableForTable < 10 {
-		availableForTable = 10 // Minimum table height
-	}
 
 	// Render table with exact available height
 	b.WriteString(m.renderTable(availableForTable))
