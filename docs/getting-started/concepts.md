@@ -146,13 +146,15 @@ applications:
 
 Available template variables:
 
-| Variable    | Description                                   | Example values              |
-|-------------|-----------------------------------------------|-----------------------------|
-| `.OS`       | Operating system                              | `"linux"`, `"windows"`      |
-| `.Distro`   | Linux distribution ID                         | `"arch"`, `"ubuntu"`, `"fedora"` |
-| `.Hostname` | Machine hostname                              | `"work-laptop"`, `"server"` |
-| `.User`     | Current username                              | `"alice"`, `"root"`         |
-| `.Env`      | Map of environment variables                  | `{{ index .Env "HOME" }}`   |
+| Variable      | Description                                          | Example values              |
+|---------------|------------------------------------------------------|-----------------------------|
+| `.OS`         | Operating system                                     | `"linux"`, `"windows"`      |
+| `.Distro`     | Linux distribution ID                                | `"arch"`, `"ubuntu"`, `"fedora"` |
+| `.Hostname`   | Machine hostname                                     | `"work-laptop"`, `"server"` |
+| `.User`       | Current username                                     | `"alice"`, `"root"`         |
+| `.HasDisplay` | Whether a display server is available (X11/Wayland/Windows) | `true`, `false`       |
+| `.IsWSL`      | Whether running inside Windows Subsystem for Linux   | `true`, `false`             |
+| `.Env`        | Map of environment variables                         | `{{ index .Env "HOME" }}`   |
 
 If no `when` field is specified, the application is always included. If the expression evaluates to anything other than `"true"`, the application is skipped.
 

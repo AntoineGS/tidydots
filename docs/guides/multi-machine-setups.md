@@ -18,6 +18,8 @@ All three use Go template syntax with access to the same context variables:
 | `.Distro` | Linux distribution ID | `"arch"`, `"ubuntu"`, `"fedora"` |
 | `.Hostname` | Machine hostname | `"my-desktop"`, `"work-laptop"` |
 | `.User` | Current username | `"alice"`, `"root"` |
+| `.HasDisplay` | Whether a display server is available (X11/Wayland/Windows) | `true`, `false` |
+| `.IsWSL` | Whether running inside Windows Subsystem for Linux | `true`, `false` |
 | `.Env` | Environment variables map | `{{ index .Env "HOME" }}` |
 
 ## Conditional applications with `when`

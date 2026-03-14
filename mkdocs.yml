@@ -79,6 +79,7 @@ nav:
       - Git Repositories: guides/git-repositories.md
       - System Configs: guides/system-configs.md
       - Interactive TUI: guides/interactive-tui.md
+      - Security: guides/security.md
   - CLI:
       - Reference: cli/reference.md
   - Troubleshooting: troubleshooting.md

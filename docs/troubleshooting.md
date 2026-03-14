@@ -156,6 +156,8 @@ If only some entries require sudo, you can also split your workflow:
     | `.Distro` | Linux distribution | `"arch"`, `"ubuntu"` |
     | `.Hostname` | Machine hostname | `"my-laptop"` |
     | `.User` | Current username | `"youruser"` |
+    | `.HasDisplay` | Display server available (X11/Wayland/Windows) | `true`, `false` |
+    | `.IsWSL` | Running inside WSL | `true`, `false` |
     | `.Env` | Environment variables map | `{{ index .Env "HOME" }}` |
 
 4. All [sprout](https://github.com/go-sprout/sprout) template functions are available (string manipulation, math, collections, and more).

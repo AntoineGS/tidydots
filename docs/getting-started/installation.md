@@ -12,6 +12,23 @@ go version
 
 If you do not have Go installed, follow the [official Go installation guide](https://go.dev/doc/install) for your platform.
 
+## macOS (Homebrew)
+
+Install tidydots on macOS using the Homebrew tap:
+
+```bash
+brew install AntoineGS/tidydots/tidydots
+```
+
+!!! note
+    macOS is fully supported by tidydots. Internally, macOS uses the `linux` OS key for target paths and `when` expressions. When writing your `tidydots.yaml`, use `linux` for macOS paths:
+
+    ```yaml
+    targets:
+      linux: "~/.config/nvim"   # Used on both Linux and macOS
+      windows: "~/AppData/Local/nvim"
+    ```
+
 ## Arch Linux (AUR)
 
 For Arch Linux users, tidydots is available on the AUR:
@@ -115,6 +132,7 @@ Flags:
 tidydots works on:
 
 - **Linux** -- All major distributions (Arch, Ubuntu, Fedora, etc.)
+- **macOS** -- Via Homebrew; uses the `linux` OS key internally for target paths
 - **Windows** -- With symlink/junction support
 
 ## Next steps

@@ -64,6 +64,8 @@ Templates have access to the following context variables:
 | `.Distro` | string | Linux distribution ID | `"arch"`, `"ubuntu"`, `"fedora"` |
 | `.Hostname` | string | Machine hostname | `"desktop"`, `"laptop"` |
 | `.User` | string | Current username | `"alice"` |
+| `.HasDisplay` | bool | Whether a display server is available (X11/Wayland/Windows) | `true`, `false` |
+| `.IsWSL` | bool | Whether running inside Windows Subsystem for Linux | `true`, `false` |
 | `.Env` | map[string]string | Environment variables | Access via `index .Env "HOME"` |
 
 ### Expression Examples
