@@ -86,6 +86,7 @@ func verifyRelativeSymlink(t *testing.T, symlinkPath, expectedTarget string) {
 }
 
 func TestRestoreFolderWithTemplates_MixedFiles(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	// Create backup with mixed template and non-template files
@@ -159,6 +160,7 @@ func TestRestoreFolderWithTemplates_MixedFiles(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_RendersContext(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -197,6 +199,7 @@ func TestRestoreFolderWithTemplates_RendersContext(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_ReRenderWithUserEdits(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, store := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "zsh")
@@ -268,6 +271,7 @@ func TestRestoreFolderWithTemplates_ReRenderWithUserEdits(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_MultiCycle(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -341,6 +345,7 @@ func TestRestoreFolderWithTemplates_MultiCycle(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_Conflict(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -395,6 +400,7 @@ func TestRestoreFolderWithTemplates_Conflict(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_HashUnchanged_SkipsReRender(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -440,6 +446,7 @@ func TestRestoreFolderWithTemplates_HashUnchanged_SkipsReRender(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_DryRun(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, store := setupTemplateTest(t)
 	mgr.DryRun = true
 
@@ -486,6 +493,7 @@ func TestRestoreFolderWithTemplates_DryRun(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_ForceRender(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 	mgr.ForceRender = true
 
@@ -538,6 +546,7 @@ func TestRestoreFolderWithTemplates_ForceRender(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_Idempotent(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -578,6 +587,7 @@ func TestRestoreFolderWithTemplates_Idempotent(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_SkipsRenderedAndConflictFiles(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -681,6 +691,7 @@ func TestIsTemplateFile_Consistency(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_SubDirectories(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -737,6 +748,7 @@ func TestRestoreFolderWithTemplates_SubDirectories(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_ExistingFileAtSymlinkPath(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -778,6 +790,7 @@ func TestRestoreFolderWithTemplates_ExistingFileAtSymlinkPath(t *testing.T) {
 }
 
 func TestRestoreFolderWithTemplates_RelativeSymlinkAlreadyCorrect(t *testing.T) {
+	skipIfNoSymlink(t)
 	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 	backupDir := filepath.Join(backupRoot, "config")
@@ -876,6 +889,7 @@ func TestHasOutdatedTemplates(t *testing.T) {
 	})
 
 	t.Run("HashMatches", func(t *testing.T) {
+		skipIfNoSymlink(t)
 		backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 		backupDir := filepath.Join(backupRoot, "config")
@@ -904,6 +918,7 @@ func TestHasOutdatedTemplates(t *testing.T) {
 	})
 
 	t.Run("HashDiffers", func(t *testing.T) {
+		skipIfNoSymlink(t)
 		backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 		backupDir := filepath.Join(backupRoot, "config")
@@ -937,6 +952,7 @@ func TestHasOutdatedTemplates(t *testing.T) {
 	})
 
 	t.Run("MultipleTemplates_OneOutdated", func(t *testing.T) {
+		skipIfNoSymlink(t)
 		backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 		backupDir := filepath.Join(backupRoot, "config")
@@ -1023,6 +1039,7 @@ func TestHasModifiedRenderedFiles(t *testing.T) {
 	})
 
 	t.Run("NoRenderedFile", func(t *testing.T) {
+		skipIfNoSymlink(t)
 		backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 		backupDir := filepath.Join(backupRoot, "config")
@@ -1056,6 +1073,7 @@ func TestHasModifiedRenderedFiles(t *testing.T) {
 	})
 
 	t.Run("ContentMatchesBaseline", func(t *testing.T) {
+		skipIfNoSymlink(t)
 		backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 		backupDir := filepath.Join(backupRoot, "config")
@@ -1083,6 +1101,7 @@ func TestHasModifiedRenderedFiles(t *testing.T) {
 	})
 
 	t.Run("ContentDiffersFromBaseline", func(t *testing.T) {
+		skipIfNoSymlink(t)
 		backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
 
 		backupDir := filepath.Join(backupRoot, "config")

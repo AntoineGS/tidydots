@@ -10,6 +10,7 @@ import (
 )
 
 func TestRestore_IgnoresGitEntries(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 	tmpDir := t.TempDir()
 	backupRoot := filepath.Join(tmpDir, "backup")

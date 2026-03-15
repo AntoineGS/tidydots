@@ -163,7 +163,7 @@ func BuildReverseMap(forwardMap map[int]int, lineTypes map[int]string) map[int]i
 		bestPri := lineTypePriority[lineTypes[best]]
 		for _, tl := range tmplLines[1:] {
 			p := lineTypePriority[lineTypes[tl]]
-			if p < bestPri {
+			if p < bestPri || (p == bestPri && tl < best) {
 				best = tl
 				bestPri = p
 			}

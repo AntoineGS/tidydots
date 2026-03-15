@@ -11,6 +11,7 @@ import (
 )
 
 func TestAdoptFolder(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 	tmpDir := t.TempDir()
 
@@ -61,6 +62,7 @@ func TestAdoptFolder(t *testing.T) {
 }
 
 func TestAdoptFiles(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 	tmpDir := t.TempDir()
 
@@ -112,6 +114,7 @@ func TestAdoptFiles(t *testing.T) {
 }
 
 func TestAdoptSkipsExistingBackup(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 	tmpDir := t.TempDir()
 
@@ -156,6 +159,7 @@ func TestAdoptSkipsExistingBackup(t *testing.T) {
 }
 
 func TestAdoptDryRun(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 	tmpDir := t.TempDir()
 
@@ -199,6 +203,7 @@ func TestAdoptDryRun(t *testing.T) {
 }
 
 func TestAdoptIntegration(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 	tmpDir := t.TempDir()
 

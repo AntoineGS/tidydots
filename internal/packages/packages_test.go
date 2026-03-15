@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -2381,18 +2382,24 @@ func TestIsGitInstalled(t *testing.T) {
 	// A temp dir that exists but has no .git
 	bareDir := t.TempDir()
 
-	// Create a temp dir under home so tilde expansion maps back to it
-	tildeDir, err := os.MkdirTemp(home, ".tidydots-test-*")
-	if err != nil {
-		t.Fatalf("could not create tilde test dir: %v", err)
-	}
-	t.Cleanup(func() { os.RemoveAll(tildeDir) })
-	if err := os.Mkdir(filepath.Join(tildeDir, ".git"), 0755); err != nil {
-		t.Fatalf("could not create .git in tilde test dir: %v", err)
-	}
+	// Create a temp dir under home so tilde expansion maps back to it.
+	// On Windows CI, os.MkdirTemp may return 8.3 short paths (e.g., RUNNER~1)
+	// that don't match os.UserHomeDir(), so we skip the tilde test there.
+	var tildeCloned string
+	hasTildeTest := runtime.GOOS != "windows"
+	if hasTildeTest {
+		tildeDir, tildeErr := os.MkdirTemp(home, ".tidydots-test-*")
+		if tildeErr != nil {
+			t.Fatalf("could not create tilde test dir: %v", tildeErr)
+		}
+		t.Cleanup(func() { os.RemoveAll(tildeDir) })
+		if mkErr := os.Mkdir(filepath.Join(tildeDir, ".git"), 0755); mkErr != nil {
+			t.Fatalf("could not create .git in tilde test dir: %v", mkErr)
+		}
 
-	// Build a tilde path that maps to the tilde dir (which is under home)
-	tildeCloned := "~" + strings.TrimPrefix(tildeDir, home)
+		// Build a tilde path that maps to the tilde dir (which is under home)
+		tildeCloned = "~" + strings.TrimPrefix(tildeDir, home)
+	}
 
 	tests := []struct {
 		name    string
@@ -2424,12 +2431,20 @@ func TestIsGitInstalled(t *testing.T) {
 			osType:  "linux",
 			want:    false,
 		},
-		{
+	}
+
+	if hasTildeTest {
+		tests = append(tests, struct {
+			name    string
+			targets map[string]string
+			osType  string
+			want    bool
+		}{
 			name:    "tilde path expansion - cloned",
 			targets: map[string]string{"linux": tildeCloned},
 			osType:  "linux",
 			want:    true,
-		},
+		})
 	}
 
 	for _, tt := range tests {

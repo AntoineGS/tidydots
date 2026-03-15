@@ -264,6 +264,7 @@ func verifyFileCount(t *testing.T, nvimBackup string, trackedCount, localCount, 
 // 4. Conflicts should be renamed with _target_YYYYMMDD suffix
 // 5. Final state: symlink points to backup with merged content
 func TestMergeIntegration_FullRestoreWorkflow(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 
 	// Setup test environment
@@ -294,6 +295,7 @@ func TestMergeIntegration_FullRestoreWorkflow(t *testing.T) {
 // TestMergeIntegration_WithNoMergeFlag tests that the --no-merge flag
 // prevents merge and fails appropriately.
 func TestMergeIntegration_WithNoMergeFlag(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 
 	tmpRoot := t.TempDir()
@@ -346,6 +348,7 @@ func TestMergeIntegration_WithNoMergeFlag(t *testing.T) {
 // TestMergeIntegration_DryRunMode tests that dry-run mode previews merge
 // without actually changing files.
 func TestMergeIntegration_DryRunMode(t *testing.T) {
+	skipIfNoSymlink(t)
 	t.Parallel()
 
 	tmpRoot := t.TempDir()

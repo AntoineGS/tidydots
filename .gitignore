@@ -13,5 +13,8 @@ tidydots.exe
 .DS_Store
 Thumbs.db
 
+# Test
+coverage.out
+
 # Worktrees
 .worktrees/

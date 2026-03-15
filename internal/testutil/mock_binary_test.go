@@ -93,7 +93,7 @@ func TestCreateMockBinary_IsExecutable(t *testing.T) {
 	pathEnv := PrependPath(t, dir)
 
 	lookFor := "checkexec"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		lookFor = "checkexec.bat"
 	}
 
@@ -140,7 +140,7 @@ func TestCreateMockBinary_WindowsExtension(t *testing.T) {
 
 	path := CreateMockBinary(t, dir, "mytool", 0, "", "")
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		if filepath.Ext(path) != ".bat" {
 			t.Errorf("on Windows, expected .bat extension, got %q", filepath.Ext(path))
 		}

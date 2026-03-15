@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+const osWindows = "windows"
+
 // CreateMockBinary creates a fake executable in dir that writes stdout/stderr
 // content and exits with the given code.
 // On Unix: creates a shell script. On Windows: creates a .bat file.
@@ -16,7 +18,7 @@ import (
 func CreateMockBinary(t *testing.T, dir, name string, exitCode int, stdout, stderr string) string {
 	t.Helper()
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		return createWindowsBat(t, dir, name, exitCode, stdout, stderr)
 	}
 
@@ -77,9 +79,9 @@ func createWindowsBat(t *testing.T, dir, name string, exitCode int, stdout, stde
 func SkipIfNoSymlink(t *testing.T) {
 	t.Helper()
 
-	if runtime.GOOS != "windows" {
-		return
-	}
+	// if runtime.GOOS != "windows" {
+	// 	return
+	// }
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src")
