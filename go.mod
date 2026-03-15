@@ -3,9 +3,9 @@ module github.com/AntoineGS/tidydots
 go 1.25.8
 
 require (
-	github.com/charmbracelet/bubbles v1.0.0
-	github.com/charmbracelet/bubbletea v1.3.10
-	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/charmbracelet/bubbles/v2 v2.0.0
+	github.com/charmbracelet/bubbletea/v2 v2.0.2
+	github.com/charmbracelet/lipgloss/v2 v2.0.2
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-sprout/sprout v1.0.3
 	github.com/muesli/termenv v0.16.0
