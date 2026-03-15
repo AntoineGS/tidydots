@@ -87,6 +87,7 @@ func TestGetPaths(t *testing.T) {
 
 func TestIsSymlink(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create a regular file
@@ -218,6 +219,7 @@ func TestCopyDir(t *testing.T) {
 
 func TestRemoveAll(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Test removing regular file
@@ -368,6 +370,7 @@ func TestCopyDirNonexistentSource(t *testing.T) {
 
 func TestIsSymlinkWithDirectory(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create a directory
@@ -393,6 +396,7 @@ func TestIsSymlinkWithDirectory(t *testing.T) {
 
 func TestPathExistsWithSymlink(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create a file and symlink

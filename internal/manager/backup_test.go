@@ -62,6 +62,7 @@ func TestBackupFolder(t *testing.T) {
 
 func TestBackupFolderSkipsSymlink(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create real source
@@ -161,6 +162,7 @@ func TestBackupFiles(t *testing.T) {
 
 func TestBackupFilesSkipsSymlinks(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create real file
@@ -412,6 +414,7 @@ func TestBackupV3Application(t *testing.T) {
 
 func TestBackup_SymlinkAlreadyExists(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	m := setupTestManager(t)
 
 	// Create target as symlink

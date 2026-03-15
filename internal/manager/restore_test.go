@@ -15,6 +15,7 @@ import (
 
 func TestRestoreFolder(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create source directory with content
@@ -59,6 +60,7 @@ func TestRestoreFolder(t *testing.T) {
 
 func TestRestoreFolderSkipsExistingSymlink(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
@@ -92,6 +94,7 @@ func TestRestoreFolderSkipsExistingSymlink(t *testing.T) {
 
 func TestRestoreFiles(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create source files
@@ -137,6 +140,7 @@ func TestRestoreFiles(t *testing.T) {
 
 func TestRestoreFilesRemovesExisting(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
@@ -174,6 +178,7 @@ func TestRestoreFilesRemovesExisting(t *testing.T) {
 
 func TestRestoreDryRun(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	srcDir := filepath.Join(tmpDir, "source")
@@ -206,6 +211,7 @@ func TestRestoreDryRun(t *testing.T) {
 
 func TestRestoreIntegration(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup structure
@@ -283,6 +289,7 @@ func TestRestoreIntegration(t *testing.T) {
 
 func TestRestoreV3Application(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup structure
@@ -338,6 +345,7 @@ func TestRestoreV3Application(t *testing.T) {
 
 func TestRestoreV3MultipleSubEntries(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup structure for multiple sub-entries
@@ -411,6 +419,7 @@ func TestRestoreEntry_PathError(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("read-only directory permissions are not enforced the same way on Windows")
 	}
+	skipIfNoSymlink(t)
 
 	tests := []struct {
 		setup   func(t *testing.T, tmpDir string) (*Manager, config.SubEntry, string)
@@ -476,6 +485,7 @@ func TestRestoreEntry_PathError(t *testing.T) {
 
 func TestRestoreV3_FilesSubEntry(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup files
@@ -550,6 +560,7 @@ func TestRestoreV3_FilesSubEntry(t *testing.T) {
 
 func TestRestore_ReplacesExistingFile(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup
@@ -617,6 +628,7 @@ func TestRestore_ReplacesExistingFile(t *testing.T) {
 
 func TestCreateSymlink_Success(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	source := filepath.Join(tmpDir, "source")
@@ -646,6 +658,7 @@ func TestCreateSymlink_Success(t *testing.T) {
 
 func TestCreateSymlink_SourceNotExist(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	source := filepath.Join(tmpDir, "nonexistent")
@@ -664,6 +677,7 @@ func TestCreateSymlink_SourceNotExist(t *testing.T) {
 
 func TestCreateSymlink_FileSource(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	source := filepath.Join(tmpDir, "source.txt")
@@ -691,6 +705,7 @@ func TestCreateSymlink_FileSource(t *testing.T) {
 
 func TestRestoreV3_FolderSubEntry(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup structure
@@ -747,6 +762,7 @@ func TestRestoreV3_FolderSubEntry(t *testing.T) {
 
 func TestRestoreV3_FilesSubEntry_MultipleFiles(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup structure with multiple files
@@ -819,6 +835,7 @@ func TestRestoreV3_FilesSubEntry_MultipleFiles(t *testing.T) {
 
 func TestRestoreV3_FolderSubEntry_Adoption(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create existing target (to be adopted)
@@ -875,6 +892,7 @@ func TestRestoreV3_FolderSubEntry_Adoption(t *testing.T) {
 
 func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create existing target files (to be adopted)
@@ -938,6 +956,7 @@ func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
 
 func TestRestoreV3_FilesSubEntry_SkipsExistingSymlinks(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup
@@ -1000,6 +1019,7 @@ func TestRestoreV3_FilesSubEntry_SkipsExistingSymlinks(t *testing.T) {
 
 func TestRestoreV3_FolderSubEntry_SkipsExistingSymlink(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup
@@ -1059,6 +1079,7 @@ func TestRestoreV3_FolderSubEntry_SkipsExistingSymlink(t *testing.T) {
 
 func TestRestoreV3_FilesSubEntry_ReplacesExisting(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup
@@ -1124,6 +1145,7 @@ func TestRestoreV3_FilesSubEntry_ReplacesExisting(t *testing.T) {
 
 func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup
@@ -1205,6 +1227,7 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 
 func TestRestoreV3_SkipsWrongOS(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	backupRoot := filepath.Join(tmpDir, "backup")
@@ -1250,6 +1273,7 @@ func TestRestoreV3_SkipsWrongOS(t *testing.T) {
 
 func TestRestoreFiles_SourceMissing(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// No source files exist
@@ -1285,6 +1309,7 @@ func TestRestoreFiles_SourceMissing(t *testing.T) {
 
 func TestRestoreFolder_SourceMissing(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// No source folder exists
@@ -1316,6 +1341,7 @@ func TestRestoreFolder_SourceMissing(t *testing.T) {
 
 func TestRestoreV3_ErrorHandling(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup that's actually a file (invalid)
@@ -1361,6 +1387,7 @@ func TestRestoreV3_ErrorHandling(t *testing.T) {
 
 func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	backupRoot := filepath.Join(tmpDir, "backup")
@@ -1417,6 +1444,7 @@ func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 //nolint:dupl // similar test structure is intentional
 func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	backupRoot := filepath.Join(tmpDir, "backup")
@@ -1467,6 +1495,7 @@ func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
 
 func TestRestoreFolder_RecreatesChangedSymlink(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create correct source directory
@@ -1531,6 +1560,7 @@ func TestRestoreFolder_RecreatesChangedSymlink(t *testing.T) {
 
 func TestRestoreFiles_RecreatesChangedSymlink(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create correct source
@@ -1604,6 +1634,7 @@ func TestRestoreFiles_RecreatesChangedSymlink(t *testing.T) {
 
 func TestRestoreFolder_MergesExistingContent(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup with existing content
@@ -1664,6 +1695,7 @@ func TestRestoreFolder_MergesExistingContent(t *testing.T) {
 
 func TestRestoreFolder_ConflictsRenamed(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup with existing content
@@ -1742,6 +1774,7 @@ func TestRestoreFolder_ConflictsRenamed(t *testing.T) {
 
 func TestRestoreFiles_OnlyMergesListedFiles(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup with listed file

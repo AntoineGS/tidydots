@@ -49,6 +49,7 @@ func setupTestManager(t *testing.T) *Manager {
 
 func TestRestore_ContextCancellation(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	m := setupTestManager(t)
 
 	// Create context that cancels immediately
@@ -64,6 +65,7 @@ func TestRestore_ContextCancellation(t *testing.T) {
 
 func TestRestore_ContextTimeout(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	m := setupTestManager(t)
 
 	// Create context with very short timeout

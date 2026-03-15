@@ -602,6 +602,7 @@ func TestRemoveEmptyDirs(t *testing.T) {
 // and target directory has content (without ForceDelete flag).
 func TestRestoreFolder_NoMerge_Fails(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup directory
@@ -662,6 +663,7 @@ func TestRestoreFolder_NoMerge_Fails(t *testing.T) {
 // when both NoMerge and ForceDelete are enabled, reverting to old destructive behavior.
 func TestRestoreFolder_NoMerge_ForceDelete_Succeeds(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup directory
@@ -726,6 +728,7 @@ func TestRestoreFolder_NoMerge_ForceDelete_Succeeds(t *testing.T) {
 // NOTE: Future enhancement could resolve symlinks and copy their content.
 func TestMergeFolder_SymlinkInTarget(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 
 	// Setup: Create target and backup directories
 	tmpRoot := t.TempDir()
@@ -808,6 +811,7 @@ func TestMergeFolder_SymlinkInTarget(t *testing.T) {
 // even if target directory exists but is empty (strict mode).
 func TestRestoreFolder_NoMerge_FailsEvenIfEmpty(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Create backup directory

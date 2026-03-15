@@ -6,7 +6,7 @@ help:
 	@echo "  build      - Build the application"
 	@echo "  test       - Run tests"
 	@echo "  coverage   - Run tests with coverage report"
-	@echo "  lint       - Run golangci-lint"
+	@echo "  lint       - Run golangci-lint and govulncheck"
 	@echo "  lint-fix   - Run golangci-lint with --fix"
 	@echo "  clean      - Remove build artifacts"
 	@echo "  install    - Install the application"
@@ -32,6 +32,11 @@ lint:
 		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
 	}
 	golangci-lint run
+	@command -v govulncheck >/dev/null 2>&1 || { \
+		echo "govulncheck not found. Installing..."; \
+		go install golang.org/x/vuln/cmd/govulncheck@latest; \
+	}
+	govulncheck ./...
 
 # Run linter with auto-fix
 lint-fix:

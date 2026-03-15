@@ -55,7 +55,6 @@ func TestCreateMockBinary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			dir := t.TempDir()
 
 			path := CreateMockBinary(t, dir, tt.binName, tt.exitCode, tt.stdout, tt.stderr)

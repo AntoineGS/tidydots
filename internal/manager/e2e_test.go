@@ -13,6 +13,7 @@ import (
 // This simulates: user clones their dotfiles repo and runs restore.
 func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Setup: Create a "dotfiles repository" with backed up configs
@@ -150,6 +151,7 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 // This simulates: user has existing configs, clones empty dotfiles repo, runs restore.
 func TestE2E_AdoptExistingConfigs(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Setup: User has existing configs
@@ -266,6 +268,7 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 // TestE2E_BackupThenRestore tests the complete round-trip: backup existing configs, then restore them.
 func TestE2E_BackupThenRestore(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	homeDir := filepath.Join(tmpDir, "home")
@@ -431,6 +434,7 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 // TestE2E_RestoreIdempotent tests that running restore multiple times is safe.
 func TestE2E_RestoreIdempotent(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	repoDir := filepath.Join(tmpDir, "repo")
@@ -502,6 +506,7 @@ func TestE2E_RestoreIdempotent(t *testing.T) {
 // TestE2E_SymlinkModification tests that modifying files through symlinks works.
 func TestE2E_SymlinkModification(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	repoDir := filepath.Join(tmpDir, "repo")
@@ -580,6 +585,7 @@ func TestE2E_SymlinkModification(t *testing.T) {
 // TestE2E_MixedFolderAndFiles tests configs with both folder and file modes.
 func TestE2E_MixedFolderAndFiles(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	repoDir := filepath.Join(tmpDir, "repo")
@@ -828,6 +834,7 @@ func TestE2E_AdoptDryRunPreservesOriginal(t *testing.T) {
 // TestE2E_SkipAlreadySymlinked tests that existing correct symlinks are skipped.
 func TestE2E_SkipAlreadySymlinked(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	repoDir := filepath.Join(tmpDir, "repo")
@@ -904,6 +911,7 @@ func TestE2E_SkipAlreadySymlinked(t *testing.T) {
 // TestE2E_MultipleOSTargets tests that only the current OS target is used.
 func TestE2E_MultipleOSTargets(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	repoDir := filepath.Join(tmpDir, "repo")
@@ -1084,6 +1092,7 @@ func TestE2E_BackupNonexistentSource(t *testing.T) {
 // TestE2E_V3RestoreFromBackup tests v3 config restore workflow
 func TestE2E_V3RestoreFromBackup(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	// Setup: Create a backup with v3 structure
@@ -1176,6 +1185,7 @@ func TestE2E_V3RestoreFromBackup(t *testing.T) {
 // TestE2E_V3BackupThenRestore tests v3 backup and restore workflow
 func TestE2E_V3BackupThenRestore(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	homeDir := filepath.Join(tmpDir, "home")
@@ -1278,6 +1288,7 @@ func TestE2E_V3BackupThenRestore(t *testing.T) {
 // TestE2E_RestoreCreatesNestedParentDirs tests that restore creates nested parent directories.
 func TestE2E_RestoreCreatesNestedParentDirs(t *testing.T) {
 	t.Parallel()
+	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
 
 	repoDir := filepath.Join(tmpDir, "repo")
