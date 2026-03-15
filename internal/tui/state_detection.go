@@ -3,10 +3,10 @@ package tui
 import (
 	"path/filepath"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // detectSubEntryState determines the state of a sub-entry item

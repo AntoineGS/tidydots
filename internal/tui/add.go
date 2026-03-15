@@ -4,13 +4,13 @@ package tui
 import (
 	"fmt"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // updateAddForm handles key events for the add form
 // Routes to the appropriate form based on activeForm
-func (m Model) updateAddForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateAddForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.activeForm {
 	case FormApplication:
 		return m.updateApplicationForm(msg)

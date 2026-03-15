@@ -3,8 +3,8 @@ package tui
 import (
 	"testing"
 
+	"charm.land/lipgloss/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const (

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // TestInitFilePickerEmptyTarget tests that empty target path falls back to home directory
@@ -457,20 +457,20 @@ func TestErrorClearedOnTyping(t *testing.T) {
 	}
 }
 
-// mockKeyMsg creates a tea.KeyMsg for testing
-func mockKeyMsg(key string) tea.KeyMsg {
+// mockKeyMsg creates a tea.KeyPressMsg for testing
+func mockKeyMsg(key string) tea.KeyPressMsg {
 	// Map common keys to their KeyType
 	switch key {
 	case KeyEnter:
-		return tea.KeyMsg{Type: tea.KeyEnter}
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
 	case KeyDown:
-		return tea.KeyMsg{Type: tea.KeyDown}
+		return tea.KeyPressMsg{Code: tea.KeyDown}
 	case "up":
-		return tea.KeyMsg{Type: tea.KeyUp}
+		return tea.KeyPressMsg{Code: tea.KeyUp}
 	case KeyEsc:
-		return tea.KeyMsg{Type: tea.KeyEsc}
+		return tea.KeyPressMsg{Code: tea.KeyEsc}
 	default:
 		// For single character keys, use KeyRunes
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+		return tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 	}
 }

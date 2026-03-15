@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // TestAddFileMode_Constants verifies the AddFileMode enum constants exist
@@ -484,8 +484,21 @@ func TestViewFileAddModeMenu_Content(t *testing.T) {
 }
 
 // Helper function for tests
-func createKeyMsg(key string) tea.KeyMsg {
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key), Alt: false}
+func createKeyMsg(k string) tea.KeyPressMsg {
+	switch k {
+	case " ":
+		return tea.KeyPressMsg{Code: tea.KeySpace}
+	case KeyEnter:
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
+	case KeyEsc:
+		return tea.KeyPressMsg{Code: tea.KeyEsc}
+	case KeyDown:
+		return tea.KeyPressMsg{Code: tea.KeyDown}
+	case "up":
+		return tea.KeyPressMsg{Code: tea.KeyUp}
+	default:
+		return tea.KeyPressMsg{Code: rune(k[0]), Text: k}
+	}
 }
 
 // Helper function to check if string contains substring

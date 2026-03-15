@@ -2,7 +2,7 @@
 package components
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // ListField manages a list of items with add/edit/delete functionality

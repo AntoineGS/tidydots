@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // TestFilePickerIntegration_FullFlow tests the complete file picker integration flow:
@@ -83,7 +83,7 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	// filesCursor should be at len(files) (0 initially) which is the "Add File" button
 	m.subEntryForm.filesCursor = len(m.subEntryForm.files)
 
-	keyMsg := tea.KeyMsg{Type: tea.KeyEnter}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEnter}
 	updatedModel, _ := m.updateSubEntryFilesList(keyMsg)
 	m = updatedModel.(Model)
 
@@ -99,7 +99,7 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	}
 
 	// Step 3: Select "Browse" option by pressing enter
-	keyMsg = tea.KeyMsg{Type: tea.KeyEnter}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyEnter}
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
@@ -131,7 +131,7 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	}
 
 	// Step 5: Press enter to confirm selections
-	keyMsg = tea.KeyMsg{Type: tea.KeyEnter}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyEnter}
 	updatedModel, _ = m.updateSubEntryFilePicker(keyMsg)
 	m = updatedModel.(Model)
 
@@ -206,21 +206,21 @@ func TestFilePickerIntegration_CancelFlow(t *testing.T) {
 	tests := []struct {
 		name        string
 		startMode   AddFileMode
-		updateFunc  func(Model, tea.KeyMsg) (tea.Model, tea.Cmd)
+		updateFunc  func(Model, tea.KeyPressMsg) (tea.Model, tea.Cmd)
 		expectMode  AddFileMode
 		description string
 	}{
 		{
 			name:        "cancel from ModeChoosing",
 			startMode:   ModeChoosing,
-			updateFunc:  func(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) { return m.updateFileAddModeChoice(msg) },
+			updateFunc:  func(m Model, msg tea.KeyPressMsg) (tea.Model, tea.Cmd) { return m.updateFileAddModeChoice(msg) },
 			expectMode:  ModeNone,
 			description: "pressing esc in mode menu should return to files list",
 		},
 		{
 			name:        "cancel from ModePicker",
 			startMode:   ModePicker,
-			updateFunc:  func(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) { return m.updateSubEntryFilePicker(msg) },
+			updateFunc:  func(m Model, msg tea.KeyPressMsg) (tea.Model, tea.Cmd) { return m.updateSubEntryFilePicker(msg) },
 			expectMode:  ModeNone,
 			description: "pressing esc in file picker should return to files list and clear selections",
 		},
@@ -246,7 +246,7 @@ func TestFilePickerIntegration_CancelFlow(t *testing.T) {
 			}
 
 			// Press escape
-			escKey := tea.KeyMsg{Type: tea.KeyEsc}
+			escKey := tea.KeyPressMsg{Code: tea.KeyEsc}
 			updatedModel, _ := tt.updateFunc(m, escKey)
 			m = updatedModel.(Model)
 
@@ -358,7 +358,7 @@ func TestFilePickerIntegration_LinuxWindowsTargets(t *testing.T) {
 			m.subEntryForm.addFileMode = ModePicker
 
 			// Confirm selection
-			keyMsg := tea.KeyMsg{Type: tea.KeyEnter}
+			keyMsg := tea.KeyPressMsg{Code: tea.KeyEnter}
 			updatedModel, _ := m.updateSubEntryFilePicker(keyMsg)
 			m = updatedModel.(Model)
 
@@ -417,7 +417,7 @@ func TestFilePickerIntegration_EmptySelection(t *testing.T) {
 	}
 
 	// Press enter with no selections
-	keyMsg := tea.KeyMsg{Type: tea.KeyEnter}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEnter}
 	updatedModel, _ := m.updateSubEntryFilePicker(keyMsg)
 	m = updatedModel.(Model)
 
@@ -460,7 +460,7 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	m.subEntryForm.modeMenuCursor = 0 // Start at Browse
 
 	// Test down navigation: 0 -> 1 (Browse source)
-	keyMsg := tea.KeyMsg{Type: tea.KeyDown}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyDown}
 	updatedModel, _ := m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
@@ -469,7 +469,7 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	}
 
 	// Test down navigation: 1 -> 2 (Type)
-	keyMsg = tea.KeyMsg{Type: tea.KeyDown}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyDown}
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
@@ -478,7 +478,7 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	}
 
 	// Test down navigation with wrap: 2 -> 0
-	keyMsg = tea.KeyMsg{Type: tea.KeyDown}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyDown}
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
@@ -487,7 +487,7 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	}
 
 	// Test up navigation with wrap: 0 -> 2
-	keyMsg = tea.KeyMsg{Type: tea.KeyUp}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyUp}
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
@@ -496,7 +496,7 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	}
 
 	// Test vim-style navigation (j = down): 2 -> 0 (wrap)
-	keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	keyMsg = tea.KeyPressMsg{Code: 'j', Text: "j"}
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
@@ -505,7 +505,7 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	}
 
 	// Test vim-style navigation (k = up): 0 -> 2 (wrap)
-	keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+	keyMsg = tea.KeyPressMsg{Code: 'k', Text: "k"}
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 

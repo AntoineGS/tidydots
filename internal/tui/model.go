@@ -4,16 +4,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"charm.land/bubbles/v2/filepicker"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/progress"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
-	"github.com/charmbracelet/bubbles/filepicker"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/progress"
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Screen represents the current screen being displayed in the TUI.
@@ -380,11 +380,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKeyPress(msg)
 
-	case tea.MouseMsg:
-		return m.handleMouseEvent(msg)
+	case tea.MouseClickMsg:
+		return m.handleMouseClickEvent(msg)
+	case tea.MouseWheelMsg:
+		return m.handleMouseWheelEvent(msg)
 
 	case editorLaunchCompleteMsg:
 		// Editor exited - refresh application states since template may have changed
@@ -525,7 +527,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // Returns (model, cmd, handled). If handled is true, the caller should return immediately.
 // This should NOT be used in text-editing handlers where "q" is valid typed input;
 // use handleTextEditKeys instead.
-func (m Model) handleCommonKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+func (m Model) handleCommonKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch {
 	case key.Matches(msg, SharedKeys.ForceQuit):
 		return m, tea.Quit, true
@@ -538,7 +540,7 @@ func (m Model) handleCommonKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 
 // handleTextEditKeys checks for keys common to all text-editing handlers.
 // Handles ctrl+c (force quit).
-func (m Model) handleTextEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+func (m Model) handleTextEditKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch {
 	case key.Matches(msg, SharedKeys.ForceQuit):
 		return m, tea.Quit, true
@@ -547,7 +549,7 @@ func (m Model) handleTextEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
-func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Handle AddForm separately (needs text input handling)
 	if m.Screen == ScreenAddForm {
 		// Route to appropriate form handler based on activeForm
@@ -620,29 +622,34 @@ func (m Model) hasLoadingItems() bool {
 
 // View renders the current screen and returns the string to display.
 // This is part of the Bubble Tea model interface.
-func (m Model) View() string {
+func (m Model) View() tea.View {
+	var content string
+
 	switch m.Screen {
 	case ScreenProgress:
-		return m.viewProgress()
+		content = m.viewProgress()
 	case ScreenResults:
-		return m.viewResults()
+		content = m.viewResults()
 	case ScreenAddForm:
 		// Route to appropriate form view based on activeForm
 		switch m.activeForm {
 		case FormApplication:
-			return m.viewApplicationForm()
+			content = m.viewApplicationForm()
 		case FormSubEntry:
-			return m.viewSubEntryForm()
+			content = m.viewSubEntryForm()
 		case FormNone:
-			return m.viewAddForm()
+			content = m.viewAddForm()
 		default:
-			return m.viewAddForm()
+			content = m.viewAddForm()
 		}
 	case ScreenSummary:
-		return m.viewSummary()
+		content = m.viewSummary()
 	}
 
-	return ""
+	v := tea.NewView(content)
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
 }
 
 // OperationCompleteMsg is sent when an operation completes, containing any error
@@ -778,8 +785,8 @@ func (m *Model) dispatchFilteredStates() tea.Cmd {
 	return cmd
 }
 
-// handleMouseEvent processes mouse events for the TUI.
-func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+// handleMouseClickEvent processes mouse click events for the TUI.
+func (m Model) handleMouseClickEvent(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	// Only handle mouse events on the list table screen
 	if m.Screen != ScreenResults || m.Operation != OpList {
 		return m, nil
@@ -791,14 +798,34 @@ func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	switch {
-	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
-		return m.handleMouseClick(msg.Y, false)
+	mouse := msg.Mouse()
 
-	case msg.Button == tea.MouseButtonRight && msg.Action == tea.MouseActionPress:
-		return m.handleMouseClick(msg.Y, true)
+	switch msg.Button {
+	case tea.MouseLeft:
+		return m.handleMouseClick(mouse.Y, false)
+	case tea.MouseRight:
+		return m.handleMouseClick(mouse.Y, true)
+	}
 
-	case msg.Button == tea.MouseButtonWheelUp:
+	return m, nil
+
+	// handleMouseWheelEvent processes mouse wheel events for the TUI.
+}
+
+func (m Model) handleMouseWheelEvent(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	// Only handle mouse events on the list table screen
+	if m.Screen != ScreenResults || m.Operation != OpList {
+		return m, nil
+	}
+
+	// Don't handle mouse during modal states
+	if m.searching || m.confirmingDeleteApp || m.confirmingDeleteSubEntry ||
+		m.confirmingFilterToggle || m.showingDetail {
+		return m, nil
+	}
+
+	switch msg.Button {
+	case tea.MouseWheelUp:
 		if m.tableCursor > 0 {
 			m.tableCursor -= 3
 			if m.tableCursor < 0 {
@@ -809,7 +836,7 @@ func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case msg.Button == tea.MouseButtonWheelDown:
+	case tea.MouseWheelDown:
 		if m.tableCursor < len(m.tableRows)-1 {
 			m.tableCursor += 3
 			if m.tableCursor >= len(m.tableRows) {

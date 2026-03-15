@@ -1,8 +1,8 @@
 package components
 
 import (
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 )
 
 // TextField is a reusable text input component with label and two-phase editing
@@ -20,7 +20,7 @@ func NewTextField(label, placeholder, value string) TextField {
 	ti.Placeholder = placeholder
 	ti.SetValue(value)
 	ti.CharLimit = 256
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	return TextField{
 		Label:       label,
@@ -37,7 +37,7 @@ func NewTextFieldWithLimits(label, placeholder, value string, charLimit, width i
 	ti.Placeholder = placeholder
 	ti.SetValue(value)
 	ti.CharLimit = charLimit
-	ti.Width = width
+	ti.SetWidth(width)
 
 	return TextField{
 		Label:       label,

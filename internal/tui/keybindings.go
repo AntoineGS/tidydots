@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // SharedKeyMap defines keybindings available on all screens.
 type SharedKeyMap struct {
@@ -106,7 +106,7 @@ var ListKeys = ListKeyMap{
 		key.WithHelp("i", "install"),
 	),
 	Toggle: key.NewBinding(
-		key.WithKeys("tab", " "),
+		key.WithKeys("tab", "space"),
 		key.WithHelp("tab", "toggle"),
 	),
 	ShowDetail: key.NewBinding(
@@ -247,7 +247,7 @@ var FormNavKeys = FormNavKeyMap{
 		key.WithHelp("esc", "cancel"),
 	),
 	Toggle: key.NewBinding(
-		key.WithKeys(" "),
+		key.WithKeys("space"),
 		key.WithHelp("space", "toggle"),
 	),
 	Delete: key.NewBinding(
@@ -362,7 +362,7 @@ type FilePickerKeyMap struct {
 // FilePickerKeys are the keybindings for the file picker.
 var FilePickerKeys = FilePickerKeyMap{
 	Toggle: key.NewBinding(
-		key.WithKeys(" ", "tab"),
+		key.WithKeys("space", "tab"),
 		key.WithHelp("space/tab", "toggle"),
 	),
 	Confirm: key.NewBinding(
@@ -423,7 +423,7 @@ var FilesListKeys = FilesListKeyMap{
 		key.WithHelp("↓/j", "down"),
 	),
 	Edit: key.NewBinding(
-		key.WithKeys("enter", " ", "e"),
+		key.WithKeys("enter", "space", "e"),
 		key.WithHelp("e", "edit"),
 	),
 	Delete: key.NewBinding(

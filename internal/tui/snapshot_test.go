@@ -7,8 +7,6 @@ import (
 
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	"github.com/sebdah/goldie/v2"
 )
 
@@ -40,15 +38,15 @@ func TestScreenResults_Snapshots(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Force ASCII color profile for consistent rendering
-			lipgloss.SetColorProfile(termenv.Ascii)
+			// Disable colors for consistent rendering
+			t.Setenv("NO_COLOR", "1")
 
 			// Create model with test setup
 			m := createTestModel()
 			tt.setupFunc(m)
 
 			// Render the view
-			output := m.View()
+			output := m.View().Content
 
 			// Strip ANSI codes and normalize
 			plainText := stripAnsiCodes(output)

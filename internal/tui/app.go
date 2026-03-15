@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Run starts the interactive TUI with a new manager
@@ -28,7 +28,7 @@ func Run(cfg *config.Config, plat *platform.Platform, dryRun bool, configPath st
 func RunWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Manager, configPath string) error {
 	model := NewModelWithManager(cfg, plat, mgr, configPath)
 
-	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(model)
 
 	finalModel, err := p.Run()
 	if err != nil {

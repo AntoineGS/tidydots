@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // RenderHelpFromBindings generates help text from key.Binding values.
 // It extracts help pairs from each enabled binding and feeds them into

@@ -8,8 +8,6 @@ import (
 
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 )
 
 // createLayoutTestModel creates a model with 40 apps for layout testing.
@@ -58,7 +56,7 @@ func TestLayoutHeightConsistency(t *testing.T) {
 		t.Skip("snapshot golden files are platform-specific")
 	}
 
-	lipgloss.SetColorProfile(termenv.Ascii)
+	t.Setenv("NO_COLOR", "1")
 
 	tests := []struct {
 		name  string
@@ -123,7 +121,7 @@ func TestLayoutHeightConsistency(t *testing.T) {
 			m := createLayoutTestModel()
 			tt.setup(m)
 
-			output := m.View()
+			output := m.View().Content
 			plain := stripAnsiCodes(output)
 			lineCount := countOutputLines(plain)
 
@@ -145,7 +143,7 @@ func TestScrollOffsetConsistencyBetweenUpdateAndView(t *testing.T) {
 		t.Skip("platform-specific")
 	}
 
-	lipgloss.SetColorProfile(termenv.Ascii)
+	t.Setenv("NO_COLOR", "1")
 
 	tests := []struct {
 		name   string
@@ -207,7 +205,7 @@ func TestScrollOffsetConsistencyBetweenUpdateAndView(t *testing.T) {
 			maxVisible := m.computeMaxVisibleRows()
 
 			// Now render the view to see what renderTable actually uses
-			output := m.View()
+			output := m.View().Content
 			plain := stripAnsiCodes(output)
 
 			// The cursor row should be visible in the rendered output
@@ -230,14 +228,14 @@ func TestResultMessageDoesNotShiftCursor(t *testing.T) {
 		t.Skip("platform-specific")
 	}
 
-	lipgloss.SetColorProfile(termenv.Ascii)
+	t.Setenv("NO_COLOR", "1")
 
 	m := createLayoutTestModel()
 	m.tableCursor = 15
 
 	// Render without result message
 	m.updateScrollOffset()
-	outputBefore := m.View()
+	outputBefore := m.View().Content
 	plainBefore := stripAnsiCodes(outputBefore)
 
 	// Now add a result message (simulating a restore operation)
@@ -246,7 +244,7 @@ func TestResultMessageDoesNotShiftCursor(t *testing.T) {
 	}
 
 	// Render with result message
-	outputAfter := m.View()
+	outputAfter := m.View().Content
 	plainAfter := stripAnsiCodes(outputAfter)
 
 	// The cursor's app should still be visible
@@ -282,7 +280,7 @@ func TestScrollIndicatorRowIndexMapping(t *testing.T) {
 		t.Skip("platform-specific")
 	}
 
-	lipgloss.SetColorProfile(termenv.Ascii)
+	t.Setenv("NO_COLOR", "1")
 
 	m := createLayoutTestModel()
 
@@ -290,7 +288,7 @@ func TestScrollIndicatorRowIndexMapping(t *testing.T) {
 	m.tableCursor = 20
 	m.updateScrollOffset()
 
-	output := m.View()
+	output := m.View().Content
 	plain := stripAnsiCodes(output)
 
 	// The cursor should be on app-21 (0-indexed cursor 20 = app-21)
@@ -317,7 +315,7 @@ func TestLayoutWithVaryingTerminalHeights(t *testing.T) {
 		t.Skip("platform-specific")
 	}
 
-	lipgloss.SetColorProfile(termenv.Ascii)
+	t.Setenv("NO_COLOR", "1")
 
 	heights := []int{15, 20, 25, 30, 40, 50}
 
@@ -328,7 +326,7 @@ func TestLayoutWithVaryingTerminalHeights(t *testing.T) {
 			m.tableCursor = 5
 
 			// Test with no dynamic elements
-			output := m.View()
+			output := m.View().Content
 			plain := stripAnsiCodes(output)
 			lineCount := countOutputLines(plain)
 
@@ -341,7 +339,7 @@ func TestLayoutWithVaryingTerminalHeights(t *testing.T) {
 			m.results = []ResultItem{
 				{Name: "test", Message: "done", Success: true},
 			}
-			outputWithResult := m.View()
+			outputWithResult := m.View().Content
 			plainWithResult := stripAnsiCodes(outputWithResult)
 			lineCountWithResult := countOutputLines(plainWithResult)
 
@@ -361,7 +359,7 @@ func TestCursorNavigationAfterResultMessage(t *testing.T) {
 		t.Skip("platform-specific")
 	}
 
-	lipgloss.SetColorProfile(termenv.Ascii)
+	t.Setenv("NO_COLOR", "1")
 
 	m := createLayoutTestModel()
 	m.tableCursor = 20
@@ -376,7 +374,7 @@ func TestCursorNavigationAfterResultMessage(t *testing.T) {
 		m.tableCursor++
 		m.updateScrollOffset()
 
-		output := m.View()
+		output := m.View().Content
 		plain := stripAnsiCodes(output)
 
 		cursorApp := fmt.Sprintf("app-%02d", m.tableCursor+1)
@@ -401,7 +399,7 @@ func TestScrollOffsetDivergence(t *testing.T) {
 		t.Skip("platform-specific")
 	}
 
-	lipgloss.SetColorProfile(termenv.Ascii)
+	t.Setenv("NO_COLOR", "1")
 
 	tests := []struct {
 		name  string
@@ -506,7 +504,7 @@ func TestExpandedAppLayoutShift(t *testing.T) {
 		t.Skip("platform-specific")
 	}
 
-	lipgloss.SetColorProfile(termenv.Ascii)
+	t.Setenv("NO_COLOR", "1")
 
 	// Create apps where one has many sub-entries
 	apps := make([]config.Application, 20)
@@ -555,7 +553,7 @@ func TestExpandedAppLayoutShift(t *testing.T) {
 
 	// Render collapsed
 	m.tableCursor = 5 // on app-06
-	outputCollapsed := m.View()
+	outputCollapsed := m.View().Content
 	plainCollapsed := stripAnsiCodes(outputCollapsed)
 	linesCollapsed := countOutputLines(plainCollapsed)
 
@@ -567,7 +565,7 @@ func TestExpandedAppLayoutShift(t *testing.T) {
 	m.Applications[5].Expanded = true
 	m.initTableModel()
 
-	outputExpanded := m.View()
+	outputExpanded := m.View().Content
 	plainExpanded := stripAnsiCodes(outputExpanded)
 	linesExpanded := countOutputLines(plainExpanded)
 
@@ -580,7 +578,7 @@ func TestExpandedAppLayoutShift(t *testing.T) {
 		{Name: "app-06/entry-1", Message: "Restored", Success: true},
 	}
 
-	outputExpandedWithResult := m.View()
+	outputExpandedWithResult := m.View().Content
 	plainExpandedWithResult := stripAnsiCodes(outputExpandedWithResult)
 	linesExpandedWithResult := countOutputLines(plainExpandedWithResult)
 

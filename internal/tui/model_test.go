@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestNewModel(t *testing.T) {
@@ -235,21 +235,21 @@ func TestModelView(t *testing.T) {
 	model.Screen = ScreenResults
 	model.Operation = OpList
 	view := model.View()
-	if view == "" {
+	if view.Content == "" {
 		t.Error("Results view should not be empty")
 	}
 
 	// Test progress view
 	model.Screen = ScreenProgress
 	view = model.View()
-	if view == "" {
+	if view.Content == "" {
 		t.Error("Progress view should not be empty")
 	}
 
 	// Test summary view
 	model.Screen = ScreenSummary
 	view = model.View()
-	if view == "" {
+	if view.Content == "" {
 		t.Error("Summary view should not be empty")
 	}
 }

@@ -1,13 +1,13 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 )
 
 // updateApplicationGitFields handles navigation within git sub-fields (gitFieldCursor >= 0)
-func (m Model) updateApplicationGitFields(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationGitFields(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -95,7 +95,7 @@ func (m Model) updateApplicationGitFields(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateApplicationGitFieldInput handles text input when editing a git field
-func (m Model) updateApplicationGitFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationGitFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -153,7 +153,7 @@ func (m *Model) getGitFieldInput() *textinput.Model {
 }
 
 // updateApplicationInstallerFields handles navigation within installer sub-fields (installerFieldCursor >= 0)
-func (m Model) updateApplicationInstallerFields(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationInstallerFields(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -235,7 +235,7 @@ func (m Model) updateApplicationInstallerFields(msg tea.KeyMsg) (tea.Model, tea.
 }
 
 // updateApplicationInstallerFieldInput handles text input when editing an installer field
-func (m Model) updateApplicationInstallerFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationInstallerFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}

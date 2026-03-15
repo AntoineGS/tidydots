@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/charmbracelet/bubbles/progress"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/progress"
+	tea "charm.land/bubbletea/v2"
 )
 
 // BatchOperationMsg is sent for each step of a batch operation.
@@ -312,7 +312,7 @@ func (m Model) executeBatchDelete() tea.Cmd {
 // initBatchProgress initializes the progress bar model for batch operations.
 func initBatchProgress() progress.Model {
 	prog := progress.New(
-		progress.WithDefaultGradient(),
+		progress.WithDefaultBlend(),
 		progress.WithWidth(60),
 	)
 	return prog

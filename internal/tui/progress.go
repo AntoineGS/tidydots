@@ -7,11 +7,11 @@ import (
 	"slices"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/packages"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // pkgCheckResultMsg is sent when a single package install check completes.
@@ -225,7 +225,7 @@ func (m Model) viewProgress() string {
 }
 
 //nolint:gocyclo // UI handler with many states
-func (m Model) updateResults(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Handle search mode input
 	if m.Operation == OpList && m.searching {
 		switch {

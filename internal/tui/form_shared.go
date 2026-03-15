@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	"github.com/charmbracelet/bubbles/textinput"
 )
 
 // displayPackageManagers is platform.KnownPackageManagers excluding "git"
@@ -26,22 +26,22 @@ func newGitTextInputs() (gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsI
 	gitURLInput = textinput.New()
 	gitURLInput.Placeholder = PlaceholderGitURL
 	gitURLInput.CharLimit = 256
-	gitURLInput.Width = 40
+	gitURLInput.SetWidth(40)
 
 	gitBranchInput = textinput.New()
 	gitBranchInput.Placeholder = PlaceholderGitBranch
 	gitBranchInput.CharLimit = 128
-	gitBranchInput.Width = 40
+	gitBranchInput.SetWidth(40)
 
 	gitLinuxInput = textinput.New()
 	gitLinuxInput.Placeholder = PlaceholderGitLinux
 	gitLinuxInput.CharLimit = 256
-	gitLinuxInput.Width = 40
+	gitLinuxInput.SetWidth(40)
 
 	gitWindowsInput = textinput.New()
 	gitWindowsInput.Placeholder = PlaceholderGitWindows
 	gitWindowsInput.CharLimit = 256
-	gitWindowsInput.Width = 40
+	gitWindowsInput.SetWidth(40)
 
 	return gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput
 }
@@ -51,17 +51,17 @@ func newInstallerTextInputs() (installerLinuxInput, installerWindowsInput, insta
 	installerLinuxInput = textinput.New()
 	installerLinuxInput.Placeholder = PlaceholderInstallerLinux
 	installerLinuxInput.CharLimit = 512
-	installerLinuxInput.Width = 40
+	installerLinuxInput.SetWidth(40)
 
 	installerWindowsInput = textinput.New()
 	installerWindowsInput.Placeholder = PlaceholderInstallerWindows
 	installerWindowsInput.CharLimit = 512
-	installerWindowsInput.Width = 40
+	installerWindowsInput.SetWidth(40)
 
 	installerBinaryInput = textinput.New()
 	installerBinaryInput.Placeholder = PlaceholderInstallerBinary
 	installerBinaryInput.CharLimit = 128
-	installerBinaryInput.Width = 40
+	installerBinaryInput.SetWidth(40)
 
 	return installerLinuxInput, installerWindowsInput, installerBinaryInput
 }

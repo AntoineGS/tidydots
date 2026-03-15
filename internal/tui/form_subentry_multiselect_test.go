@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 const (
@@ -101,7 +101,7 @@ func TestMultiSelect_ToggleWithTab(t *testing.T) {
 	m.subEntryForm.filePicker.Path = testInitLua
 
 	// Tab key should also toggle selection
-	updatedModel, _ := m.updateSubEntryFilePicker(tea.KeyMsg{Type: tea.KeyTab})
+	updatedModel, _ := m.updateSubEntryFilePicker(tea.KeyPressMsg{Code: tea.KeyTab})
 	model := updatedModel.(Model)
 
 	expectedPath := filepath.Join(testNvimDir, testInitLua)

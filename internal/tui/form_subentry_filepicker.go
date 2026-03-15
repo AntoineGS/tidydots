@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/filepicker"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/filepicker"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 // updateFileAddModeChoice handles key events for the Browse/Type mode selection menu
-func (m Model) updateFileAddModeChoice(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateFileAddModeChoice(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.subEntryForm == nil {
 		return m, nil
 	}
@@ -198,7 +198,7 @@ func (m *Model) initFilePickerForBackup() error {
 }
 
 // updateSubEntryFilePicker handles key events when the file picker is active
-func (m Model) updateSubEntryFilePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateSubEntryFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.subEntryForm == nil {
 		return m, nil
 	}

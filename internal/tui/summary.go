@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 // viewSummary renders the summary/confirmation screen for batch operations.
@@ -208,7 +208,7 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 
 // updateSummary handles keyboard input for the summary screen.
 // Supports y/enter to confirm, r/i/d for double-press, n/esc to cancel.
-func (m Model) updateSummary(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateSummary(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m, cmd, handled := m.handleCommonKeys(msg); handled {
 		return m, cmd
 	}

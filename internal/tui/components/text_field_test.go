@@ -3,7 +3,7 @@ package components
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestTextField_NewTextField(t *testing.T) {
@@ -95,7 +95,7 @@ func TestTextField_Update(t *testing.T) {
 	tf := NewTextField("Name", "Enter name", "")
 
 	// Update should do nothing when not editing
-	cmd := tf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	cmd := tf.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
 	if cmd != nil {
 		t.Error("Update should return nil when not editing")
 	}
@@ -104,7 +104,7 @@ func TestTextField_Update(t *testing.T) {
 	tf.EnterEditMode()
 
 	// Update should work when editing
-	cmd = tf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	cmd = tf.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
 	// We don't check the cmd here as it depends on textinput implementation
 	_ = cmd
 }

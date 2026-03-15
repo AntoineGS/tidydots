@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 // updateDiffPicker handles key events when the diff picker is showing.
-func (m Model) updateDiffPicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateDiffPicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m, cmd, handled := m.handleCommonKeys(msg); handled {
 		return m, cmd
 	}

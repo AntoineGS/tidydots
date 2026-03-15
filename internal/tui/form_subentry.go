@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // subEntryFieldType represents the type of field in the SubEntryForm
@@ -56,27 +56,27 @@ func (m *Model) initSubEntryFormNew(appIdx int) {
 	nameInput.Placeholder = "e.g., nvim-config"
 	nameInput.Focus()
 	nameInput.CharLimit = 64
-	nameInput.Width = 40
+	nameInput.SetWidth(40)
 
 	linuxTargetInput := textinput.New()
 	linuxTargetInput.Placeholder = "e.g., ~/.config/nvim"
 	linuxTargetInput.CharLimit = 256
-	linuxTargetInput.Width = 40
+	linuxTargetInput.SetWidth(40)
 
 	windowsTargetInput := textinput.New()
 	windowsTargetInput.Placeholder = "e.g., ~/AppData/Local/nvim"
 	windowsTargetInput.CharLimit = 256
-	windowsTargetInput.Width = 40
+	windowsTargetInput.SetWidth(40)
 
 	backupInput := textinput.New()
 	backupInput.Placeholder = "e.g., ./nvim"
 	backupInput.CharLimit = 256
-	backupInput.Width = 40
+	backupInput.SetWidth(40)
 
 	newFileInput := textinput.New()
 	newFileInput.Placeholder = "e.g., .bashrc"
 	newFileInput.CharLimit = 256
-	newFileInput.Width = 40
+	newFileInput.SetWidth(40)
 
 	m.subEntryForm = &SubEntryForm{
 		nameInput:          nameInput,
@@ -152,7 +152,7 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 	nameInput.SetValue(sub.Name)
 	nameInput.Focus()
 	nameInput.CharLimit = 64
-	nameInput.Width = 40
+	nameInput.SetWidth(40)
 
 	linuxTargetInput := textinput.New()
 	linuxTargetInput.Placeholder = "e.g., ~/.config/nvim"
@@ -161,7 +161,7 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 		linuxTargetInput.SetValue(target)
 	}
 	linuxTargetInput.CharLimit = 256
-	linuxTargetInput.Width = 40
+	linuxTargetInput.SetWidth(40)
 
 	windowsTargetInput := textinput.New()
 	windowsTargetInput.Placeholder = "e.g., ~/AppData/Local/nvim"
@@ -170,18 +170,18 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 		windowsTargetInput.SetValue(target)
 	}
 	windowsTargetInput.CharLimit = 256
-	windowsTargetInput.Width = 40
+	windowsTargetInput.SetWidth(40)
 
 	backupInput := textinput.New()
 	backupInput.Placeholder = "e.g., ./nvim"
 	backupInput.SetValue(sub.Backup)
 	backupInput.CharLimit = 256
-	backupInput.Width = 40
+	backupInput.SetWidth(40)
 
 	newFileInput := textinput.New()
 	newFileInput.Placeholder = "e.g., .bashrc"
 	newFileInput.CharLimit = 256
-	newFileInput.Width = 40
+	newFileInput.SetWidth(40)
 
 	// Load config-specific fields
 	isFolder := sub.IsFolder()
@@ -289,7 +289,7 @@ func (m *Model) subEntryFormMaxIndex() int {
 }
 
 // updateSubEntryForm handles key events for the sub-entry form
-func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.subEntryForm == nil {
 		return m, nil
 	}
@@ -450,7 +450,7 @@ func (m Model) updateSubEntryForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateSubEntryFilesList handles key events when the files list is focused
-func (m Model) updateSubEntryFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateSubEntryFilesList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.subEntryForm == nil {
 		return m, nil
 	}
@@ -571,7 +571,7 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateSubEntryFileInput handles key events when adding or editing a file
-func (m Model) updateSubEntryFileInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateSubEntryFileInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.subEntryForm == nil {
 		return m, nil
 	}

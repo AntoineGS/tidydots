@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // applicationFieldType represents the type of field in the ApplicationForm
@@ -27,22 +27,22 @@ func (m *Model) initApplicationFormNew() {
 	nameInput.Placeholder = PlaceholderNeovim
 	nameInput.Focus()
 	nameInput.CharLimit = 64
-	nameInput.Width = 40
+	nameInput.SetWidth(40)
 
 	descriptionInput := textinput.New()
 	descriptionInput.Placeholder = "e.g., Neovim text editor"
 	descriptionInput.CharLimit = 256
-	descriptionInput.Width = 40
+	descriptionInput.SetWidth(40)
 
 	packageNameInput := textinput.New()
 	packageNameInput.Placeholder = PlaceholderNeovim
 	packageNameInput.CharLimit = 128
-	packageNameInput.Width = 40
+	packageNameInput.SetWidth(40)
 
 	whenInput := textinput.New()
 	whenInput.Placeholder = PlaceholderWhen
 	whenInput.CharLimit = 512
-	whenInput.Width = 60
+	whenInput.SetWidth(60)
 
 	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
 	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
@@ -50,7 +50,7 @@ func (m *Model) initApplicationFormNew() {
 	depInput := textinput.New()
 	depInput.Placeholder = PlaceholderDep
 	depInput.CharLimit = 128
-	depInput.Width = 40
+	depInput.SetWidth(40)
 
 	m.applicationForm = &ApplicationForm{
 		nameInput:             nameInput,
@@ -111,23 +111,23 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 	nameInput.SetValue(app.Name)
 	nameInput.Focus()
 	nameInput.CharLimit = 64
-	nameInput.Width = 40
+	nameInput.SetWidth(40)
 
 	descriptionInput := textinput.New()
 	descriptionInput.Placeholder = "e.g., Neovim text editor"
 	descriptionInput.SetValue(app.Description)
 	descriptionInput.CharLimit = 256
-	descriptionInput.Width = 40
+	descriptionInput.SetWidth(40)
 
 	packageNameInput := textinput.New()
 	packageNameInput.Placeholder = PlaceholderNeovim
 	packageNameInput.CharLimit = 128
-	packageNameInput.Width = 40
+	packageNameInput.SetWidth(40)
 
 	whenInput := textinput.New()
 	whenInput.Placeholder = PlaceholderWhen
 	whenInput.CharLimit = 512
-	whenInput.Width = 60
+	whenInput.SetWidth(60)
 	whenInput.SetValue(app.When)
 
 	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
@@ -198,7 +198,7 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 	depInput := textinput.New()
 	depInput.Placeholder = PlaceholderDep
 	depInput.CharLimit = 128
-	depInput.Width = 40
+	depInput.SetWidth(40)
 
 	m.applicationForm = &ApplicationForm{
 		nameInput:             nameInput,
@@ -259,7 +259,7 @@ func (m *Model) getApplicationFieldType() applicationFieldType {
 }
 
 // updateApplicationForm handles key events for the application form
-func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -397,7 +397,7 @@ func (m Model) updateApplicationForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateApplicationFieldInput handles key events when editing a text field
-func (m Model) updateApplicationFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -439,7 +439,7 @@ func (m Model) updateApplicationFieldInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 }
 
 // updateApplicationPackagesList handles key events when packages list is focused
-func (m Model) updateApplicationPackagesList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -621,7 +621,7 @@ func (m Model) handlePackagesListDelete(gitItemIdx, installerItemIdx int) (tea.M
 }
 
 // updateDepsList handles navigation within the deps list
-func (m Model) updateDepsList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateDepsList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -695,7 +695,7 @@ func (m Model) updateDepsList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateDepsItemInput handles text input when editing a dep item
-func (m Model) updateDepsItemInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateDepsItemInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -736,7 +736,7 @@ func (m Model) updateDepsItemInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateApplicationPackageInput handles key events when editing a package name
-func (m Model) updateApplicationPackageInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationPackageInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -784,7 +784,7 @@ func (m Model) updateApplicationPackageInput(msg tea.KeyMsg) (tea.Model, tea.Cmd
 }
 
 // updateApplicationWhenInput handles key events when editing the when expression
-func (m Model) updateApplicationWhenInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateApplicationWhenInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
@@ -1248,7 +1248,7 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 	whenInput := textinput.New()
 	whenInput.Placeholder = PlaceholderWhen
 	whenInput.CharLimit = 512
-	whenInput.Width = 60
+	whenInput.SetWidth(60)
 	whenInput.SetValue(app.When)
 
 	editAppIdx := -1
@@ -1324,7 +1324,7 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 	depInput := textinput.New()
 	depInput.Placeholder = PlaceholderDep
 	depInput.CharLimit = 128
-	depInput.Width = 40
+	depInput.SetWidth(40)
 
 	return &ApplicationForm{
 		nameInput:             nameInput,

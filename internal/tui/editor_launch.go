@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/manager"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
