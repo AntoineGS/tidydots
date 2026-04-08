@@ -52,31 +52,13 @@ func (m *Model) initSubEntryFormNew(appIdx int) {
 		return
 	}
 
-	nameInput := textinput.New()
-	nameInput.Placeholder = "e.g., nvim-config"
+	nameInput := newFormInput("e.g., nvim-config", 64, 40)
 	nameInput.Focus()
-	nameInput.CharLimit = 64
-	nameInput.SetWidth(40)
 
-	linuxTargetInput := textinput.New()
-	linuxTargetInput.Placeholder = "e.g., ~/.config/nvim"
-	linuxTargetInput.CharLimit = 256
-	linuxTargetInput.SetWidth(40)
-
-	windowsTargetInput := textinput.New()
-	windowsTargetInput.Placeholder = "e.g., ~/AppData/Local/nvim"
-	windowsTargetInput.CharLimit = 256
-	windowsTargetInput.SetWidth(40)
-
-	backupInput := textinput.New()
-	backupInput.Placeholder = "e.g., ./nvim"
-	backupInput.CharLimit = 256
-	backupInput.SetWidth(40)
-
-	newFileInput := textinput.New()
-	newFileInput.Placeholder = "e.g., .bashrc"
-	newFileInput.CharLimit = 256
-	newFileInput.SetWidth(40)
+	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", 256, 40)
+	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", 256, 40)
+	backupInput := newFormInput("e.g., ./nvim", 256, 40)
+	newFileInput := newFormInput("e.g., .bashrc", 256, 40)
 
 	m.subEntryForm = &SubEntryForm{
 		nameInput:          nameInput,
@@ -147,41 +129,24 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 
 	sub := app.Entries[configSubIdx]
 
-	nameInput := textinput.New()
-	nameInput.Placeholder = "e.g., nvim-config"
+	nameInput := newFormInput("e.g., nvim-config", 64, 40)
 	nameInput.SetValue(sub.Name)
 	nameInput.Focus()
-	nameInput.CharLimit = 64
-	nameInput.SetWidth(40)
 
-	linuxTargetInput := textinput.New()
-	linuxTargetInput.Placeholder = "e.g., ~/.config/nvim"
-
+	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", 256, 40)
 	if target, ok := sub.Targets["linux"]; ok {
 		linuxTargetInput.SetValue(target)
 	}
-	linuxTargetInput.CharLimit = 256
-	linuxTargetInput.SetWidth(40)
 
-	windowsTargetInput := textinput.New()
-	windowsTargetInput.Placeholder = "e.g., ~/AppData/Local/nvim"
-
+	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", 256, 40)
 	if target, ok := sub.Targets["windows"]; ok {
 		windowsTargetInput.SetValue(target)
 	}
-	windowsTargetInput.CharLimit = 256
-	windowsTargetInput.SetWidth(40)
 
-	backupInput := textinput.New()
-	backupInput.Placeholder = "e.g., ./nvim"
+	backupInput := newFormInput("e.g., ./nvim", 256, 40)
 	backupInput.SetValue(sub.Backup)
-	backupInput.CharLimit = 256
-	backupInput.SetWidth(40)
 
-	newFileInput := textinput.New()
-	newFileInput.Placeholder = "e.g., .bashrc"
-	newFileInput.CharLimit = 256
-	newFileInput.SetWidth(40)
+	newFileInput := newFormInput("e.g., .bashrc", 256, 40)
 
 	// Load config-specific fields
 	isFolder := sub.IsFolder()

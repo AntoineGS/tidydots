@@ -21,48 +21,29 @@ var displayPackageManagers = func() []string {
 	return managers
 }()
 
+// newFormInput creates a textinput.Model with standard configuration.
+func newFormInput(placeholder string, charLimit int, width int) textinput.Model {
+	ti := textinput.New()
+	ti.Placeholder = placeholder
+	ti.CharLimit = charLimit
+	ti.SetWidth(width)
+	return ti
+}
+
 // newGitTextInputs creates the four git text inputs with standard placeholders and char limits
 func newGitTextInputs() (gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput textinput.Model) {
-	gitURLInput = textinput.New()
-	gitURLInput.Placeholder = PlaceholderGitURL
-	gitURLInput.CharLimit = 256
-	gitURLInput.SetWidth(40)
-
-	gitBranchInput = textinput.New()
-	gitBranchInput.Placeholder = PlaceholderGitBranch
-	gitBranchInput.CharLimit = 128
-	gitBranchInput.SetWidth(40)
-
-	gitLinuxInput = textinput.New()
-	gitLinuxInput.Placeholder = PlaceholderGitLinux
-	gitLinuxInput.CharLimit = 256
-	gitLinuxInput.SetWidth(40)
-
-	gitWindowsInput = textinput.New()
-	gitWindowsInput.Placeholder = PlaceholderGitWindows
-	gitWindowsInput.CharLimit = 256
-	gitWindowsInput.SetWidth(40)
-
+	gitURLInput = newFormInput(PlaceholderGitURL, 256, 40)
+	gitBranchInput = newFormInput(PlaceholderGitBranch, 128, 40)
+	gitLinuxInput = newFormInput(PlaceholderGitLinux, 256, 40)
+	gitWindowsInput = newFormInput(PlaceholderGitWindows, 256, 40)
 	return gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput
 }
 
 // newInstallerTextInputs creates the three installer text inputs with standard placeholders and char limits
 func newInstallerTextInputs() (installerLinuxInput, installerWindowsInput, installerBinaryInput textinput.Model) {
-	installerLinuxInput = textinput.New()
-	installerLinuxInput.Placeholder = PlaceholderInstallerLinux
-	installerLinuxInput.CharLimit = 512
-	installerLinuxInput.SetWidth(40)
-
-	installerWindowsInput = textinput.New()
-	installerWindowsInput.Placeholder = PlaceholderInstallerWindows
-	installerWindowsInput.CharLimit = 512
-	installerWindowsInput.SetWidth(40)
-
-	installerBinaryInput = textinput.New()
-	installerBinaryInput.Placeholder = PlaceholderInstallerBinary
-	installerBinaryInput.CharLimit = 128
-	installerBinaryInput.SetWidth(40)
-
+	installerLinuxInput = newFormInput(PlaceholderInstallerLinux, 512, 40)
+	installerWindowsInput = newFormInput(PlaceholderInstallerWindows, 512, 40)
+	installerBinaryInput = newFormInput(PlaceholderInstallerBinary, 128, 40)
 	return installerLinuxInput, installerWindowsInput, installerBinaryInput
 }
 
