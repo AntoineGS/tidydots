@@ -206,6 +206,18 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 	m.Screen = ScreenAddForm
 }
 
+// resetCursors resets all cursor and sub-field state on the ApplicationForm.
+func (f *ApplicationForm) resetCursors() {
+	f.packagesCursor = 0
+	f.gitFieldCursor = -1
+	f.installerFieldCursor = -1
+	f.editingGitField = false
+	f.editingInstallerField = false
+	f.editingPackage = false
+	f.editingDeps = false
+	f.editingDepItem = false
+}
+
 // getApplicationFieldType returns the field type at the current focus index
 func (m *Model) getApplicationFieldType() applicationFieldType {
 	if m.applicationForm == nil {
@@ -460,9 +472,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 			if m.applicationForm.focusIndex > 3 {
 				m.applicationForm.focusIndex = 0
 			}
-			m.applicationForm.packagesCursor = 0
-			m.applicationForm.gitFieldCursor = -1
-			m.applicationForm.installerFieldCursor = -1
+			m.applicationForm.resetCursors()
 			m.updateApplicationFormFocus()
 		}
 		return m, nil
@@ -472,9 +482,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 		if m.applicationForm.focusIndex > 3 {
 			m.applicationForm.focusIndex = 0
 		}
-		m.applicationForm.packagesCursor = 0
-		m.applicationForm.gitFieldCursor = -1
-		m.applicationForm.installerFieldCursor = -1
+		m.applicationForm.resetCursors()
 		m.updateApplicationFormFocus()
 		return m, nil
 
