@@ -72,15 +72,19 @@ func (m Model) renderResultsPopup() string {
 		end = len(m.results)
 	}
 
-	// Build result lines
+	// Available content width: popup minus border (2) and padding (2*2)
+	contentWidth := popupWidth - 6
+
+	// Build result lines, truncated to fit
 	var lines []string
 	for _, result := range m.results[offset:end] {
-		var line string
-		if result.Success {
-			line = SuccessStyle.Render(fmt.Sprintf("✓ %s: %s", result.Name, result.Message))
-		} else {
-			line = ErrorStyle.Render(fmt.Sprintf("✗ %s: %s", result.Name, result.Message))
+		text := fmt.Sprintf("✓ %s: %s", result.Name, result.Message)
+		style := SuccessStyle
+		if !result.Success {
+			text = fmt.Sprintf("✗ %s: %s", result.Name, result.Message)
+			style = ErrorStyle
 		}
+		line := style.MaxWidth(contentWidth).Render(text)
 		lines = append(lines, line)
 	}
 
