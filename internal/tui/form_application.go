@@ -1207,16 +1207,13 @@ func (m *Model) cancelApplicationFieldEdit() {
 
 // NewApplicationForm creates a new ApplicationForm for testing purposes
 func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
-	nameInput := textinput.New()
+	nameInput := newFormInput(PlaceholderNeovim, 64, 40)
 	nameInput.SetValue(app.Name)
 
-	descriptionInput := textinput.New()
+	descriptionInput := newFormInput("e.g., Neovim text editor", 256, 40)
 	descriptionInput.SetValue(app.Description)
 
-	whenInput := textinput.New()
-	whenInput.Placeholder = PlaceholderWhen
-	whenInput.CharLimit = 512
-	whenInput.SetWidth(60)
+	whenInput := newFormInput(PlaceholderWhen, 512, 60)
 	whenInput.SetValue(app.When)
 
 	editAppIdx := -1
@@ -1289,10 +1286,7 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 		}
 	}
 
-	depInput := textinput.New()
-	depInput.Placeholder = PlaceholderDep
-	depInput.CharLimit = 128
-	depInput.SetWidth(40)
+	depInput := newFormInput(PlaceholderDep, 128, 40)
 
 	return &ApplicationForm{
 		nameInput:             nameInput,

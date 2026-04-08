@@ -1148,20 +1148,20 @@ func (m *Model) updateSubEntry(appIdx, subIdx int, subEntry config.SubEntry) err
 
 // NewSubEntryForm creates a new SubEntryForm for testing purposes
 func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
-	nameInput := textinput.New()
+	nameInput := newFormInput("e.g., nvim-config", 64, 40)
 	nameInput.SetValue(entry.Name)
 
-	linuxTargetInput := textinput.New()
+	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", 256, 40)
 	if target, ok := entry.Targets["linux"]; ok {
 		linuxTargetInput.SetValue(target)
 	}
 
-	windowsTargetInput := textinput.New()
+	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", 256, 40)
 	if target, ok := entry.Targets["windows"]; ok {
 		windowsTargetInput.SetValue(target)
 	}
 
-	backupInput := textinput.New()
+	backupInput := newFormInput("e.g., ./nvim", 256, 40)
 	backupInput.SetValue(entry.Backup)
 
 	return &SubEntryForm{
