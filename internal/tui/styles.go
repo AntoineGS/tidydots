@@ -5,13 +5,18 @@ import (
 )
 
 var (
-	// Colors
-	primaryColor   = lipgloss.Color("#7C3AED") // Purple
-	secondaryColor = lipgloss.Color("#10B981") // Green
-	accentColor    = lipgloss.Color("#F59E0B") // Amber
-	errorColor     = lipgloss.Color("#EF4444") // Red
-	mutedColor     = lipgloss.Color("#6B7280") // Gray
-	textColor      = lipgloss.Color("#F3F4F6") // Light gray
+	// Catppuccin Mocha palette
+	primaryColor   = lipgloss.Color("#CBA6F7") // Mauve
+	secondaryColor = lipgloss.Color("#A6E3A1") // Green
+	accentColor    = lipgloss.Color("#F9E2AF") // Yellow
+	errorColor     = lipgloss.Color("#F38BA8") // Red
+	mutedColor     = lipgloss.Color("#6C7086") // Overlay0
+	textColor      = lipgloss.Color("#CDD6F4") // Text
+	surfaceColor   = lipgloss.Color("#313244") // Surface0
+	surface2Color  = lipgloss.Color("#585B70") // Surface2
+	crustColor     = lipgloss.Color("#11111B") // Crust
+	blueColor      = lipgloss.Color("#89B4FA") // Blue
+	lavenderColor  = lipgloss.Color("#B4BEFE") // Lavender
 
 	// BaseStyle is the base style with padding for content.
 	BaseStyle = lipgloss.NewStyle().
@@ -42,8 +47,8 @@ var (
 
 	// SelectedMenuItemStyle is the style for selected menu items with highlighted background.
 	SelectedMenuItemStyle = lipgloss.NewStyle().
-				Foreground(textColor).
-				Background(primaryColor).
+				Foreground(primaryColor).
+				Background(surface2Color).
 				Bold(true)
 
 	// ListItemStyle is the default list item style.
@@ -51,8 +56,8 @@ var (
 
 	// SelectedListItemStyle is the style for selected list items with highlighted background.
 	SelectedListItemStyle = lipgloss.NewStyle().
-				Foreground(textColor).
-				Background(primaryColor).
+				Foreground(primaryColor).
+				Background(surface2Color).
 				Bold(true)
 
 	// CheckedStyle is the style for checked checkboxes.
@@ -80,29 +85,29 @@ var (
 
 	// FolderBadgeStyle is the badge style for folder indicators.
 	FolderBadgeStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#000")).
+				Foreground(crustColor).
 				Background(accentColor).
 				Padding(0, 1).
 				MarginLeft(1)
 
 	// StateBadgeReadyStyle is the badge style for ready state (green background).
 	StateBadgeReadyStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#000")).
-				Background(secondaryColor). // Green
+				Foreground(crustColor).
+				Background(secondaryColor).
 				Padding(0, 1).
 				MarginLeft(1)
 
-	// StateBadgeAdoptStyle is the badge style for adopt state (amber background).
+	// StateBadgeAdoptStyle is the badge style for adopt state (yellow background).
 	StateBadgeAdoptStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#000")).
-				Background(accentColor). // Amber
+				Foreground(crustColor).
+				Background(accentColor).
 				Padding(0, 1).
 				MarginLeft(1)
 
 	// StateBadgeMissingStyle is the badge style for missing state (red background).
 	StateBadgeMissingStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#fff")).
-				Background(errorColor). // Red
+				Foreground(crustColor).
+				Background(errorColor).
 				Padding(0, 1).
 				MarginLeft(1)
 
@@ -112,17 +117,17 @@ var (
 				Padding(0, 1).
 				MarginLeft(1)
 
-	// StateBadgeOutdatedStyle is the badge style for outdated state (amber background).
+	// StateBadgeOutdatedStyle is the badge style for outdated state (yellow background).
 	StateBadgeOutdatedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#000")).
-				Background(accentColor). // Amber
+				Foreground(crustColor).
+				Background(accentColor).
 				Padding(0, 1).
 				MarginLeft(1)
 
 	// StateBadgeModifiedStyle is the badge style for modified state (blue background).
 	StateBadgeModifiedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#fff")).
-				Background(lipgloss.Color("#3B82F6")). // Blue
+				Foreground(crustColor).
+				Background(blueColor).
 				Padding(0, 1).
 				MarginLeft(1)
 
@@ -183,7 +188,7 @@ var (
 	// StatusBarStyle is the style for the status bar.
 	StatusBarStyle = lipgloss.NewStyle().
 			Foreground(textColor).
-			Background(lipgloss.Color("#1F2937")).
+			Background(surfaceColor).
 			Padding(0, 1).
 			MarginTop(1)
 
@@ -194,7 +199,7 @@ var (
 	// FilterInputStyle is the style for filter input fields.
 	FilterInputStyle = lipgloss.NewStyle().
 				Foreground(textColor).
-				Background(lipgloss.Color("#1F2937")).
+				Background(surfaceColor).
 				Padding(0, 1)
 
 	// FilterHighlightStyle is the style for highlighted filter matches with amber background.
@@ -209,10 +214,10 @@ var (
 				Padding(0, 2)
 
 	// SelectedRowStyle is the style for rows that are selected in multi-select mode.
-	// Uses a lighter purple background to differentiate from cursor highlight.
+	// Uses surface background with lavender text to differentiate from cursor highlight.
 	SelectedRowStyle = lipgloss.NewStyle().
-				Foreground(textColor).
-				Background(lipgloss.Color("#9F7AEA")). // Lighter purple
+				Foreground(lavenderColor).
+				Background(surfaceColor).
 				Padding(0, 1)
 )
 

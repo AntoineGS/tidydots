@@ -381,14 +381,14 @@ func (m Model) renderStyledFilePicker() string {
 		isSelected := m.subEntryForm.selectedFiles[fullPath]
 
 		// Apply styling based on cursor and selection state
-		// Priority: cursor styling (darker purple) > selected styling (lighter purple) > no styling
+		// Priority: cursor styling > selected styling > no styling
 		switch {
 		case isCursor:
-			// Cursor position uses SelectedMenuItemStyle (darker purple #7C3AED)
+			// Cursor position uses SelectedMenuItemStyle (Mauve)
 			// This is the "active" file that would be selected if user presses space
 			styledLines = append(styledLines, SelectedMenuItemStyle.Render(line))
 		case isSelected:
-			// Selected files use SelectedRowStyle (lighter purple #9F7AEA)
+			// Selected files use SelectedRowStyle (Lavender)
 			// These are files that have been marked for addition
 			styledLines = append(styledLines, SelectedRowStyle.Render(line))
 		default:

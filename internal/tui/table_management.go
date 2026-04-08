@@ -429,8 +429,8 @@ func (m Model) renderTable(availableHeight int) string {
 			// Cursor row styling (takes priority)
 			if actualRow == m.tableCursor {
 				return lipgloss.NewStyle().
-					Foreground(textColor).
-					Background(primaryColor).
+					Foreground(primaryColor).
+					Background(surface2Color).
 					Bold(true).
 					Padding(0, 1)
 			}
@@ -467,7 +467,7 @@ func cellAttentionStyle(tr TableRow, col int) lipgloss.Style {
 			return baseStyle.Foreground(accentColor)
 		}
 		if tr.State == StateModified || tr.Data[1] == StatusModified {
-			return baseStyle.Foreground(lipgloss.Color("#3B82F6"))
+			return baseStyle.Foreground(blueColor)
 		}
 		return baseStyle.Foreground(errorColor)
 	}
@@ -478,7 +478,7 @@ func cellAttentionStyle(tr TableRow, col int) lipgloss.Style {
 		case tr.InfoState == StateOutdated:
 			return baseStyle.Foreground(accentColor)
 		case tr.InfoState == StateModified:
-			return baseStyle.Foreground(lipgloss.Color("#3B82F6"))
+			return baseStyle.Foreground(blueColor)
 		default:
 			return baseStyle.Foreground(errorColor)
 		}
