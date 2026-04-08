@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"charm.land/bubbles/v2/filepicker"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/progress"
 	"charm.land/bubbles/v2/spinner"
@@ -14,6 +13,7 @@ import (
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
+	"github.com/AntoineGS/tidydots/internal/tui/forms"
 )
 
 // Screen represents the current screen being displayed in the TUI.
@@ -116,80 +116,14 @@ const (
 	FormSubEntry
 )
 
-// ApplicationForm holds state for editing Application metadata
-type ApplicationForm struct {
-	packageManagers  map[string]string
-	lastPackageName  string
-	err              string
-	originalValue    string
-	descriptionInput textinput.Model
-	packageNameInput textinput.Model
-	nameInput        textinput.Model
-	whenInput        textinput.Model
-	editAppIdx       int
-	packagesCursor   int
-	focusIndex       int
-	editingField     bool
-	editingPackage   bool
-	editingWhen      bool
+// ApplicationForm is an alias for forms.ApplicationForm.
+type ApplicationForm = forms.ApplicationForm
 
-	// Git package fields
-	gitURLInput     textinput.Model
-	gitBranchInput  textinput.Model
-	gitLinuxInput   textinput.Model
-	gitWindowsInput textinput.Model
-	gitFieldCursor  int  // -1 = on git label/button, 0-4 = on sub-fields
-	editingGitField bool // true when editing a git text field
-	hasGitPackage   bool // true when git package is configured/expanded
-	gitSudo         bool // sudo toggle for git package
+// SubEntryForm is an alias for forms.SubEntryForm.
+type SubEntryForm = forms.SubEntryForm
 
-	// Installer package fields
-	installerLinuxInput   textinput.Model
-	installerWindowsInput textinput.Model
-	installerBinaryInput  textinput.Model
-	installerFieldCursor  int  // -1 = on installer label/button, 0-2 = on sub-fields
-	editingInstallerField bool // true when editing an installer text field
-	hasInstallerPackage   bool // true when installer package is configured/expanded
-
-	// Package dependency fields
-	packageDeps    map[string][]string // manager -> deps list
-	depsCursor     int                 // cursor within deps list
-	editingDeps    bool                // true when in deps editing mode
-	editingDepItem bool                // true when editing a dep text input
-	depsManagerKey string              // which manager's deps we're editing
-	depInput       textinput.Model     // text input for adding/editing deps
-}
-
-// SubEntryForm holds state for editing SubEntry data
-type SubEntryForm struct {
-	err                string
-	successMessage     string
-	originalValue      string
-	suggestions        []string
-	files              []string
-	selectedFiles      map[string]bool
-	nameInput          textinput.Model
-	linuxTargetInput   textinput.Model
-	windowsTargetInput textinput.Model
-	backupInput        textinput.Model
-	newFileInput       textinput.Model
-	filePicker         filepicker.Model
-	editingFileIndex   int
-	targetAppIdx       int
-	editSubIdx         int
-	editAppIdx         int
-	focusIndex         int
-	filesCursor        int
-	suggestionCursor   int
-	modeMenuCursor     int
-	addFileMode        AddFileMode
-	isFolder           bool
-	showSuggestions    bool
-	editingField       bool
-	addingFile         bool
-	editingFile        bool
-	isSudo             bool
-}
+// AddFileMode is an alias for forms.AddFileMode.
+type AddFileMode = forms.AddFileMode
 
 // Model holds the state for the TUI application including configuration,
 // platform information, current screen, operation mode, and UI state.

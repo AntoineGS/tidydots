@@ -28,8 +28,8 @@ func TestRenderFilePicker_Header(t *testing.T) {
 	m.initSubEntryForm(0, -1)
 
 	// Set up file picker mode
-	m.subEntryForm.addFileMode = ModePicker
-	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir
+	m.subEntryForm.AddFileMode = ModePicker
+	m.subEntryForm.FilePicker.CurrentDirectory = testNvimDir
 
 	view := m.viewFilePicker()
 
@@ -63,8 +63,8 @@ func TestRenderFilePicker_SelectionCount(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 	m.initSubEntryForm(0, -1)
 
-	m.subEntryForm.addFileMode = ModePicker
-	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir
+	m.subEntryForm.AddFileMode = ModePicker
+	m.subEntryForm.FilePicker.CurrentDirectory = testNvimDir
 
 	tests := []struct {
 		name          string
@@ -96,7 +96,7 @@ func TestRenderFilePicker_SelectionCount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m.subEntryForm.selectedFiles = tt.selectedFiles
+			m.subEntryForm.SelectedFiles = tt.selectedFiles
 			view := m.viewFilePicker()
 
 			if !strings.Contains(view, tt.wantText) {
@@ -125,8 +125,8 @@ func TestRenderFilePicker_HelpText(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 	m.initSubEntryForm(0, -1)
 
-	m.subEntryForm.addFileMode = ModePicker
-	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir
+	m.subEntryForm.AddFileMode = ModePicker
+	m.subEntryForm.FilePicker.CurrentDirectory = testNvimDir
 
 	view := m.viewFilePicker()
 
@@ -158,9 +158,9 @@ func TestRenderFilePicker_SelectedRowStyle(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 	m.initSubEntryForm(0, -1)
 
-	m.subEntryForm.addFileMode = ModePicker
-	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir
-	m.subEntryForm.selectedFiles = map[string]bool{
+	m.subEntryForm.AddFileMode = ModePicker
+	m.subEntryForm.FilePicker.CurrentDirectory = testNvimDir
+	m.subEntryForm.SelectedFiles = map[string]bool{
 		testNvimDir + "/init.lua": true,
 	}
 
@@ -193,9 +193,9 @@ func TestRenderFilePicker_NoSelections(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 	m.initSubEntryForm(0, -1)
 
-	m.subEntryForm.addFileMode = ModePicker
-	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir
-	m.subEntryForm.selectedFiles = map[string]bool{}
+	m.subEntryForm.AddFileMode = ModePicker
+	m.subEntryForm.FilePicker.CurrentDirectory = testNvimDir
+	m.subEntryForm.SelectedFiles = map[string]bool{}
 
 	view := m.viewFilePicker()
 

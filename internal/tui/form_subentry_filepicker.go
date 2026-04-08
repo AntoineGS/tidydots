@@ -24,51 +24,51 @@ func (m Model) updateFileAddModeChoice(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 	switch {
 	case key.Matches(msg, ModeChooserKeys.Cancel):
 		// Cancel mode selection and return to files list
-		m.subEntryForm.addFileMode = ModeNone
-		m.subEntryForm.modeMenuCursor = 0
+		m.subEntryForm.AddFileMode = ModeNone
+		m.subEntryForm.ModeMenuCursor = 0
 		return m, nil
 
 	case key.Matches(msg, ModeChooserKeys.Up):
 		// Move up with wrapping (0=Browse target, 1=Browse source, 2=Type)
-		m.subEntryForm.modeMenuCursor--
-		if m.subEntryForm.modeMenuCursor < 0 {
-			m.subEntryForm.modeMenuCursor = 2
+		m.subEntryForm.ModeMenuCursor--
+		if m.subEntryForm.ModeMenuCursor < 0 {
+			m.subEntryForm.ModeMenuCursor = 2
 		}
 		return m, nil
 
 	case key.Matches(msg, ModeChooserKeys.Down):
 		// Move down with wrapping
-		m.subEntryForm.modeMenuCursor++
-		if m.subEntryForm.modeMenuCursor > 2 {
-			m.subEntryForm.modeMenuCursor = 0
+		m.subEntryForm.ModeMenuCursor++
+		if m.subEntryForm.ModeMenuCursor > 2 {
+			m.subEntryForm.ModeMenuCursor = 0
 		}
 		return m, nil
 
 	case key.Matches(msg, ModeChooserKeys.Select):
 		// Select the current option
-		switch m.subEntryForm.modeMenuCursor {
+		switch m.subEntryForm.ModeMenuCursor {
 		case 0:
 			// Browse target directory - transition to ModePicker
 			if err := m.initFilePicker(); err != nil {
-				m.subEntryForm.err = fmt.Sprintf("failed to initialize file picker: %v", err)
-				m.subEntryForm.addFileMode = ModeNone
+				m.subEntryForm.Err = fmt.Sprintf("failed to initialize file picker: %v", err)
+				m.subEntryForm.AddFileMode = ModeNone
 				return m, nil
 			}
-			m.subEntryForm.addFileMode = ModePicker
+			m.subEntryForm.AddFileMode = ModePicker
 		case 1:
 			// Browse source directory - transition to ModePicker starting at backup path
 			if err := m.initFilePickerForBackup(); err != nil {
-				m.subEntryForm.err = fmt.Sprintf("failed to initialize file picker: %v", err)
-				m.subEntryForm.addFileMode = ModeNone
+				m.subEntryForm.Err = fmt.Sprintf("failed to initialize file picker: %v", err)
+				m.subEntryForm.AddFileMode = ModeNone
 				return m, nil
 			}
-			m.subEntryForm.addFileMode = ModePicker
+			m.subEntryForm.AddFileMode = ModePicker
 		case 2:
 			// Type Path - transition to ModeTextInput
-			m.subEntryForm.addFileMode = ModeTextInput
-			m.subEntryForm.addingFile = true
-			m.subEntryForm.newFileInput.SetValue("")
-			m.subEntryForm.newFileInput.Focus()
+			m.subEntryForm.AddFileMode = ModeTextInput
+			m.subEntryForm.AddingFile = true
+			m.subEntryForm.NewFileInput.SetValue("")
+			m.subEntryForm.NewFileInput.Focus()
 		}
 		return m, nil
 	}
@@ -96,7 +96,7 @@ func (m Model) viewFileAddModeMenu() string {
 	}
 
 	for i, text := range options {
-		if m.subEntryForm.modeMenuCursor == i {
+		if m.subEntryForm.ModeMenuCursor == i {
 			fmt.Fprintf(&b, "  %s\n", SelectedMenuItemStyle.Render("→ "+text))
 		} else {
 			fmt.Fprintf(&b, "    %s\n", text)
@@ -124,11 +124,11 @@ func (m *Model) initFilePicker() error {
 	var targetPath string
 	switch m.Platform.OS {
 	case OSLinux:
-		targetPath = m.subEntryForm.linuxTargetInput.Value()
+		targetPath = m.subEntryForm.LinuxTargetInput.Value()
 	case OSWindows:
-		targetPath = m.subEntryForm.windowsTargetInput.Value()
+		targetPath = m.subEntryForm.WindowsTargetInput.Value()
 	default:
-		targetPath = m.subEntryForm.linuxTargetInput.Value()
+		targetPath = m.subEntryForm.LinuxTargetInput.Value()
 	}
 
 	// Resolve the start directory using phase 2 utility
@@ -144,7 +144,7 @@ func (m *Model) initFilePicker() error {
 	picker.FileAllowed = true
 	picker.ShowHidden = true
 
-	m.subEntryForm.filePicker = picker
+	m.subEntryForm.FilePicker = picker
 
 	return nil
 }
@@ -156,7 +156,7 @@ func (m *Model) initFilePickerForBackup() error {
 	}
 
 	// Get the backup path and resolve it relative to the config directory
-	backupPath := m.subEntryForm.backupInput.Value()
+	backupPath := m.subEntryForm.BackupInput.Value()
 
 	var startDir string
 	if backupPath == "" {
@@ -192,7 +192,7 @@ func (m *Model) initFilePickerForBackup() error {
 	picker.FileAllowed = true
 	picker.ShowHidden = true
 
-	m.subEntryForm.filePicker = picker
+	m.subEntryForm.FilePicker = picker
 
 	return nil
 }
@@ -212,8 +212,8 @@ func (m Model) updateSubEntryFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	switch {
 	case key.Matches(msg, FilePickerKeys.Cancel):
 		// Cancel file picker, clear selections, and return to files list
-		m.subEntryForm.addFileMode = ModeNone
-		m.subEntryForm.selectedFiles = make(map[string]bool)
+		m.subEntryForm.AddFileMode = ModeNone
+		m.subEntryForm.SelectedFiles = make(map[string]bool)
 		return m, nil
 
 	case key.Matches(msg, FilePickerKeys.Toggle):
@@ -221,23 +221,23 @@ func (m Model) updateSubEntryFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		// The selectedFiles map tracks absolute paths of files marked for addition
 		// When user presses space/tab, we add or remove the current file from this map
 		currentPath := filepath.Join(
-			m.subEntryForm.filePicker.CurrentDirectory,
-			m.subEntryForm.filePicker.Path,
+			m.subEntryForm.FilePicker.CurrentDirectory,
+			m.subEntryForm.FilePicker.Path,
 		)
 
-		if currentPath == "" || m.subEntryForm.filePicker.Path == "" {
+		if currentPath == "" || m.subEntryForm.FilePicker.Path == "" {
 			// No valid selection (e.g., on ".." or empty path)
 			// Pass the key through to the file picker for normal navigation
-			m.subEntryForm.filePicker, cmd = m.subEntryForm.filePicker.Update(msg)
+			m.subEntryForm.FilePicker, cmd = m.subEntryForm.FilePicker.Update(msg)
 			return m, cmd
 		}
 
 		// Toggle selection: if already selected, remove it; otherwise add it
 		// This allows users to build up a multi-selection before confirming
-		if m.subEntryForm.selectedFiles[currentPath] {
-			delete(m.subEntryForm.selectedFiles, currentPath)
+		if m.subEntryForm.SelectedFiles[currentPath] {
+			delete(m.subEntryForm.SelectedFiles, currentPath)
 		} else {
-			m.subEntryForm.selectedFiles[currentPath] = true
+			m.subEntryForm.SelectedFiles[currentPath] = true
 		}
 
 		return m, nil
@@ -254,29 +254,29 @@ func (m Model) updateSubEntryFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		var targetPath string
 		switch m.Platform.OS {
 		case OSLinux:
-			targetPath = m.subEntryForm.linuxTargetInput.Value()
+			targetPath = m.subEntryForm.LinuxTargetInput.Value()
 		case OSWindows:
-			targetPath = m.subEntryForm.windowsTargetInput.Value()
+			targetPath = m.subEntryForm.WindowsTargetInput.Value()
 		default:
-			targetPath = m.subEntryForm.linuxTargetInput.Value()
+			targetPath = m.subEntryForm.LinuxTargetInput.Value()
 		}
 
 		// Expand target path to absolute (resolve ~ and env vars)
 		// This is required for accurate relative path calculation
 		expandedTarget, err := expandTargetPath(targetPath)
 		if err != nil {
-			m.subEntryForm.err = fmt.Sprintf("failed to expand target path: %v", err)
-			m.subEntryForm.addFileMode = ModeNone
-			m.subEntryForm.selectedFiles = make(map[string]bool)
+			m.subEntryForm.Err = fmt.Sprintf("failed to expand target path: %v", err)
+			m.subEntryForm.AddFileMode = ModeNone
+			m.subEntryForm.SelectedFiles = make(map[string]bool)
 			return m, nil
 		}
 
 		// Process all selected files (if any)
-		if len(m.subEntryForm.selectedFiles) > 0 {
+		if len(m.subEntryForm.SelectedFiles) > 0 {
 			// Collect all selected paths from the map
 			// selectedFiles uses absolute paths as keys for accurate tracking
-			selectedPaths := make([]string, 0, len(m.subEntryForm.selectedFiles))
-			for path := range m.subEntryForm.selectedFiles {
+			selectedPaths := make([]string, 0, len(m.subEntryForm.SelectedFiles))
+			for path := range m.subEntryForm.SelectedFiles {
 				selectedPaths = append(selectedPaths, path)
 			}
 
@@ -289,34 +289,34 @@ func (m Model) updateSubEntryFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 			addedCount := 0
 			for i, relativePath := range relativePaths {
 				if errs[i] == nil && relativePath != "" {
-					m.subEntryForm.files = append(m.subEntryForm.files, relativePath)
+					m.subEntryForm.Files = append(m.subEntryForm.Files, relativePath)
 					addedCount++
 				}
 			}
 
 			// Clear selections for next use
-			m.subEntryForm.selectedFiles = make(map[string]bool)
+			m.subEntryForm.SelectedFiles = make(map[string]bool)
 
 			// Move cursor to "Add File" button for convenience
-			m.subEntryForm.filesCursor = len(m.subEntryForm.files)
+			m.subEntryForm.FilesCursor = len(m.subEntryForm.Files)
 
 			// Set success message to show user feedback
 			if addedCount > 0 {
-				m.subEntryForm.successMessage = fmt.Sprintf("Added %d file(s)", addedCount)
+				m.subEntryForm.SuccessMessage = fmt.Sprintf("Added %d file(s)", addedCount)
 			}
 
 			// Exit picker mode and return to files list
-			m.subEntryForm.addFileMode = ModeNone
+			m.subEntryForm.AddFileMode = ModeNone
 			return m, nil
 		}
 
 		// No selections - just cancel and return to files list
-		m.subEntryForm.addFileMode = ModeNone
+		m.subEntryForm.AddFileMode = ModeNone
 		return m, nil
 	}
 
 	// Update the file picker with the key message
-	m.subEntryForm.filePicker, cmd = m.subEntryForm.filePicker.Update(msg)
+	m.subEntryForm.FilePicker, cmd = m.subEntryForm.FilePicker.Update(msg)
 
 	return m, cmd
 }
@@ -338,11 +338,11 @@ func (m Model) renderStyledFilePicker() string {
 	}
 
 	// Get the raw picker view from the underlying file picker component
-	rawView := m.subEntryForm.filePicker.View()
+	rawView := m.subEntryForm.FilePicker.View()
 	lines := strings.Split(rawView, "\n")
 
 	var styledLines []string
-	currentDir := m.subEntryForm.filePicker.CurrentDirectory
+	currentDir := m.subEntryForm.FilePicker.CurrentDirectory
 
 	for _, line := range lines {
 		// Skip empty lines (preserve spacing)
@@ -378,7 +378,7 @@ func (m Model) renderStyledFilePicker() string {
 		fullPath = filepath.Join(currentDir, trimmed)
 
 		// Check if this file is in the selectedFiles map (user pressed space/tab on it)
-		isSelected := m.subEntryForm.selectedFiles[fullPath]
+		isSelected := m.subEntryForm.SelectedFiles[fullPath]
 
 		// Apply styling based on cursor and selection state
 		// Priority: cursor styling > selected styling > no styling
@@ -408,7 +408,7 @@ func (m Model) viewFilePicker() string {
 	var b strings.Builder
 
 	// Header with current directory
-	currentDir := m.subEntryForm.filePicker.CurrentDirectory
+	currentDir := m.subEntryForm.FilePicker.CurrentDirectory
 	if currentDir == "" {
 		currentDir = "/"
 	}
@@ -423,7 +423,7 @@ func (m Model) viewFilePicker() string {
 	b.WriteString("\n\n")
 
 	// Selection count
-	selectionCount := len(m.subEntryForm.selectedFiles)
+	selectionCount := len(m.subEntryForm.SelectedFiles)
 	countText := fmt.Sprintf("%d file(s) selected", selectionCount)
 	b.WriteString(MutedTextStyle.Render(countText))
 	b.WriteString("\n\n")

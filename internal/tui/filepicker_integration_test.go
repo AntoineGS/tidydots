@@ -61,41 +61,41 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	}
 
 	// Set targets to our test directory
-	m.subEntryForm.linuxTargetInput.SetValue(targetDir)
-	m.subEntryForm.isFolder = false // Use files mode
+	m.subEntryForm.LinuxTargetInput.SetValue(targetDir)
+	m.subEntryForm.IsFolder = false // Use files mode
 
 	// Verify initial state
-	if m.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("initial addFileMode = %d, want %d (ModeNone)", m.subEntryForm.addFileMode, ModeNone)
+	if m.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("initial addFileMode = %d, want %d (ModeNone)", m.subEntryForm.AddFileMode, ModeNone)
 	}
 
 	// Navigate to files field
-	m.subEntryForm.focusIndex = 5 // Files field index
+	m.subEntryForm.FocusIndex = 5 // Files field index
 	m.updateSubEntryFormFocus()
 
 	// Verify we're on the files field
 	if m.getSubEntryFieldType() != subFieldFiles {
 		t.Errorf("focusIndex = %d, field type = %d, want subFieldFiles (%d)",
-			m.subEntryForm.focusIndex, m.getSubEntryFieldType(), subFieldFiles)
+			m.subEntryForm.FocusIndex, m.getSubEntryFieldType(), subFieldFiles)
 	}
 
 	// Step 2: Trigger "Add File" by pressing enter on "Add File" button
 	// filesCursor should be at len(files) (0 initially) which is the "Add File" button
-	m.subEntryForm.filesCursor = len(m.subEntryForm.files)
+	m.subEntryForm.FilesCursor = len(m.subEntryForm.Files)
 
 	keyMsg := tea.KeyPressMsg{Code: tea.KeyEnter}
 	updatedModel, _ := m.updateSubEntryFilesList(keyMsg)
 	m = updatedModel.(Model)
 
 	// Verify we entered ModeChoosing
-	if m.subEntryForm.addFileMode != ModeChoosing {
+	if m.subEntryForm.AddFileMode != ModeChoosing {
 		t.Errorf("after enter on Add File: addFileMode = %d, want %d (ModeChoosing)",
-			m.subEntryForm.addFileMode, ModeChoosing)
+			m.subEntryForm.AddFileMode, ModeChoosing)
 	}
 
 	// Verify modeMenuCursor is at Browse option (0)
-	if m.subEntryForm.modeMenuCursor != 0 {
-		t.Errorf("modeMenuCursor = %d, want 0 (Browse)", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 0 {
+		t.Errorf("modeMenuCursor = %d, want 0 (Browse)", m.subEntryForm.ModeMenuCursor)
 	}
 
 	// Step 3: Select "Browse" option by pressing enter
@@ -104,13 +104,13 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	m = updatedModel.(Model)
 
 	// Verify we entered ModePicker
-	if m.subEntryForm.addFileMode != ModePicker {
+	if m.subEntryForm.AddFileMode != ModePicker {
 		t.Errorf("after selecting Browse: addFileMode = %d, want %d (ModePicker)",
-			m.subEntryForm.addFileMode, ModePicker)
+			m.subEntryForm.AddFileMode, ModePicker)
 	}
 
 	// Verify file picker was initialized
-	if m.subEntryForm.filePicker.CurrentDirectory == "" {
+	if m.subEntryForm.FilePicker.CurrentDirectory == "" {
 		t.Error("filePicker.CurrentDirectory is empty after entering ModePicker")
 	}
 
@@ -122,12 +122,12 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	// Simulate selecting files in the file picker
 	file1Path := filepath.Join(targetDir, "file1.conf")
 	file2Path := filepath.Join(targetDir, "file2.conf")
-	m.subEntryForm.selectedFiles[file1Path] = true
-	m.subEntryForm.selectedFiles[file2Path] = true
+	m.subEntryForm.SelectedFiles[file1Path] = true
+	m.subEntryForm.SelectedFiles[file2Path] = true
 
 	// Verify selections were tracked
-	if len(m.subEntryForm.selectedFiles) != 2 {
-		t.Errorf("len(selectedFiles) = %d, want 2", len(m.subEntryForm.selectedFiles))
+	if len(m.subEntryForm.SelectedFiles) != 2 {
+		t.Errorf("len(selectedFiles) = %d, want 2", len(m.subEntryForm.SelectedFiles))
 	}
 
 	// Step 5: Press enter to confirm selections
@@ -136,14 +136,14 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	m = updatedModel.(Model)
 
 	// Verify we exited picker mode
-	if m.subEntryForm.addFileMode != ModeNone {
+	if m.subEntryForm.AddFileMode != ModeNone {
 		t.Errorf("after confirming selections: addFileMode = %d, want %d (ModeNone)",
-			m.subEntryForm.addFileMode, ModeNone)
+			m.subEntryForm.AddFileMode, ModeNone)
 	}
 
 	// Verify files were added to the files list
-	if len(m.subEntryForm.files) != 2 {
-		t.Errorf("len(files) = %d, want 2", len(m.subEntryForm.files))
+	if len(m.subEntryForm.Files) != 2 {
+		t.Errorf("len(files) = %d, want 2", len(m.subEntryForm.Files))
 	}
 
 	// Verify the files are relative paths (file1.conf, file2.conf)
@@ -151,7 +151,7 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 		"file1.conf": false,
 		"file2.conf": false,
 	}
-	for _, file := range m.subEntryForm.files {
+	for _, file := range m.subEntryForm.Files {
 		if _, ok := expectedFiles[file]; !ok {
 			t.Errorf("unexpected file in list: %s", file)
 		}
@@ -166,22 +166,22 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	}
 
 	// Verify selections were cleared
-	if len(m.subEntryForm.selectedFiles) != 0 {
-		t.Errorf("len(selectedFiles) after confirmation = %d, want 0", len(m.subEntryForm.selectedFiles))
+	if len(m.subEntryForm.SelectedFiles) != 0 {
+		t.Errorf("len(selectedFiles) after confirmation = %d, want 0", len(m.subEntryForm.SelectedFiles))
 	}
 
 	// Verify cursor moved to "Add File" button
-	if m.subEntryForm.filesCursor != len(m.subEntryForm.files) {
+	if m.subEntryForm.FilesCursor != len(m.subEntryForm.Files) {
 		t.Errorf("filesCursor = %d, want %d (at Add File button)",
-			m.subEntryForm.filesCursor, len(m.subEntryForm.files))
+			m.subEntryForm.FilesCursor, len(m.subEntryForm.Files))
 	}
 
 	// Verify success message was set
-	if m.subEntryForm.successMessage == "" {
+	if m.subEntryForm.SuccessMessage == "" {
 		t.Error("successMessage is empty after adding files")
 	}
-	if !strings.Contains(m.subEntryForm.successMessage, "2 file(s)") {
-		t.Errorf("successMessage = %q, want to contain '2 file(s)'", m.subEntryForm.successMessage)
+	if !strings.Contains(m.subEntryForm.SuccessMessage, "2 file(s)") {
+		t.Errorf("successMessage = %q, want to contain '2 file(s)'", m.subEntryForm.SuccessMessage)
 	}
 }
 
@@ -232,17 +232,17 @@ func TestFilePickerIntegration_CancelFlow(t *testing.T) {
 			m.initSubEntryForm(0, -1)
 
 			// Set up the starting mode
-			m.subEntryForm.addFileMode = tt.startMode
+			m.subEntryForm.AddFileMode = tt.startMode
 			if tt.startMode == ModePicker {
 				// Initialize file picker for this test
 				tmpDir := t.TempDir()
 				if err := m.initFilePicker(); err != nil {
 					// If init fails, manually set picker to avoid nil panic
-					m.subEntryForm.filePicker.CurrentDirectory = tmpDir
+					m.subEntryForm.FilePicker.CurrentDirectory = tmpDir
 				}
 				// Add some selections to verify they're cleared
-				m.subEntryForm.selectedFiles["test1.txt"] = true
-				m.subEntryForm.selectedFiles["test2.txt"] = true
+				m.subEntryForm.SelectedFiles["test1.txt"] = true
+				m.subEntryForm.SelectedFiles["test2.txt"] = true
 			}
 
 			// Press escape
@@ -251,15 +251,15 @@ func TestFilePickerIntegration_CancelFlow(t *testing.T) {
 			m = updatedModel.(Model)
 
 			// Verify we returned to ModeNone
-			if m.subEntryForm.addFileMode != tt.expectMode {
+			if m.subEntryForm.AddFileMode != tt.expectMode {
 				t.Errorf("%s: addFileMode = %d, want %d (ModeNone)", tt.description,
-					m.subEntryForm.addFileMode, tt.expectMode)
+					m.subEntryForm.AddFileMode, tt.expectMode)
 			}
 
 			// Verify selections were cleared (for ModePicker)
-			if tt.startMode == ModePicker && len(m.subEntryForm.selectedFiles) != 0 {
+			if tt.startMode == ModePicker && len(m.subEntryForm.SelectedFiles) != 0 {
 				t.Errorf("%s: selectedFiles not cleared, len = %d", tt.description,
-					len(m.subEntryForm.selectedFiles))
+					len(m.subEntryForm.SelectedFiles))
 			}
 		})
 	}
@@ -334,9 +334,9 @@ func TestFilePickerIntegration_LinuxWindowsTargets(t *testing.T) {
 
 			// Initialize form
 			m.initSubEntryForm(0, -1)
-			m.subEntryForm.linuxTargetInput.SetValue(linuxTarget)
-			m.subEntryForm.windowsTargetInput.SetValue(windowsTarget)
-			m.subEntryForm.isFolder = false
+			m.subEntryForm.LinuxTargetInput.SetValue(linuxTarget)
+			m.subEntryForm.WindowsTargetInput.SetValue(windowsTarget)
+			m.subEntryForm.IsFolder = false
 
 			// Initialize file picker
 			if err := m.initFilePicker(); err != nil {
@@ -344,7 +344,7 @@ func TestFilePickerIntegration_LinuxWindowsTargets(t *testing.T) {
 			}
 
 			// Verify picker was initialized with correct target directory
-			pickerDir := m.subEntryForm.filePicker.CurrentDirectory
+			pickerDir := m.subEntryForm.FilePicker.CurrentDirectory
 			if !strings.Contains(pickerDir, tt.expectedTarget) {
 				// Note: resolvePickerStartDirectory might navigate to nearest existing parent
 				// So we check if the path is related to expected target
@@ -354,8 +354,8 @@ func TestFilePickerIntegration_LinuxWindowsTargets(t *testing.T) {
 			}
 
 			// Simulate file selection and confirmation
-			m.subEntryForm.selectedFiles[tt.testFile] = true
-			m.subEntryForm.addFileMode = ModePicker
+			m.subEntryForm.SelectedFiles[tt.testFile] = true
+			m.subEntryForm.AddFileMode = ModePicker
 
 			// Confirm selection
 			keyMsg := tea.KeyPressMsg{Code: tea.KeyEnter}
@@ -363,13 +363,13 @@ func TestFilePickerIntegration_LinuxWindowsTargets(t *testing.T) {
 			m = updatedModel.(Model)
 
 			// Verify file was added
-			if len(m.subEntryForm.files) != 1 {
-				t.Errorf("len(files) = %d, want 1", len(m.subEntryForm.files))
+			if len(m.subEntryForm.Files) != 1 {
+				t.Errorf("len(files) = %d, want 1", len(m.subEntryForm.Files))
 			}
 
 			// Verify file path is relative
-			if len(m.subEntryForm.files) > 0 {
-				addedFile := m.subEntryForm.files[0]
+			if len(m.subEntryForm.Files) > 0 {
+				addedFile := m.subEntryForm.Files[0]
 				// Should be relative path (e.g., "linux.conf" or "windows.conf")
 				if strings.Contains(addedFile, string(filepath.Separator)) {
 					t.Logf("warning: file path contains separator: %s (might be okay if nested)", addedFile)
@@ -401,19 +401,19 @@ func TestFilePickerIntegration_EmptySelection(t *testing.T) {
 	// Initialize form
 	m.initSubEntryForm(0, -1)
 	tmpDir := t.TempDir()
-	m.subEntryForm.linuxTargetInput.SetValue(tmpDir)
-	m.subEntryForm.isFolder = false
+	m.subEntryForm.LinuxTargetInput.SetValue(tmpDir)
+	m.subEntryForm.IsFolder = false
 
 	// Enter ModePicker without selecting any files
-	m.subEntryForm.addFileMode = ModePicker
+	m.subEntryForm.AddFileMode = ModePicker
 	if err := m.initFilePicker(); err != nil {
 		// Set a default directory if init fails
-		m.subEntryForm.filePicker.CurrentDirectory = tmpDir
+		m.subEntryForm.FilePicker.CurrentDirectory = tmpDir
 	}
 
 	// Verify no files selected
-	if len(m.subEntryForm.selectedFiles) != 0 {
-		t.Fatalf("initial selectedFiles should be empty, got %d", len(m.subEntryForm.selectedFiles))
+	if len(m.subEntryForm.SelectedFiles) != 0 {
+		t.Fatalf("initial selectedFiles should be empty, got %d", len(m.subEntryForm.SelectedFiles))
 	}
 
 	// Press enter with no selections
@@ -422,14 +422,14 @@ func TestFilePickerIntegration_EmptySelection(t *testing.T) {
 	m = updatedModel.(Model)
 
 	// Verify we exited picker mode
-	if m.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("addFileMode = %d, want %d (ModeNone)", m.subEntryForm.addFileMode, ModeNone)
+	if m.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("addFileMode = %d, want %d (ModeNone)", m.subEntryForm.AddFileMode, ModeNone)
 	}
 
 	// Verify no files were added
-	if len(m.subEntryForm.files) != 0 {
+	if len(m.subEntryForm.Files) != 0 {
 		t.Errorf("files should be empty when confirming with no selections, got %d files",
-			len(m.subEntryForm.files))
+			len(m.subEntryForm.Files))
 	}
 }
 
@@ -456,16 +456,16 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	m.initSubEntryForm(0, -1)
 
 	// Enter mode choosing
-	m.subEntryForm.addFileMode = ModeChoosing
-	m.subEntryForm.modeMenuCursor = 0 // Start at Browse
+	m.subEntryForm.AddFileMode = ModeChoosing
+	m.subEntryForm.ModeMenuCursor = 0 // Start at Browse
 
 	// Test down navigation: 0 -> 1 (Browse source)
 	keyMsg := tea.KeyPressMsg{Code: tea.KeyDown}
 	updatedModel, _ := m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
-	if m.subEntryForm.modeMenuCursor != 1 {
-		t.Errorf("after down: modeMenuCursor = %d, want 1 (Browse source)", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 1 {
+		t.Errorf("after down: modeMenuCursor = %d, want 1 (Browse source)", m.subEntryForm.ModeMenuCursor)
 	}
 
 	// Test down navigation: 1 -> 2 (Type)
@@ -473,8 +473,8 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
-	if m.subEntryForm.modeMenuCursor != 2 {
-		t.Errorf("after second down: modeMenuCursor = %d, want 2 (Type)", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 2 {
+		t.Errorf("after second down: modeMenuCursor = %d, want 2 (Type)", m.subEntryForm.ModeMenuCursor)
 	}
 
 	// Test down navigation with wrap: 2 -> 0
@@ -482,8 +482,8 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
-	if m.subEntryForm.modeMenuCursor != 0 {
-		t.Errorf("after down with wrap: modeMenuCursor = %d, want 0 (Browse target)", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 0 {
+		t.Errorf("after down with wrap: modeMenuCursor = %d, want 0 (Browse target)", m.subEntryForm.ModeMenuCursor)
 	}
 
 	// Test up navigation with wrap: 0 -> 2
@@ -491,8 +491,8 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
-	if m.subEntryForm.modeMenuCursor != 2 {
-		t.Errorf("after up: modeMenuCursor = %d, want 2 (Type)", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 2 {
+		t.Errorf("after up: modeMenuCursor = %d, want 2 (Type)", m.subEntryForm.ModeMenuCursor)
 	}
 
 	// Test vim-style navigation (j = down): 2 -> 0 (wrap)
@@ -500,8 +500,8 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
-	if m.subEntryForm.modeMenuCursor != 0 {
-		t.Errorf("after 'j' (vim down): modeMenuCursor = %d, want 0 (Browse target)", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 0 {
+		t.Errorf("after 'j' (vim down): modeMenuCursor = %d, want 0 (Browse target)", m.subEntryForm.ModeMenuCursor)
 	}
 
 	// Test vim-style navigation (k = up): 0 -> 2 (wrap)
@@ -509,7 +509,7 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	updatedModel, _ = m.updateFileAddModeChoice(keyMsg)
 	m = updatedModel.(Model)
 
-	if m.subEntryForm.modeMenuCursor != 2 {
-		t.Errorf("after 'k' (vim up): modeMenuCursor = %d, want 2 (Type)", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 2 {
+		t.Errorf("after 'k' (vim up): modeMenuCursor = %d, want 2 (Type)", m.subEntryForm.ModeMenuCursor)
 	}
 }

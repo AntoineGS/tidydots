@@ -773,8 +773,8 @@ func TestEditWithSortedApplications(t *testing.T) {
 		t.Fatal("Application form should be initialized")
 	}
 
-	if model.applicationForm.nameInput.Value() != "nvim" {
-		t.Errorf("Expected form to edit 'nvim', got %q", model.applicationForm.nameInput.Value())
+	if model.applicationForm.NameInput.Value() != "nvim" {
+		t.Errorf("Expected form to edit 'nvim', got %q", model.applicationForm.NameInput.Value())
 	}
 
 	// The table sorts sub-entries by Data[0] which includes tree characters.
@@ -791,8 +791,8 @@ func TestEditWithSortedApplications(t *testing.T) {
 		t.Fatal("Sub-entry form should be initialized")
 	}
 
-	if model.subEntryForm.nameInput.Value() != "plugins" {
-		t.Errorf("Expected form to edit 'plugins', got %q", model.subEntryForm.nameInput.Value())
+	if model.subEntryForm.NameInput.Value() != "plugins" {
+		t.Errorf("Expected form to edit 'plugins', got %q", model.subEntryForm.NameInput.Value())
 	}
 
 	// Test editing sub-entry at visual row 3 (init, due to sort order)
@@ -805,8 +805,8 @@ func TestEditWithSortedApplications(t *testing.T) {
 		t.Fatal("Sub-entry form should be initialized")
 	}
 
-	if model.subEntryForm.nameInput.Value() != "init" {
-		t.Errorf("Expected form to edit 'init', got %q", model.subEntryForm.nameInput.Value())
+	if model.subEntryForm.NameInput.Value() != "init" {
+		t.Errorf("Expected form to edit 'init', got %q", model.subEntryForm.NameInput.Value())
 	}
 }
 

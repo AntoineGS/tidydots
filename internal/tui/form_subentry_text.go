@@ -19,8 +19,8 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 
 	// Check for suggestions (only for path fields)
 	isPathField := ft == subFieldLinux || ft == subFieldWindows || ft == subFieldBackup
-	hasSuggestions := m.subEntryForm.showSuggestions && len(m.subEntryForm.suggestions) > 0
-	hasSelectedSuggestion := hasSuggestions && m.subEntryForm.suggestionCursor >= 0
+	hasSuggestions := m.subEntryForm.ShowSuggestions && len(m.subEntryForm.Suggestions) > 0
+	hasSelectedSuggestion := hasSuggestions && m.subEntryForm.SuggestionCursor >= 0
 
 	if m, cmd, handled := m.handleTextEditKeys(msg); handled {
 		return m, cmd
@@ -30,7 +30,7 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	case key.Matches(msg, TextEditKeys.Cancel):
 		// If suggestions are showing, close them first
 		if hasSuggestions {
-			m.subEntryForm.showSuggestions = false
+			m.subEntryForm.ShowSuggestions = false
 			return m, nil
 		}
 		// Cancel editing and restore original value
@@ -45,8 +45,8 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 			return m, nil
 		}
 		// Save and exit edit mode
-		m.subEntryForm.editingField = false
-		m.subEntryForm.showSuggestions = false
+		m.subEntryForm.EditingField = false
+		m.subEntryForm.ShowSuggestions = false
 		m.updateSubEntryFormFocus()
 
 		return m, nil
@@ -58,8 +58,8 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 			return m, nil
 		}
 		// Save and exit edit mode
-		m.subEntryForm.editingField = false
-		m.subEntryForm.showSuggestions = false
+		m.subEntryForm.EditingField = false
+		m.subEntryForm.ShowSuggestions = false
 		m.updateSubEntryFormFocus()
 
 		return m, nil
@@ -67,10 +67,10 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	case key.Matches(msg, SuggestionKeys.Up):
 		// Navigate suggestions if showing
 		if hasSuggestions {
-			if m.subEntryForm.suggestionCursor < 0 {
-				m.subEntryForm.suggestionCursor = len(m.subEntryForm.suggestions) - 1
+			if m.subEntryForm.SuggestionCursor < 0 {
+				m.subEntryForm.SuggestionCursor = len(m.subEntryForm.Suggestions) - 1
 			} else {
-				m.subEntryForm.suggestionCursor--
+				m.subEntryForm.SuggestionCursor--
 			}
 
 			return m, nil
@@ -79,12 +79,12 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	case key.Matches(msg, SuggestionKeys.Down):
 		// Navigate suggestions if showing
 		if hasSuggestions {
-			if m.subEntryForm.suggestionCursor < 0 {
-				m.subEntryForm.suggestionCursor = 0
+			if m.subEntryForm.SuggestionCursor < 0 {
+				m.subEntryForm.SuggestionCursor = 0
 			} else {
-				m.subEntryForm.suggestionCursor++
-				if m.subEntryForm.suggestionCursor >= len(m.subEntryForm.suggestions) {
-					m.subEntryForm.suggestionCursor = 0
+				m.subEntryForm.SuggestionCursor++
+				if m.subEntryForm.SuggestionCursor >= len(m.subEntryForm.Suggestions) {
+					m.subEntryForm.SuggestionCursor = 0
 				}
 			}
 
@@ -95,13 +95,13 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	// Handle text input for the focused field
 	switch ft {
 	case subFieldName:
-		m.subEntryForm.nameInput, cmd = m.subEntryForm.nameInput.Update(msg)
+		m.subEntryForm.NameInput, cmd = m.subEntryForm.NameInput.Update(msg)
 	case subFieldLinux:
-		m.subEntryForm.linuxTargetInput, cmd = m.subEntryForm.linuxTargetInput.Update(msg)
+		m.subEntryForm.LinuxTargetInput, cmd = m.subEntryForm.LinuxTargetInput.Update(msg)
 	case subFieldWindows:
-		m.subEntryForm.windowsTargetInput, cmd = m.subEntryForm.windowsTargetInput.Update(msg)
+		m.subEntryForm.WindowsTargetInput, cmd = m.subEntryForm.WindowsTargetInput.Update(msg)
 	case subFieldBackup:
-		m.subEntryForm.backupInput, cmd = m.subEntryForm.backupInput.Update(msg)
+		m.subEntryForm.BackupInput, cmd = m.subEntryForm.BackupInput.Update(msg)
 	case subFieldIsFolder, subFieldFiles, subFieldIsSudo:
 		// Boolean and list fields don't use text input
 	}
@@ -112,7 +112,7 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	}
 
 	// Clear error when typing
-	m.subEntryForm.err = ""
+	m.subEntryForm.Err = ""
 
 	return m, cmd
 }
@@ -134,47 +134,47 @@ func (m *Model) updateSuggestionsSubEntry() {
 
 	switch ft {
 	case subFieldLinux:
-		input = m.subEntryForm.linuxTargetInput.Value()
+		input = m.subEntryForm.LinuxTargetInput.Value()
 	case subFieldWindows:
-		input = m.subEntryForm.windowsTargetInput.Value()
+		input = m.subEntryForm.WindowsTargetInput.Value()
 	case subFieldBackup:
-		input = m.subEntryForm.backupInput.Value()
+		input = m.subEntryForm.BackupInput.Value()
 	case subFieldName, subFieldIsFolder, subFieldFiles, subFieldIsSudo:
-		m.subEntryForm.showSuggestions = false
-		m.subEntryForm.suggestions = nil
+		m.subEntryForm.ShowSuggestions = false
+		m.subEntryForm.Suggestions = nil
 		return
 	default:
-		m.subEntryForm.showSuggestions = false
-		m.subEntryForm.suggestions = nil
+		m.subEntryForm.ShowSuggestions = false
+		m.subEntryForm.Suggestions = nil
 
 		return
 	}
 
 	suggestions := getPathSuggestions(input, configDir)
-	m.subEntryForm.suggestions = suggestions
-	m.subEntryForm.suggestionCursor = -1 // No selection until user uses arrows
-	m.subEntryForm.showSuggestions = len(suggestions) > 0
+	m.subEntryForm.Suggestions = suggestions
+	m.subEntryForm.SuggestionCursor = -1 // No selection until user uses arrows
+	m.subEntryForm.ShowSuggestions = len(suggestions) > 0
 }
 
 // acceptSuggestionSubEntry fills in the selected suggestion
 func (m *Model) acceptSuggestionSubEntry() {
-	if m.subEntryForm == nil || len(m.subEntryForm.suggestions) == 0 {
+	if m.subEntryForm == nil || len(m.subEntryForm.Suggestions) == 0 {
 		return
 	}
 
-	suggestion := m.subEntryForm.suggestions[m.subEntryForm.suggestionCursor]
+	suggestion := m.subEntryForm.Suggestions[m.subEntryForm.SuggestionCursor]
 	ft := m.getSubEntryFieldType()
 
 	switch ft {
 	case subFieldLinux:
-		m.subEntryForm.linuxTargetInput.SetValue(suggestion)
-		m.subEntryForm.linuxTargetInput.SetCursor(len(suggestion))
+		m.subEntryForm.LinuxTargetInput.SetValue(suggestion)
+		m.subEntryForm.LinuxTargetInput.SetCursor(len(suggestion))
 	case subFieldWindows:
-		m.subEntryForm.windowsTargetInput.SetValue(suggestion)
-		m.subEntryForm.windowsTargetInput.SetCursor(len(suggestion))
+		m.subEntryForm.WindowsTargetInput.SetValue(suggestion)
+		m.subEntryForm.WindowsTargetInput.SetCursor(len(suggestion))
 	case subFieldBackup:
-		m.subEntryForm.backupInput.SetValue(suggestion)
-		m.subEntryForm.backupInput.SetCursor(len(suggestion))
+		m.subEntryForm.BackupInput.SetValue(suggestion)
+		m.subEntryForm.BackupInput.SetCursor(len(suggestion))
 	case subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldName:
 		// Other fields don't use suggestions
 	}
@@ -183,7 +183,7 @@ func (m *Model) acceptSuggestionSubEntry() {
 	if strings.HasSuffix(suggestion, "/") {
 		m.updateSuggestionsSubEntry()
 	} else {
-		m.subEntryForm.showSuggestions = false
-		m.subEntryForm.suggestions = nil
+		m.subEntryForm.ShowSuggestions = false
+		m.subEntryForm.Suggestions = nil
 	}
 }

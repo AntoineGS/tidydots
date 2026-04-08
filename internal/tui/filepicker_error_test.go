@@ -25,13 +25,13 @@ func TestInitFilePickerEmptyTarget(t *testing.T) {
 	m := &Model{
 		Platform: &platform.Platform{OS: OSLinux},
 		subEntryForm: &SubEntryForm{
-			linuxTargetInput:   textinput.New(),
-			windowsTargetInput: textinput.New(),
+			LinuxTargetInput:   textinput.New(),
+			WindowsTargetInput: textinput.New(),
 		},
 	}
 
 	// Empty linux target
-	m.subEntryForm.linuxTargetInput.SetValue("")
+	m.subEntryForm.LinuxTargetInput.SetValue("")
 
 	// Initialize file picker
 	err = m.initFilePicker()
@@ -40,8 +40,8 @@ func TestInitFilePickerEmptyTarget(t *testing.T) {
 	}
 
 	// Verify picker starts at home directory
-	if m.subEntryForm.filePicker.CurrentDirectory != home {
-		t.Errorf("initFilePicker() with empty target = %v, want %v", m.subEntryForm.filePicker.CurrentDirectory, home)
+	if m.subEntryForm.FilePicker.CurrentDirectory != home {
+		t.Errorf("initFilePicker() with empty target = %v, want %v", m.subEntryForm.FilePicker.CurrentDirectory, home)
 	}
 }
 
@@ -63,12 +63,12 @@ func TestInitFilePickerNonExistentTarget(t *testing.T) {
 	m := &Model{
 		Platform: &platform.Platform{OS: OSLinux},
 		subEntryForm: &SubEntryForm{
-			linuxTargetInput:   textinput.New(),
-			windowsTargetInput: textinput.New(),
+			LinuxTargetInput:   textinput.New(),
+			WindowsTargetInput: textinput.New(),
 		},
 	}
 
-	m.subEntryForm.linuxTargetInput.SetValue(nonExistentPath)
+	m.subEntryForm.LinuxTargetInput.SetValue(nonExistentPath)
 
 	// Initialize file picker
 	err = m.initFilePicker()
@@ -77,8 +77,8 @@ func TestInitFilePickerNonExistentTarget(t *testing.T) {
 	}
 
 	// Verify picker falls back to existing parent
-	if m.subEntryForm.filePicker.CurrentDirectory != existingDir {
-		t.Errorf("initFilePicker() with non-existent target = %v, want %v", m.subEntryForm.filePicker.CurrentDirectory, existingDir)
+	if m.subEntryForm.FilePicker.CurrentDirectory != existingDir {
+		t.Errorf("initFilePicker() with non-existent target = %v, want %v", m.subEntryForm.FilePicker.CurrentDirectory, existingDir)
 	}
 }
 
@@ -109,16 +109,16 @@ func TestUpdateSubEntryFilePickerOutsideTarget(t *testing.T) {
 	m := &Model{
 		Platform: &platform.Platform{OS: OSLinux},
 		subEntryForm: &SubEntryForm{
-			linuxTargetInput:   textinput.New(),
-			windowsTargetInput: textinput.New(),
-			selectedFiles:      make(map[string]bool),
-			files:              []string{},
+			LinuxTargetInput:   textinput.New(),
+			WindowsTargetInput: textinput.New(),
+			SelectedFiles:      make(map[string]bool),
+			Files:              []string{},
 		},
 	}
 
-	m.subEntryForm.linuxTargetInput.SetValue(targetDir)
-	m.subEntryForm.selectedFiles[outsideFile] = true
-	m.subEntryForm.addFileMode = ModePicker
+	m.subEntryForm.LinuxTargetInput.SetValue(targetDir)
+	m.subEntryForm.SelectedFiles[outsideFile] = true
+	m.subEntryForm.AddFileMode = ModePicker
 
 	// Simulate enter key to confirm selection
 	msg := mockKeyMsg("enter")
@@ -126,13 +126,13 @@ func TestUpdateSubEntryFilePickerOutsideTarget(t *testing.T) {
 	updatedM := updatedModel.(Model)
 
 	// Verify that no files were added (since they're all outside target)
-	if len(updatedM.subEntryForm.files) > 0 {
-		t.Errorf("updateSubEntryFilePicker() added files outside target: %v", updatedM.subEntryForm.files)
+	if len(updatedM.subEntryForm.Files) > 0 {
+		t.Errorf("updateSubEntryFilePicker() added files outside target: %v", updatedM.subEntryForm.Files)
 	}
 
 	// Verify mode was reset
-	if updatedM.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("updateSubEntryFilePicker() mode = %v, want ModeNone", updatedM.subEntryForm.addFileMode)
+	if updatedM.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("updateSubEntryFilePicker() mode = %v, want ModeNone", updatedM.subEntryForm.AddFileMode)
 	}
 }
 
@@ -157,16 +157,16 @@ func TestUpdateSubEntryFilePickerInsideTarget(t *testing.T) {
 	m := &Model{
 		Platform: &platform.Platform{OS: OSLinux},
 		subEntryForm: &SubEntryForm{
-			linuxTargetInput:   textinput.New(),
-			windowsTargetInput: textinput.New(),
-			selectedFiles:      make(map[string]bool),
-			files:              []string{},
+			LinuxTargetInput:   textinput.New(),
+			WindowsTargetInput: textinput.New(),
+			SelectedFiles:      make(map[string]bool),
+			Files:              []string{},
 		},
 	}
 
-	m.subEntryForm.linuxTargetInput.SetValue(targetDir)
-	m.subEntryForm.selectedFiles[insideFile] = true
-	m.subEntryForm.addFileMode = ModePicker
+	m.subEntryForm.LinuxTargetInput.SetValue(targetDir)
+	m.subEntryForm.SelectedFiles[insideFile] = true
+	m.subEntryForm.AddFileMode = ModePicker
 
 	// Simulate enter key to confirm selection
 	msg := mockKeyMsg("enter")
@@ -174,22 +174,22 @@ func TestUpdateSubEntryFilePickerInsideTarget(t *testing.T) {
 	updatedM := updatedModel.(Model)
 
 	// Verify that file was added with relative path
-	if len(updatedM.subEntryForm.files) != 1 {
-		t.Fatalf("updateSubEntryFilePicker() added %d files, want 1", len(updatedM.subEntryForm.files))
+	if len(updatedM.subEntryForm.Files) != 1 {
+		t.Fatalf("updateSubEntryFilePicker() added %d files, want 1", len(updatedM.subEntryForm.Files))
 	}
 
-	if updatedM.subEntryForm.files[0] != "file.txt" {
-		t.Errorf("updateSubEntryFilePicker() files[0] = %v, want file.txt", updatedM.subEntryForm.files[0])
+	if updatedM.subEntryForm.Files[0] != "file.txt" {
+		t.Errorf("updateSubEntryFilePicker() files[0] = %v, want file.txt", updatedM.subEntryForm.Files[0])
 	}
 
 	// Verify mode was reset
-	if updatedM.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("updateSubEntryFilePicker() mode = %v, want ModeNone", updatedM.subEntryForm.addFileMode)
+	if updatedM.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("updateSubEntryFilePicker() mode = %v, want ModeNone", updatedM.subEntryForm.AddFileMode)
 	}
 
 	// Verify selections were cleared
-	if len(updatedM.subEntryForm.selectedFiles) != 0 {
-		t.Errorf("updateSubEntryFilePicker() selectedFiles not cleared: %v", updatedM.subEntryForm.selectedFiles)
+	if len(updatedM.subEntryForm.SelectedFiles) != 0 {
+		t.Errorf("updateSubEntryFilePicker() selectedFiles not cleared: %v", updatedM.subEntryForm.SelectedFiles)
 	}
 }
 
@@ -232,18 +232,18 @@ func TestUpdateSubEntryFilePickerMixedSelection(t *testing.T) {
 	m := &Model{
 		Platform: &platform.Platform{OS: OSLinux},
 		subEntryForm: &SubEntryForm{
-			linuxTargetInput:   textinput.New(),
-			windowsTargetInput: textinput.New(),
-			selectedFiles:      make(map[string]bool),
-			files:              []string{},
+			LinuxTargetInput:   textinput.New(),
+			WindowsTargetInput: textinput.New(),
+			SelectedFiles:      make(map[string]bool),
+			Files:              []string{},
 		},
 	}
 
-	m.subEntryForm.linuxTargetInput.SetValue(targetDir)
-	m.subEntryForm.selectedFiles[insideFile1] = true
-	m.subEntryForm.selectedFiles[outsideFile] = true
-	m.subEntryForm.selectedFiles[insideFile2] = true
-	m.subEntryForm.addFileMode = ModePicker
+	m.subEntryForm.LinuxTargetInput.SetValue(targetDir)
+	m.subEntryForm.SelectedFiles[insideFile1] = true
+	m.subEntryForm.SelectedFiles[outsideFile] = true
+	m.subEntryForm.SelectedFiles[insideFile2] = true
+	m.subEntryForm.AddFileMode = ModePicker
 
 	// Simulate enter key to confirm selection
 	msg := mockKeyMsg("enter")
@@ -251,18 +251,18 @@ func TestUpdateSubEntryFilePickerMixedSelection(t *testing.T) {
 	updatedM := updatedModel.(Model)
 
 	// Verify that only inside files were added
-	if len(updatedM.subEntryForm.files) != 2 {
-		t.Fatalf("updateSubEntryFilePicker() added %d files, want 2", len(updatedM.subEntryForm.files))
+	if len(updatedM.subEntryForm.Files) != 2 {
+		t.Fatalf("updateSubEntryFilePicker() added %d files, want 2", len(updatedM.subEntryForm.Files))
 	}
 
 	// Check that files contain inside1 and inside2 (order doesn't matter due to map iteration)
 	fileMap := make(map[string]bool)
-	for _, f := range updatedM.subEntryForm.files {
+	for _, f := range updatedM.subEntryForm.Files {
 		fileMap[f] = true
 	}
 
 	if !fileMap["inside1.txt"] || !fileMap["inside2.txt"] {
-		t.Errorf("updateSubEntryFilePicker() files = %v, want inside1.txt and inside2.txt", updatedM.subEntryForm.files)
+		t.Errorf("updateSubEntryFilePicker() files = %v, want inside1.txt and inside2.txt", updatedM.subEntryForm.Files)
 	}
 
 	// Verify outside file was not added
@@ -368,15 +368,15 @@ func TestFilePickerSuccessMessage(t *testing.T) {
 			m := &Model{
 				Platform: &platform.Platform{OS: OSLinux},
 				subEntryForm: &SubEntryForm{
-					linuxTargetInput:   textinput.New(),
-					windowsTargetInput: textinput.New(),
-					selectedFiles:      tt.selectedFiles,
-					files:              []string{},
-					addFileMode:        ModePicker,
+					LinuxTargetInput:   textinput.New(),
+					WindowsTargetInput: textinput.New(),
+					SelectedFiles:      tt.selectedFiles,
+					Files:              []string{},
+					AddFileMode:        ModePicker,
 				},
 			}
 
-			m.subEntryForm.linuxTargetInput.SetValue(targetDir)
+			m.subEntryForm.LinuxTargetInput.SetValue(targetDir)
 
 			// Simulate enter key to confirm selection
 			msg := mockKeyMsg("enter")
@@ -384,18 +384,18 @@ func TestFilePickerSuccessMessage(t *testing.T) {
 			updatedM := updatedModel.(Model)
 
 			// Verify files were added
-			if len(updatedM.subEntryForm.files) != tt.wantCount {
-				t.Errorf("Added %d files, want %d", len(updatedM.subEntryForm.files), tt.wantCount)
+			if len(updatedM.subEntryForm.Files) != tt.wantCount {
+				t.Errorf("Added %d files, want %d", len(updatedM.subEntryForm.Files), tt.wantCount)
 			}
 
 			// Verify success message is set
-			if updatedM.subEntryForm.successMessage != tt.wantMessage {
-				t.Errorf("Success message = %v, want %v", updatedM.subEntryForm.successMessage, tt.wantMessage)
+			if updatedM.subEntryForm.SuccessMessage != tt.wantMessage {
+				t.Errorf("Success message = %v, want %v", updatedM.subEntryForm.SuccessMessage, tt.wantMessage)
 			}
 
 			// Verify no error was set
-			if updatedM.subEntryForm.err != "" {
-				t.Errorf("Unexpected error: %v", updatedM.subEntryForm.err)
+			if updatedM.subEntryForm.Err != "" {
+				t.Errorf("Unexpected error: %v", updatedM.subEntryForm.Err)
 			}
 		})
 	}
@@ -409,12 +409,12 @@ func TestErrorClearedOnNextAction(t *testing.T) {
 		Config:   &config.Config{},
 		Platform: &platform.Platform{OS: OSLinux},
 		subEntryForm: &SubEntryForm{
-			linuxTargetInput:   textinput.New(),
-			windowsTargetInput: textinput.New(),
-			backupInput:        textinput.New(),
-			nameInput:          textinput.New(),
-			focusIndex:         0,
-			err:                "Previous error",
+			LinuxTargetInput:   textinput.New(),
+			WindowsTargetInput: textinput.New(),
+			BackupInput:        textinput.New(),
+			NameInput:          textinput.New(),
+			FocusIndex:         0,
+			Err:                "Previous error",
 		},
 	}
 
@@ -424,8 +424,8 @@ func TestErrorClearedOnNextAction(t *testing.T) {
 	updatedM := updatedModel.(Model)
 
 	// Verify error was cleared
-	if updatedM.subEntryForm.err != "" {
-		t.Errorf("Error was not cleared on navigation: %v", updatedM.subEntryForm.err)
+	if updatedM.subEntryForm.Err != "" {
+		t.Errorf("Error was not cleared on navigation: %v", updatedM.subEntryForm.Err)
 	}
 }
 
@@ -436,15 +436,15 @@ func TestErrorClearedOnTyping(t *testing.T) {
 	m := &Model{
 		Platform: &platform.Platform{OS: OSLinux},
 		subEntryForm: &SubEntryForm{
-			nameInput:    textinput.New(),
-			focusIndex:   0,
-			editingField: true,
-			err:          "Previous error",
+			NameInput:    textinput.New(),
+			FocusIndex:   0,
+			EditingField: true,
+			Err:          "Previous error",
 		},
 	}
 
 	// Enter name field edit mode
-	m.subEntryForm.nameInput.Focus()
+	m.subEntryForm.NameInput.Focus()
 
 	// Simulate typing
 	msg := mockKeyMsg("a")
@@ -452,8 +452,8 @@ func TestErrorClearedOnTyping(t *testing.T) {
 	updatedM := updatedModel.(Model)
 
 	// Verify error was cleared
-	if updatedM.subEntryForm.err != "" {
-		t.Errorf("Error was not cleared on typing: %v", updatedM.subEntryForm.err)
+	if updatedM.subEntryForm.Err != "" {
+		t.Errorf("Error was not cleared on typing: %v", updatedM.subEntryForm.Err)
 	}
 }
 
