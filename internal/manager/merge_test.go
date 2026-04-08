@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -234,7 +235,7 @@ func TestMergeFile_NoConflict(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the file
-	err := mergeFile(targetFile, backupDir, "unique.txt", false, summary)
+	err := mergeFile(context.Background(), targetFile, backupDir, "unique.txt", false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -290,7 +291,7 @@ func TestMergeFile_WithConflict(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the file
-	err := mergeFile(targetFile, backupDir, "config.json", false, summary)
+	err := mergeFile(context.Background(), targetFile, backupDir, "config.json", false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -372,7 +373,7 @@ func TestMergeFolder_Recursive(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the entire folder
-	err := MergeFolder(backupDir, targetDir, false, summary)
+	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -475,7 +476,7 @@ func TestMergeFolder_WithConflicts(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the entire folder
-	err := MergeFolder(backupDir, targetDir, false, summary)
+	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -767,7 +768,7 @@ func TestMergeFolder_SymlinkInTarget(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the folder
-	err := MergeFolder(backupDir, targetDir, false, summary)
+	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -874,7 +875,7 @@ func TestMergeFolder_DuplicateConflicts(t *testing.T) {
 	}
 
 	summary1 := NewMergeSummary("test-app")
-	err := MergeFolder(backupDir, targetDir, false, summary1)
+	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary1)
 	if err != nil {
 		t.Fatalf("First MergeFolder() error = %v", err)
 	}
@@ -898,7 +899,7 @@ func TestMergeFolder_DuplicateConflicts(t *testing.T) {
 	}
 
 	summary2 := NewMergeSummary("test-app")
-	err = MergeFolder(backupDir, targetDir, false, summary2)
+	err = MergeFolder(context.Background(), backupDir, targetDir, false, summary2)
 	if err != nil {
 		t.Fatalf("Second MergeFolder() error = %v", err)
 	}
@@ -931,7 +932,7 @@ func TestMergeFolder_EmptyTargetDir(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge empty folder
-	err := MergeFolder(backupDir, targetDir, false, summary)
+	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary)
 
 	// Assert: No error
 	if err != nil {

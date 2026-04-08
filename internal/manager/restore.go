@@ -189,7 +189,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 
 			if !m.DryRun {
 				summary := NewMergeSummary(subEntry.Name)
-				if err := MergeFolder(source, target, subEntry.Sudo, summary); err != nil {
+				if err := MergeFolder(m.ctx, source, target, subEntry.Sudo, summary); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("merging folder: %w", err))
 				}
 
@@ -369,7 +369,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 
 				if !m.DryRun {
 					summary := NewMergeSummary(subEntry.Name)
-					if err := mergeFile(dstFile, source, file, subEntry.Sudo, summary); err != nil {
+					if err := mergeFile(m.ctx, dstFile, source, file, subEntry.Sudo, summary); err != nil {
 						return NewPathError("restore", dstFile, fmt.Errorf("merging file: %w", err))
 					}
 
