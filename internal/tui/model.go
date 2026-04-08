@@ -14,6 +14,7 @@ import (
 	"github.com/AntoineGS/tidydots/internal/platform"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
+	tuitable "github.com/AntoineGS/tidydots/internal/tui/table"
 )
 
 // Screen represents the current screen being displayed in the TUI.
@@ -61,47 +62,31 @@ func (o Operation) String() string {
 	return "Unknown"
 }
 
-// PathState represents the state of a path item for restore operations
-type PathState int
+// PathState is an alias for tuitable.PathState so that all existing code in
+// this package continues to compile without modification.
+type PathState = tuitable.PathState
 
-// Path states for restore operations.
+// Path state constants re-exported from the table sub-package.
 const (
-	// StateLoading indicates state is still being detected
-	StateLoading PathState = iota
-	// StateReady indicates backup exists and is ready to restore
-	StateReady // Backup exists, ready to restore
-	// StateAdopt indicates no backup but target exists (will adopt)
-	StateAdopt // No backup but target exists (will adopt)
-	// StateMissing indicates neither backup nor target exists
-	StateMissing // Neither backup nor target exists
-	// StateLinked indicates already symlinked
-	StateLinked // Already symlinked
-	// StateOutdated indicates linked but template source changed since last render
-	StateOutdated
-	// StateModified indicates linked but rendered file has user edits
-	StateModified
+	// StateLoading indicates state is still being detected.
+	StateLoading = tuitable.StateLoading
+	// StateReady indicates backup exists and is ready to restore.
+	StateReady = tuitable.StateReady
+	// StateAdopt indicates no backup but target exists (will adopt).
+	StateAdopt = tuitable.StateAdopt
+	// StateMissing indicates neither backup nor target exists.
+	StateMissing = tuitable.StateMissing
+	// StateLinked indicates already symlinked.
+	StateLinked = tuitable.StateLinked
+	// StateOutdated indicates linked but template source changed since last render.
+	StateOutdated = tuitable.StateOutdated
+	// StateModified indicates linked but rendered file has user edits.
+	StateModified = tuitable.StateModified
 )
 
-func (s PathState) String() string {
-	switch s {
-	case StateLoading:
-		return "Loading..."
-	case StateReady:
-		return "Ready"
-	case StateAdopt:
-		return "Adopt"
-	case StateMissing:
-		return "Missing"
-	case StateLinked:
-		return "Linked"
-	case StateOutdated:
-		return "Outdated"
-	case StateModified:
-		return "Modified"
-	}
-
-	return "Unknown"
-}
+// TableRow is an alias for tuitable.Row so that all existing code in
+// this package continues to compile without modification.
+type TableRow = tuitable.Row
 
 // FormType distinguishes between different form types
 type FormType int

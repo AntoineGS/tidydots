@@ -6,22 +6,6 @@ import (
 	"charm.land/bubbles/v2/table"
 )
 
-// TableRow wraps table.Row with hierarchy metadata
-type TableRow struct {
-	Data            table.Row // Actual display data [name, status, info, path] or [name, status, info, backup, path]
-	Level           int       // 0 = application, 1 = sub-entry
-	TreeChar        string    // "▶ ", "▼ ", "├─", "└─"
-	IsExpanded      bool
-	AppIndex        int       // Index in filtered array (for display)
-	AppName         string    // Application name for lookup in m.Applications
-	SubIndex        int       // -1 for application rows
-	State           PathState // For badge rendering
-	StatusAttention bool      // Status column needs attention
-	InfoAttention   bool      // Info column needs attention
-	InfoState       PathState // Highest-severity sub-entry state (app rows only)
-	BackupPath      string    // Backup/source path for sub-entries (empty for app rows)
-}
-
 // flattenApplications converts hierarchical apps to flat table rows
 func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bool) []TableRow {
 	var rows []TableRow
