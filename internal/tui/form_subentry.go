@@ -52,13 +52,13 @@ func (m *Model) initSubEntryFormNew(appIdx int) {
 		return
 	}
 
-	nameInput := newFormInput("e.g., nvim-config", 64, 40)
+	nameInput := newFormInput("e.g., nvim-config", CharLimitName, InputWidthNarrow)
 	nameInput.Focus()
 
-	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", 256, 40)
-	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", 256, 40)
-	backupInput := newFormInput("e.g., ./nvim", 256, 40)
-	newFileInput := newFormInput("e.g., .bashrc", 256, 40)
+	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", CharLimitPath, InputWidthNarrow)
+	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", CharLimitPath, InputWidthNarrow)
+	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
+	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
 
 	m.subEntryForm = &SubEntryForm{
 		nameInput:          nameInput,
@@ -129,24 +129,24 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 
 	sub := app.Entries[configSubIdx]
 
-	nameInput := newFormInput("e.g., nvim-config", 64, 40)
+	nameInput := newFormInput("e.g., nvim-config", CharLimitName, InputWidthNarrow)
 	nameInput.SetValue(sub.Name)
 	nameInput.Focus()
 
-	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", 256, 40)
+	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", CharLimitPath, InputWidthNarrow)
 	if target, ok := sub.Targets["linux"]; ok {
 		linuxTargetInput.SetValue(target)
 	}
 
-	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", 256, 40)
+	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", CharLimitPath, InputWidthNarrow)
 	if target, ok := sub.Targets["windows"]; ok {
 		windowsTargetInput.SetValue(target)
 	}
 
-	backupInput := newFormInput("e.g., ./nvim", 256, 40)
+	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
 	backupInput.SetValue(sub.Backup)
 
-	newFileInput := newFormInput("e.g., .bashrc", 256, 40)
+	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
 
 	// Load config-specific fields
 	isFolder := sub.IsFolder()
@@ -1148,20 +1148,20 @@ func (m *Model) updateSubEntry(appIdx, subIdx int, subEntry config.SubEntry) err
 
 // NewSubEntryForm creates a new SubEntryForm for testing purposes
 func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
-	nameInput := newFormInput("e.g., nvim-config", 64, 40)
+	nameInput := newFormInput("e.g., nvim-config", CharLimitName, InputWidthNarrow)
 	nameInput.SetValue(entry.Name)
 
-	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", 256, 40)
+	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", CharLimitPath, InputWidthNarrow)
 	if target, ok := entry.Targets["linux"]; ok {
 		linuxTargetInput.SetValue(target)
 	}
 
-	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", 256, 40)
+	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", CharLimitPath, InputWidthNarrow)
 	if target, ok := entry.Targets["windows"]; ok {
 		windowsTargetInput.SetValue(target)
 	}
 
-	backupInput := newFormInput("e.g., ./nvim", 256, 40)
+	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
 	backupInput.SetValue(entry.Backup)
 
 	return &SubEntryForm{

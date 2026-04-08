@@ -23,17 +23,17 @@ const (
 
 // initApplicationFormNew initializes the form for creating a new application
 func (m *Model) initApplicationFormNew() {
-	nameInput := newFormInput(PlaceholderNeovim, 64, 40)
+	nameInput := newFormInput(PlaceholderNeovim, CharLimitName, InputWidthNarrow)
 	nameInput.Focus()
 
-	descriptionInput := newFormInput("e.g., Neovim text editor", 256, 40)
-	packageNameInput := newFormInput(PlaceholderNeovim, 128, 40)
-	whenInput := newFormInput(PlaceholderWhen, 512, 60)
+	descriptionInput := newFormInput("e.g., Neovim text editor", CharLimitDesc, InputWidthNarrow)
+	packageNameInput := newFormInput(PlaceholderNeovim, CharLimitPkgName, InputWidthNarrow)
+	whenInput := newFormInput(PlaceholderWhen, CharLimitWhen, InputWidthWide)
 
 	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
 	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
 
-	depInput := newFormInput(PlaceholderDep, 128, 40)
+	depInput := newFormInput(PlaceholderDep, CharLimitDep, InputWidthNarrow)
 
 	m.applicationForm = &ApplicationForm{
 		nameInput:             nameInput,
@@ -89,16 +89,16 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 
 	app := m.Config.Applications[configAppIdx]
 
-	nameInput := newFormInput(PlaceholderNeovim, 64, 40)
+	nameInput := newFormInput(PlaceholderNeovim, CharLimitName, InputWidthNarrow)
 	nameInput.SetValue(app.Name)
 	nameInput.Focus()
 
-	descriptionInput := newFormInput("e.g., Neovim text editor", 256, 40)
+	descriptionInput := newFormInput("e.g., Neovim text editor", CharLimitDesc, InputWidthNarrow)
 	descriptionInput.SetValue(app.Description)
 
-	packageNameInput := newFormInput(PlaceholderNeovim, 128, 40)
+	packageNameInput := newFormInput(PlaceholderNeovim, CharLimitPkgName, InputWidthNarrow)
 
-	whenInput := newFormInput(PlaceholderWhen, 512, 60)
+	whenInput := newFormInput(PlaceholderWhen, CharLimitWhen, InputWidthWide)
 	whenInput.SetValue(app.When)
 
 	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
@@ -166,7 +166,7 @@ func (m *Model) initApplicationFormEdit(appIdx int) {
 		}
 	}
 
-	depInput := newFormInput(PlaceholderDep, 128, 40)
+	depInput := newFormInput(PlaceholderDep, CharLimitDep, InputWidthNarrow)
 
 	m.applicationForm = &ApplicationForm{
 		nameInput:             nameInput,
@@ -1207,13 +1207,13 @@ func (m *Model) cancelApplicationFieldEdit() {
 
 // NewApplicationForm creates a new ApplicationForm for testing purposes
 func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
-	nameInput := newFormInput(PlaceholderNeovim, 64, 40)
+	nameInput := newFormInput(PlaceholderNeovim, CharLimitName, InputWidthNarrow)
 	nameInput.SetValue(app.Name)
 
-	descriptionInput := newFormInput("e.g., Neovim text editor", 256, 40)
+	descriptionInput := newFormInput("e.g., Neovim text editor", CharLimitDesc, InputWidthNarrow)
 	descriptionInput.SetValue(app.Description)
 
-	whenInput := newFormInput(PlaceholderWhen, 512, 60)
+	whenInput := newFormInput(PlaceholderWhen, CharLimitWhen, InputWidthWide)
 	whenInput.SetValue(app.When)
 
 	editAppIdx := -1
@@ -1286,7 +1286,7 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 		}
 	}
 
-	depInput := newFormInput(PlaceholderDep, 128, 40)
+	depInput := newFormInput(PlaceholderDep, CharLimitDep, InputWidthNarrow)
 
 	return &ApplicationForm{
 		nameInput:             nameInput,

@@ -32,18 +32,18 @@ func newFormInput(placeholder string, charLimit int, width int) textinput.Model 
 
 // newGitTextInputs creates the four git text inputs with standard placeholders and char limits
 func newGitTextInputs() (gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput textinput.Model) {
-	gitURLInput = newFormInput(PlaceholderGitURL, 256, 40)
-	gitBranchInput = newFormInput(PlaceholderGitBranch, 128, 40)
-	gitLinuxInput = newFormInput(PlaceholderGitLinux, 256, 40)
-	gitWindowsInput = newFormInput(PlaceholderGitWindows, 256, 40)
+	gitURLInput = newFormInput(PlaceholderGitURL, CharLimitPath, InputWidthNarrow)
+	gitBranchInput = newFormInput(PlaceholderGitBranch, CharLimitBranch, InputWidthNarrow)
+	gitLinuxInput = newFormInput(PlaceholderGitLinux, CharLimitPath, InputWidthNarrow)
+	gitWindowsInput = newFormInput(PlaceholderGitWindows, CharLimitPath, InputWidthNarrow)
 	return gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput
 }
 
 // newInstallerTextInputs creates the three installer text inputs with standard placeholders and char limits
 func newInstallerTextInputs() (installerLinuxInput, installerWindowsInput, installerBinaryInput textinput.Model) {
-	installerLinuxInput = newFormInput(PlaceholderInstallerLinux, 512, 40)
-	installerWindowsInput = newFormInput(PlaceholderInstallerWindows, 512, 40)
-	installerBinaryInput = newFormInput(PlaceholderInstallerBinary, 128, 40)
+	installerLinuxInput = newFormInput(PlaceholderInstallerLinux, CharLimitURL, InputWidthNarrow)
+	installerWindowsInput = newFormInput(PlaceholderInstallerWindows, CharLimitURL, InputWidthNarrow)
+	installerBinaryInput = newFormInput(PlaceholderInstallerBinary, CharLimitBinary, InputWidthNarrow)
 	return installerLinuxInput, installerWindowsInput, installerBinaryInput
 }
 

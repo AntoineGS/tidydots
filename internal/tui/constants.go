@@ -88,3 +88,19 @@ const (
 	InstallerFieldBinary  = 2
 	InstallerFieldCount   = 3
 )
+
+// Text input size constants
+const (
+	CharLimitName    = 64
+	CharLimitDesc    = 256
+	CharLimitPath    = 256
+	CharLimitURL     = 512
+	CharLimitWhen    = 512
+	CharLimitPkgName = 128
+	CharLimitBranch  = 128
+	CharLimitBinary  = 128
+	CharLimitDep     = 128
+	CharLimitFile    = 256
+	InputWidthNarrow = 40
+	InputWidthWide   = 60
+)
