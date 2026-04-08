@@ -257,6 +257,11 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Handle results popup
+	if m.Operation == OpList && m.showingResults {
+		return m.updateResultsPopup(msg)
+	}
+
 	// Handle filter toggle confirmation
 	if m.Operation == OpList && m.confirmingFilterToggle {
 		switch {
@@ -429,8 +434,6 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case key.Matches(msg, ListKeys.Up):
 		if m.Operation == OpList {
-			// Clear any previous restore results when navigating
-			m.results = nil
 			// Move cursor up
 			if m.tableCursor > 0 {
 				m.tableCursor--
@@ -442,8 +445,6 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, ListKeys.Down):
 		if m.Operation == OpList {
-			// Clear any previous restore results when navigating
-			m.results = nil
 			// Move cursor down
 			if m.tableCursor < len(m.tableRows)-1 {
 				m.tableCursor++
@@ -455,8 +456,6 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, ListKeys.Collapse):
 		if m.Operation == OpList {
-			// Clear any previous restore results when navigating
-			m.results = nil
 			// Collapse node if expanded
 			appIdx, _ := m.getApplicationAtCursorFromTable()
 			if appIdx >= 0 && m.Applications[appIdx].Expanded {
@@ -472,8 +471,6 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case key.Matches(msg, ListKeys.Expand):
 		if m.Operation == OpList {
-			// Clear any previous restore results when navigating
-			m.results = nil
 			// If showing detail, close it; otherwise expand (not toggle)
 			if m.showingDetail {
 				m.showingDetail = false
@@ -627,6 +624,8 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 					Success: success,
 					Message: message,
 				}}
+				m.showingResults = true
+				m.resultsScrollOffset = 0
 			} else if appIdx >= 0 && subIdx < 0 {
 				// Restore all sub-entries for this application
 				m.results = nil
@@ -645,6 +644,8 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 						Message: message,
 					})
 				}
+				m.showingResults = true
+				m.resultsScrollOffset = 0
 				m.rebuildTable()
 			}
 		}
@@ -665,6 +666,13 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				// Move to next row
 				m.moveToNextExpandedNode()
 			}
+			return m, nil
+		}
+	case key.Matches(msg, ListKeys.ShowResults):
+		// Show results popup (only in List view with results available)
+		if listClean && len(m.results) > 0 {
+			m.showingResults = true
+			m.resultsScrollOffset = 0
 			return m, nil
 		}
 	}
@@ -825,6 +833,13 @@ func (m Model) renderHelpForCurrentState() string {
 			SharedKeys.Quit,
 		)
 
+	case m.showingResults:
+		return RenderHelpFromBindings(m.width,
+			ResultsPopupKeys.Up,
+			ResultsPopupKeys.Down,
+			ResultsPopupKeys.Close,
+		)
+
 	default:
 		// Build help text based on cursor position and multi-select mode
 		if m.multiSelectActive {
@@ -858,6 +873,11 @@ func (m Model) renderHelpForCurrentState() string {
 			// Modified sub-entry: diff
 			diffBinding := key.NewBinding(key.WithKeys("i"), key.WithHelp("i", "diff"))
 			bindings = append(bindings, diffBinding)
+		}
+
+		// Show "m" for messages if results exist
+		if len(m.results) > 0 {
+			bindings = append(bindings, ListKeys.ShowResults)
 		}
 
 		bindings = append(bindings, SharedKeys.Quit)
@@ -959,19 +979,6 @@ func (m Model) viewListTable() string {
 	if diffPickerContent != "" {
 		b.WriteString("\n")
 		b.WriteString(diffPickerContent)
-	}
-
-	// Result message
-	if len(m.results) > 0 {
-		b.WriteString("\n")
-		result := m.results[len(m.results)-1]
-		var resultText string
-		if result.Success {
-			resultText = SuccessStyle.Render(fmt.Sprintf("✓ %s: %s", result.Name, result.Message))
-		} else {
-			resultText = ErrorStyle.Render(fmt.Sprintf("✗ %s: %s", result.Name, result.Message))
-		}
-		b.WriteString(resultText)
 	}
 
 	// Help footer

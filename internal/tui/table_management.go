@@ -251,11 +251,6 @@ func (m Model) computeMaxVisibleRows() int {
 		linesAfterTable += strings.Count(diffPickerContent, "\n") + 1
 	}
 
-	// Result message (blank line + result text = 2 lines)
-	if len(m.results) > 0 {
-		linesAfterTable += 2
-	}
-
 	// Help footer (blank line + help text)
 	helpText := m.renderHelpForCurrentState()
 	helpLines := strings.Count(helpText, "\n") + 1

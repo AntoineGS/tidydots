@@ -56,6 +56,7 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | `f` | Toggle filter (show/hide apps excluded by `when` expressions) |
 | `s` / `ctrl+s` | Save changes |
 | `i` | Context-sensitive: install package (on app row) or view diff (on modified entry) |
+| `m` | Show results from the last operation |
 | `p` | Edit package dependencies (in package form) |
 | `d` / `delete` / `backspace` | Delete selected item |
 | `q` | Quit |
@@ -170,7 +171,11 @@ After pressing an operation key (`r`, `i`, or `d`), a summary screen appears sho
 
 **3. Progress screen**
 
-Once confirmed, a progress screen shows real-time feedback as each operation executes. A progress bar tracks completion. When finished, press any key to return to the main screen.
+Once confirmed, a progress screen shows real-time feedback as each operation executes. A progress bar tracks completion.
+
+**4. Results popup**
+
+When the operation finishes, a popup overlay appears showing all results (success or failure for each item). Press `enter` or `esc` to dismiss. Press `m` from the main screen to re-open the results at any time. If results exceed the popup height, scroll with `↑/k` and `↓/j`.
 
 !!! tip
     The global `-n` (dry-run) flag works with batch operations too. When dry-run is enabled, the progress screen shows what *would* happen without making actual changes.

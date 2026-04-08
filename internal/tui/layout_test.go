@@ -256,11 +256,6 @@ func TestResultMessageDoesNotShiftCursor(t *testing.T) {
 		t.Errorf("cursor app %s not visible after result message appeared", cursorAppName)
 	}
 
-	// The result message should be visible
-	if !strings.Contains(plainAfter, "Restored successfully") {
-		t.Errorf("result message not visible in output")
-	}
-
 	// Total height should not exceed terminal
 	lineCountAfter := countOutputLines(plainAfter)
 	if lineCountAfter > m.height {
@@ -471,9 +466,6 @@ func TestScrollOffsetDivergence(t *testing.T) {
 						linesAfterTable += strings.Count(dc, "\n") + 1
 					}
 				}
-			}
-			if len(m.results) > 0 {
-				linesAfterTable += 2
 			}
 			helpText := m.renderHelpForCurrentState()
 			helpLines := strings.Count(helpText, "\n") + 1

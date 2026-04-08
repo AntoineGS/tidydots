@@ -39,6 +39,7 @@ type ListKeyMap struct {
 	Install      key.Binding
 	Toggle       key.Binding
 	ShowDetail   key.Binding
+	ShowResults  key.Binding
 	NewOperation key.Binding
 	QuitOrEnter  key.Binding
 }
@@ -112,6 +113,10 @@ var ListKeys = ListKeyMap{
 	ShowDetail: key.NewBinding(
 		key.WithKeys("enter", "l", "right"),
 		key.WithHelp("enter", "detail"),
+	),
+	ShowResults: key.NewBinding(
+		key.WithKeys("m"),
+		key.WithHelp("m", "messages"),
 	),
 	NewOperation: key.NewBinding(
 		key.WithKeys("r"),
@@ -349,6 +354,29 @@ var DiffPickerKeys = DiffPickerKeyMap{
 	Cancel: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "cancel"),
+	),
+}
+
+// ResultsPopupKeyMap defines keybindings for the results popup overlay.
+type ResultsPopupKeyMap struct {
+	Up    key.Binding
+	Down  key.Binding
+	Close key.Binding
+}
+
+// ResultsPopupKeys are the keybindings for the results popup.
+var ResultsPopupKeys = ResultsPopupKeyMap{
+	Up: key.NewBinding(
+		key.WithKeys("up", "k"),
+		key.WithHelp("↑/k", "scroll up"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("down", "j"),
+		key.WithHelp("↓/j", "scroll down"),
+	),
+	Close: key.NewBinding(
+		key.WithKeys("enter", "esc"),
+		key.WithHelp("enter/esc", "close"),
 	),
 }
 

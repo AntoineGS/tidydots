@@ -227,6 +227,8 @@ type Model struct {
 	confirmingFilterToggle   bool // true when showing filter toggle confirmation
 	filterToggleHiddenCount  int  // count of selections that would be hidden
 	showingDetail            bool
+	showingResults           bool
+	resultsScrollOffset      int
 
 	// Diff picker state
 	showingDiffPicker bool
@@ -447,6 +449,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Operation = OpList
 		m.Screen = ScreenResults
 		m.rebuildTable()
+		m.showingResults = true
+		m.resultsScrollOffset = 0
 
 		return m, nil
 
@@ -455,6 +459,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.results = msg.Results
 		m.err = msg.Err
 		m.Screen = ScreenResults
+		m.showingResults = true
+		m.resultsScrollOffset = 0
 
 		return m, nil
 
@@ -497,6 +503,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Clear selections after operation
 		m.clearSelections()
+		m.showingResults = true
+		m.resultsScrollOffset = 0
 
 		return m, nil
 
@@ -630,6 +638,9 @@ func (m Model) View() tea.View {
 		content = m.viewProgress()
 	case ScreenResults:
 		content = m.viewResults()
+		if m.showingResults && m.Operation == OpList && len(m.results) > 0 {
+			content = m.renderResultsPopup()
+		}
 	case ScreenAddForm:
 		// Route to appropriate form view based on activeForm
 		switch m.activeForm {
@@ -794,7 +805,7 @@ func (m Model) handleMouseClickEvent(msg tea.MouseClickMsg) (tea.Model, tea.Cmd)
 
 	// Don't handle mouse during modal states
 	if m.searching || m.confirmingDeleteApp || m.confirmingDeleteSubEntry ||
-		m.confirmingFilterToggle || m.showingDetail {
+		m.confirmingFilterToggle || m.showingDetail || m.showingResults {
 		return m, nil
 	}
 
@@ -820,7 +831,7 @@ func (m Model) handleMouseWheelEvent(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd)
 
 	// Don't handle mouse during modal states
 	if m.searching || m.confirmingDeleteApp || m.confirmingDeleteSubEntry ||
-		m.confirmingFilterToggle || m.showingDetail {
+		m.confirmingFilterToggle || m.showingDetail || m.showingResults {
 		return m, nil
 	}
 
@@ -831,7 +842,6 @@ func (m Model) handleMouseWheelEvent(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd)
 			if m.tableCursor < 0 {
 				m.tableCursor = 0
 			}
-			m.results = nil
 			m.updateScrollOffset()
 		}
 		return m, nil
@@ -842,7 +852,6 @@ func (m Model) handleMouseWheelEvent(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd)
 			if m.tableCursor >= len(m.tableRows) {
 				m.tableCursor = len(m.tableRows) - 1
 			}
-			m.results = nil
 			m.updateScrollOffset()
 		}
 		return m, nil
@@ -892,7 +901,6 @@ func (m Model) handleMouseClick(mouseY int, toggleSelect bool) (tea.Model, tea.C
 
 	// Move cursor to clicked row
 	m.tableCursor = tableRowIdx
-	m.results = nil
 
 	// Right click toggles selection (like tab/space)
 	if toggleSelect {
