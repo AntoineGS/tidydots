@@ -7,26 +7,16 @@ import (
 
 	"charm.land/bubbles/v2/progress"
 	tea "charm.land/bubbletea/v2"
+	tuiops "github.com/AntoineGS/tidydots/internal/tui/operations"
 )
 
-// BatchOperationMsg is sent for each step of a batch operation.
-// It contains progress information about the current operation.
-type BatchOperationMsg struct {
-	ItemName    string  // Name of the item being processed
-	ItemIndex   int     // Current item index (0-based)
-	TotalItems  int     // Total number of items
-	Success     bool    // Whether this operation succeeded
-	Message     string  // Result message
-	CurrentStep string  // Description of current step (e.g., "Restoring nvim-config")
-	Progress    float64 // Overall progress (0.0 to 1.0)
-}
+// BatchOperationMsg is an alias for tuiops.BatchOperationMsg so that all
+// existing code in this package continues to compile without modification.
+type BatchOperationMsg = tuiops.BatchOperationMsg
 
-// BatchCompleteMsg is sent when the entire batch operation completes.
-type BatchCompleteMsg struct {
-	Results      []ResultItem // Results for all operations
-	SuccessCount int          // Count of successful operations
-	FailCount    int          // Count of failed operations
-}
+// BatchCompleteMsg is an alias for tuiops.BatchCompleteMsg so that all
+// existing code in this package continues to compile without modification.
+type BatchCompleteMsg = tuiops.BatchCompleteMsg
 
 // executeBatchRestore executes restore operations for all selected items.
 // Returns a command that processes items sequentially and sends progress updates.
