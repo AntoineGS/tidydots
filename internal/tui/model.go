@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"os"
 	"path/filepath"
 
 	"charm.land/bubbles/v2/key"
@@ -13,7 +12,9 @@ import (
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
+	"github.com/AntoineGS/tidydots/internal/tui/detection"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
+	tuiops "github.com/AntoineGS/tidydots/internal/tui/operations"
 	tuitable "github.com/AntoineGS/tidydots/internal/tui/table"
 )
 
@@ -32,35 +33,21 @@ const (
 	ScreenSummary
 )
 
-// Operation represents the type of operation being performed in the TUI.
-type Operation int
+// Operation is an alias for tuiops.Operation so that all existing code in
+// this package continues to compile without modification.
+type Operation = tuiops.Operation
 
-// TUI operation types.
+// TUI operation type constants re-exported from the operations sub-package.
 const (
 	// OpRestore is the restore operation
-	OpRestore Operation = iota
+	OpRestore = tuiops.OpRestore
 	// OpList is the list entries operation
-	OpList
+	OpList = tuiops.OpList
 	// OpInstallPackages is the install packages operation
-	OpInstallPackages
+	OpInstallPackages = tuiops.OpInstallPackages
 	// OpDelete is the delete entries operation
-	OpDelete
+	OpDelete = tuiops.OpDelete
 )
-
-func (o Operation) String() string {
-	switch o {
-	case OpRestore:
-		return "Restore"
-	case OpList:
-		return "List"
-	case OpInstallPackages:
-		return "Install Packages"
-	case OpDelete:
-		return "Delete"
-	}
-
-	return "Unknown"
-}
 
 // PathState is an alias for tuitable.PathState so that all existing code in
 // this package continues to compile without modification.
@@ -210,13 +197,9 @@ type SubEntryItem struct {
 	Selected bool
 }
 
-// ResultItem represents the result of an operation, including whether it
-// succeeded and any associated message.
-type ResultItem struct {
-	Name    string
-	Message string
-	Success bool
-}
+// ResultItem is an alias for tuiops.ResultItem so that all existing code in
+// this package continues to compile without modification.
+type ResultItem = tuiops.ResultItem
 
 // NewModel creates and initializes a new TUI model with the given configuration,
 // platform information, and dry-run mode. It sets up the initial state including
@@ -582,12 +565,9 @@ func (m Model) View() tea.View {
 	return v
 }
 
-// OperationCompleteMsg is sent when an operation completes, containing any error
-// and results from the operation.
-type OperationCompleteMsg struct {
-	Err     error
-	Results []ResultItem
-}
+// OperationCompleteMsg is an alias for tuiops.OperationCompleteMsg so that
+// all existing code in this package continues to compile without modification.
+type OperationCompleteMsg = tuiops.OperationCompleteMsg
 
 // PackageInstallMsg is sent after each individual package installation completes
 type PackageInstallMsg struct {
@@ -599,68 +579,9 @@ type PackageInstallMsg struct {
 
 // detectConfigState determines the state of a config entry given its paths and file list.
 // This is the shared logic used by both detectPathState and detectSubEntryState.
+// It delegates to detection.DetectConfigState which is the canonical implementation.
 func detectConfigState(backupPath, targetPath string, isFolder bool, files []string) PathState {
-	if isFolder {
-		if info, err := os.Lstat(targetPath); err == nil {
-			if info.Mode()&os.ModeSymlink != 0 {
-				return StateLinked
-			}
-		}
-
-		backupExists := manager.PathExists(backupPath)
-		targetExists := manager.PathExists(targetPath)
-
-		if backupExists {
-			return StateReady
-		}
-
-		if targetExists {
-			return StateAdopt
-		}
-
-		return StateMissing
-	}
-
-	// File-based config
-	allLinked := true
-	anyBackup := false
-	anyTarget := false
-	checkedAnyFile := false
-
-	for _, file := range files {
-		srcFile := filepath.Join(backupPath, file)
-		dstFile := filepath.Join(targetPath, file)
-
-		if !manager.PathExists(srcFile) {
-			continue
-		}
-
-		checkedAnyFile = true
-		anyBackup = true
-
-		if info, err := os.Lstat(dstFile); err == nil {
-			anyTarget = true
-			if info.Mode()&os.ModeSymlink == 0 {
-				allLinked = false
-			}
-		} else {
-			allLinked = false
-		}
-	}
-
-	if allLinked && checkedAnyFile {
-		return StateLinked
-	}
-
-	if anyBackup {
-		return StateReady
-	}
-
-	if anyTarget {
-		return StateAdopt
-	}
-
-	return StateMissing
+	return detection.DetectConfigState(backupPath, targetPath, isFolder, files)
 }
 
 // handlePkgCheckResult processes the result of a single async package install check.
