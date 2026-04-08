@@ -25,7 +25,7 @@ func TestRenderFilePicker_Header(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up file picker mode
 	m.subEntryForm.addFileMode = ModePicker
@@ -61,7 +61,7 @@ func TestRenderFilePicker_SelectionCount(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	m.subEntryForm.addFileMode = ModePicker
 	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir
@@ -123,7 +123,7 @@ func TestRenderFilePicker_HelpText(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	m.subEntryForm.addFileMode = ModePicker
 	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir
@@ -156,7 +156,7 @@ func TestRenderFilePicker_SelectedRowStyle(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	m.subEntryForm.addFileMode = ModePicker
 	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir
@@ -191,7 +191,7 @@ func TestRenderFilePicker_NoSelections(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	m.subEntryForm.addFileMode = ModePicker
 	m.subEntryForm.filePicker.CurrentDirectory = testNvimDir

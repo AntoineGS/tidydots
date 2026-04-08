@@ -39,7 +39,7 @@ func TestMultiSelect_ToggleSelection(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up file picker mode with a simulated current directory and path
 	m.subEntryForm.addFileMode = ModePicker
@@ -93,7 +93,7 @@ func TestMultiSelect_ToggleWithTab(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up file picker mode
 	m.subEntryForm.addFileMode = ModePicker
@@ -128,7 +128,7 @@ func TestMultiSelect_PersistAcrossNavigation(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Select first file
 	m.subEntryForm.addFileMode = ModePicker
@@ -184,7 +184,7 @@ func TestMultiSelect_ConfirmMultipleFiles(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up target path
 	m.subEntryForm.linuxTargetInput.SetValue(nvimDir)
@@ -251,7 +251,7 @@ func TestMultiSelect_EmptyConfirm(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up file picker mode with no selections
 	m.subEntryForm.addFileMode = ModePicker
@@ -293,7 +293,7 @@ func TestMultiSelect_CancelPreservesNoFiles(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up file picker mode with selections
 	m.subEntryForm.addFileMode = ModePicker
@@ -340,7 +340,7 @@ func TestMultiSelect_SelectionCount(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Start with empty selections
 	if len(m.subEntryForm.selectedFiles) != 0 {
@@ -384,7 +384,7 @@ func TestMultiSelect_DuplicateSelectionIgnored(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	filePath := testNvimDir + "/" + testInitLua
 
@@ -423,7 +423,7 @@ func TestMultiSelect_MixedSelectionsAndConfirm(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up target path
 	m.subEntryForm.linuxTargetInput.SetValue(nvimDir)

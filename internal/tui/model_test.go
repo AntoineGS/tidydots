@@ -766,7 +766,7 @@ func TestEditWithSortedApplications(t *testing.T) {
 	appIdx, _ := model.getApplicationAtCursorFromTable()
 
 	// Initialize the application form for editing
-	model.initApplicationFormEdit(appIdx)
+	model.initApplicationForm(appIdx)
 
 	// Verify the form was initialized with the correct application data
 	if model.applicationForm == nil {
@@ -785,7 +785,7 @@ func TestEditWithSortedApplications(t *testing.T) {
 	model.tableCursor = 2
 	appIdx, subIdx := model.getApplicationAtCursorFromTable()
 
-	model.initSubEntryFormEdit(appIdx, subIdx)
+	model.initSubEntryForm(appIdx, subIdx)
 
 	if model.subEntryForm == nil {
 		t.Fatal("Sub-entry form should be initialized")
@@ -799,7 +799,7 @@ func TestEditWithSortedApplications(t *testing.T) {
 	model.tableCursor = 3
 	appIdx, subIdx = model.getApplicationAtCursorFromTable()
 
-	model.initSubEntryFormEdit(appIdx, subIdx)
+	model.initSubEntryForm(appIdx, subIdx)
 
 	if model.subEntryForm == nil {
 		t.Fatal("Sub-entry form should be initialized")

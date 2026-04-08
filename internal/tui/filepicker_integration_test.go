@@ -55,7 +55,7 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 
 	// Step 1: Initialize SubEntryForm
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 	if m.subEntryForm == nil {
 		t.Fatal("subEntryForm is nil after initSubEntryFormNew")
 	}
@@ -229,7 +229,7 @@ func TestFilePickerIntegration_CancelFlow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewModel(cfg, plat, false)
-			m.initSubEntryFormNew(0)
+			m.initSubEntryForm(0, -1)
 
 			// Set up the starting mode
 			m.subEntryForm.addFileMode = tt.startMode
@@ -333,7 +333,7 @@ func TestFilePickerIntegration_LinuxWindowsTargets(t *testing.T) {
 			m := NewModel(cfg, plat, false)
 
 			// Initialize form
-			m.initSubEntryFormNew(0)
+			m.initSubEntryForm(0, -1)
 			m.subEntryForm.linuxTargetInput.SetValue(linuxTarget)
 			m.subEntryForm.windowsTargetInput.SetValue(windowsTarget)
 			m.subEntryForm.isFolder = false
@@ -399,7 +399,7 @@ func TestFilePickerIntegration_EmptySelection(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 
 	// Initialize form
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 	tmpDir := t.TempDir()
 	m.subEntryForm.linuxTargetInput.SetValue(tmpDir)
 	m.subEntryForm.isFolder = false
@@ -453,7 +453,7 @@ func TestFilePickerIntegration_ModeMenuNavigation(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 
 	// Initialize form
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Enter mode choosing
 	m.subEntryForm.addFileMode = ModeChoosing

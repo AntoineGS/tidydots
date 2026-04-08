@@ -38,8 +38,11 @@ const (
 	ModeTextInput
 )
 
-// initSubEntryFormNew initializes the form for adding a new sub-entry to an existing application
-func (m *Model) initSubEntryFormNew(appIdx int) {
+// initSubEntryForm initializes the sub-entry form.
+// appIdx is the index in m.Applications (sorted).
+// If subIdx >= 0, loads data from the existing sub-entry (edit mode).
+// If subIdx < 0, creates an empty form for adding to the app (new mode).
+func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 	// appIdx is an index into m.Applications (sorted), not m.Config.Applications (unsorted)
 	// We need to find the correct index in m.Config.Applications by application name
 	if appIdx < 0 || appIdx >= len(m.Applications) {
@@ -50,6 +53,36 @@ func (m *Model) initSubEntryFormNew(appIdx int) {
 	configAppIdx := m.findConfigApplicationIndex(appName)
 	if configAppIdx < 0 {
 		return
+	}
+
+	// Resolve sub-entry data (edit mode only)
+	configSubIdx := -1
+	hasSub := false
+	var sub config.SubEntry
+
+	if subIdx >= 0 {
+		app := m.Config.Applications[configAppIdx]
+
+		// subIdx is an index into m.Applications[appIdx].SubItems, which may be filtered
+		// We need to find the correct index in app.Entries by sub-entry name
+		if subIdx >= len(m.Applications[appIdx].SubItems) {
+			return
+		}
+
+		subEntryName := m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
+		for i, entry := range app.Entries {
+			if entry.Name == subEntryName {
+				configSubIdx = i
+				break
+			}
+		}
+
+		if configSubIdx < 0 {
+			return
+		}
+
+		sub = app.Entries[configSubIdx]
+		hasSub = true
 	}
 
 	nameInput := newFormInput("e.g., nvim-config", CharLimitName, InputWidthNarrow)
@@ -60,108 +93,47 @@ func (m *Model) initSubEntryFormNew(appIdx int) {
 	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
 	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
 
-	m.subEntryForm = &SubEntryForm{
-		nameInput:          nameInput,
-		linuxTargetInput:   linuxTargetInput,
-		windowsTargetInput: windowsTargetInput,
-		isSudo:             false,
-		backupInput:        backupInput,
-		isFolder:           true,
-		files:              nil,
-		filesCursor:        0,
-		newFileInput:       newFileInput,
-		addingFile:         false,
-		editingFile:        false,
-		editingFileIndex:   -1,
-		focusIndex:         0,
-		editingField:       false,
-		originalValue:      "",
-		suggestions:        nil,
-		suggestionCursor:   -1,
-		showSuggestions:    false,
-		targetAppIdx:       configAppIdx,
-		editAppIdx:         -1,
-		editSubIdx:         -1,
-		err:                "",
-		addFileMode:        ModeNone,
-		modeMenuCursor:     0,
-		selectedFiles:      make(map[string]bool),
-	}
+	isSudo := false
+	isFolder := true
+	var files []string
 
-	m.activeForm = FormSubEntry
-	m.Screen = ScreenAddForm
-}
+	if hasSub {
+		nameInput.SetValue(sub.Name)
 
-// initSubEntryFormEdit initializes the form for editing an existing sub-entry
-func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
-	// appIdx is an index into m.Applications (sorted), not m.Config.Applications (unsorted)
-	// We need to find the correct index in m.Config.Applications by application name
-	if appIdx < 0 || appIdx >= len(m.Applications) {
-		return
-	}
+		if target, ok := sub.Targets["linux"]; ok {
+			linuxTargetInput.SetValue(target)
+		}
+		if target, ok := sub.Targets["windows"]; ok {
+			windowsTargetInput.SetValue(target)
+		}
 
-	appName := m.Applications[appIdx].Application.Name
-	configAppIdx := m.findConfigApplicationIndex(appName)
-	if configAppIdx < 0 {
-		return
-	}
+		backupInput.SetValue(sub.Backup)
+		isSudo = sub.Sudo
+		isFolder = sub.IsFolder()
 
-	app := m.Config.Applications[configAppIdx]
-
-	// subIdx is an index into m.Applications[appIdx].SubItems, which may be filtered
-	// We need to find the correct index in app.Entries by sub-entry name
-	if subIdx < 0 || subIdx >= len(m.Applications[appIdx].SubItems) {
-		return
-	}
-
-	subEntryName := m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
-	configSubIdx := -1
-	for i, entry := range app.Entries {
-		if entry.Name == subEntryName {
-			configSubIdx = i
-			break
+		if !isFolder && len(sub.Files) > 0 {
+			files = make([]string, len(sub.Files))
+			copy(files, sub.Files)
 		}
 	}
 
-	if configSubIdx < 0 {
-		return
-	}
+	// New mode: targetAppIdx = configAppIdx, editAppIdx = -1, editSubIdx = -1
+	// Edit mode: targetAppIdx = -1, editAppIdx = configAppIdx, editSubIdx = configSubIdx
+	targetAppIdx := configAppIdx
+	editAppIdx := -1
+	editSubEntryIdx := -1
 
-	sub := app.Entries[configSubIdx]
-
-	nameInput := newFormInput("e.g., nvim-config", CharLimitName, InputWidthNarrow)
-	nameInput.SetValue(sub.Name)
-	nameInput.Focus()
-
-	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", CharLimitPath, InputWidthNarrow)
-	if target, ok := sub.Targets["linux"]; ok {
-		linuxTargetInput.SetValue(target)
-	}
-
-	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", CharLimitPath, InputWidthNarrow)
-	if target, ok := sub.Targets["windows"]; ok {
-		windowsTargetInput.SetValue(target)
-	}
-
-	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
-	backupInput.SetValue(sub.Backup)
-
-	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
-
-	// Load config-specific fields
-	isFolder := sub.IsFolder()
-	var files []string
-
-	if !isFolder && len(sub.Files) > 0 {
-		files = make([]string, len(sub.Files))
-		copy(files, sub.Files)
+	if hasSub {
+		targetAppIdx = -1
+		editAppIdx = configAppIdx
+		editSubEntryIdx = configSubIdx
 	}
 
 	m.subEntryForm = &SubEntryForm{
 		nameInput:          nameInput,
 		linuxTargetInput:   linuxTargetInput,
 		windowsTargetInput: windowsTargetInput,
-		isSudo:             sub.Sudo,
+		isSudo:             isSudo,
 		backupInput:        backupInput,
 		isFolder:           isFolder,
 		files:              files,
@@ -176,9 +148,9 @@ func (m *Model) initSubEntryFormEdit(appIdx, subIdx int) {
 		suggestions:        nil,
 		suggestionCursor:   -1,
 		showSuggestions:    false,
-		targetAppIdx:       -1,
-		editAppIdx:         configAppIdx,
-		editSubIdx:         configSubIdx,
+		targetAppIdx:       targetAppIdx,
+		editAppIdx:         editAppIdx,
+		editSubIdx:         editSubEntryIdx,
 		err:                "",
 		addFileMode:        ModeNone,
 		modeMenuCursor:     0,

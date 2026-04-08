@@ -53,7 +53,7 @@ func TestInitSubEntryFormNew_FilePickerFields(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 
 	// Initialize new sub-entry form
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	if m.subEntryForm == nil {
 		t.Fatal("subEntryForm is nil after initSubEntryFormNew")
@@ -108,7 +108,7 @@ func TestInitSubEntryFormEdit_FilePickerFields(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 
 	// Initialize edit sub-entry form
-	m.initSubEntryFormEdit(0, 0)
+	m.initSubEntryForm(0, 0)
 
 	if m.subEntryForm == nil {
 		t.Fatal("subEntryForm is nil after initSubEntryFormEdit")
@@ -269,7 +269,7 @@ func TestUpdateFileAddModeChoice_Navigation(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 	m.subEntryForm.addFileMode = ModeChoosing
 	m.subEntryForm.modeMenuCursor = 0
 
@@ -320,7 +320,7 @@ func TestUpdateFileAddModeChoice_WrapAround(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 	m.subEntryForm.addFileMode = ModeChoosing
 
 	// Test down wrapping: Type -> Browse target
@@ -360,7 +360,7 @@ func TestUpdateFileAddModeChoice_SelectBrowse(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 	m.subEntryForm.addFileMode = ModeChoosing
 	m.subEntryForm.modeMenuCursor = 0
 
@@ -392,7 +392,7 @@ func TestUpdateFileAddModeChoice_SelectType(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 	m.subEntryForm.addFileMode = ModeChoosing
 	m.subEntryForm.modeMenuCursor = 2
 
@@ -424,7 +424,7 @@ func TestUpdateFileAddModeChoice_Cancel(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 	m.subEntryForm.addFileMode = ModeChoosing
 	m.subEntryForm.modeMenuCursor = 1
 
@@ -461,7 +461,7 @@ func TestViewFileAddModeMenu_Content(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 	m.subEntryForm.addFileMode = ModeChoosing
 	m.subEntryForm.modeMenuCursor = 0
 
@@ -524,7 +524,7 @@ func TestInitFilePicker_FromModePicker(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up form with a target path
 	m.subEntryForm.linuxTargetInput.SetValue("~/.config/nvim")
@@ -554,7 +554,7 @@ func TestUpdateSubEntryFilePicker_Cancel(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up file picker mode
 	m.subEntryForm.addFileMode = ModePicker
@@ -593,7 +593,7 @@ func TestAddFileFromPicker_SingleSelection(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up target and add file mode
 	m.subEntryForm.linuxTargetInput.SetValue("~/.config/nvim")
@@ -638,7 +638,7 @@ func TestPickerStartDirectory_Resolution(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	tests := []struct {
 		name       string
@@ -731,7 +731,7 @@ func TestFilePicker_MultipleSelections(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Add first file
 	m.subEntryForm.files = append(m.subEntryForm.files, "init.lua")

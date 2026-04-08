@@ -21,8 +21,26 @@ const (
 	appFieldWhen
 )
 
-// initApplicationFormNew initializes the form for creating a new application
-func (m *Model) initApplicationFormNew() {
+// initApplicationForm initializes the application form.
+// If appIdx >= 0, loads data from the existing application at that index (edit mode).
+// If appIdx < 0, creates an empty form (new mode).
+func (m *Model) initApplicationForm(appIdx int) {
+	// Resolve config index and app data (edit mode only)
+	configAppIdx := -1
+	var app *config.Application
+
+	if appIdx >= 0 {
+		if appIdx >= len(m.Applications) {
+			return
+		}
+		appName := m.Applications[appIdx].Application.Name
+		configAppIdx = m.findConfigApplicationIndex(appName)
+		if configAppIdx < 0 {
+			return
+		}
+		app = &m.Config.Applications[configAppIdx]
+	}
+
 	nameInput := newFormInput(PlaceholderNeovim, CharLimitName, InputWidthNarrow)
 	nameInput.Focus()
 
@@ -35,138 +53,72 @@ func (m *Model) initApplicationFormNew() {
 
 	depInput := newFormInput(PlaceholderDep, CharLimitDep, InputWidthNarrow)
 
-	m.applicationForm = &ApplicationForm{
-		nameInput:             nameInput,
-		descriptionInput:      descriptionInput,
-		packageManagers:       make(map[string]string),
-		packagesCursor:        0,
-		editingPackage:        false,
-		packageNameInput:      packageNameInput,
-		lastPackageName:       "",
-		whenInput:             whenInput,
-		focusIndex:            0,
-		editingField:          false,
-		originalValue:         "",
-		editAppIdx:            -1,
-		err:                   "",
-		gitURLInput:           gitURLInput,
-		gitBranchInput:        gitBranchInput,
-		gitLinuxInput:         gitLinuxInput,
-		gitWindowsInput:       gitWindowsInput,
-		gitFieldCursor:        -1,
-		hasGitPackage:         false,
-		gitSudo:               false,
-		installerLinuxInput:   installerLinuxInput,
-		installerWindowsInput: installerWindowsInput,
-		installerBinaryInput:  installerBinaryInput,
-		installerFieldCursor:  -1,
-		hasInstallerPackage:   false,
-		packageDeps:           make(map[string][]string),
-		depsCursor:            0,
-		editingDeps:           false,
-		editingDepItem:        false,
-		depsManagerKey:        "",
-		depInput:              depInput,
-	}
-
-	m.activeForm = FormApplication
-	m.Screen = ScreenAddForm
-}
-
-// initApplicationFormEdit initializes the form for editing an existing application
-func (m *Model) initApplicationFormEdit(appIdx int) {
-	// appIdx is an index into m.Applications (sorted), not m.Config.Applications (unsorted)
-	// We need to find the correct index in m.Config.Applications by application name
-	if appIdx < 0 || appIdx >= len(m.Applications) {
-		return
-	}
-
-	appName := m.Applications[appIdx].Application.Name
-	configAppIdx := m.findConfigApplicationIndex(appName)
-	if configAppIdx < 0 {
-		return
-	}
-
-	app := m.Config.Applications[configAppIdx]
-
-	nameInput := newFormInput(PlaceholderNeovim, CharLimitName, InputWidthNarrow)
-	nameInput.SetValue(app.Name)
-	nameInput.Focus()
-
-	descriptionInput := newFormInput("e.g., Neovim text editor", CharLimitDesc, InputWidthNarrow)
-	descriptionInput.SetValue(app.Description)
-
-	packageNameInput := newFormInput(PlaceholderNeovim, CharLimitPkgName, InputWidthNarrow)
-
-	whenInput := newFormInput(PlaceholderWhen, CharLimitWhen, InputWidthWide)
-	whenInput.SetValue(app.When)
-
-	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
-	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
-
-	// Load package managers (only string-based managers, skip git and installer)
 	packageManagers := make(map[string]string)
-	if app.Package != nil && len(app.Package.Managers) > 0 {
-		for k, v := range app.Package.Managers {
-			if k == TypeGit || k == TypeInstaller {
-				continue
-			}
-			if !v.IsGit() && !v.IsInstaller() {
-				packageManagers[k] = v.PackageName
-			}
-		}
-	}
-
-	// Load git package if present
+	packageDeps := make(map[string][]string)
 	hasGitPackage := false
 	gitSudo := false
-
-	if app.Package != nil {
-		if gitVal, ok := app.Package.Managers[TypeGit]; ok && gitVal.IsGit() {
-			hasGitPackage = true
-			gitURLInput.SetValue(gitVal.Git.URL)
-			gitBranchInput.SetValue(gitVal.Git.Branch)
-			gitSudo = gitVal.Git.Sudo
-
-			if target, ok := gitVal.Git.Targets[OSLinux]; ok {
-				gitLinuxInput.SetValue(target)
-			}
-			if target, ok := gitVal.Git.Targets[OSWindows]; ok {
-				gitWindowsInput.SetValue(target)
-			}
-		}
-	}
-
-	// Load installer package if present
 	hasInstallerPackage := false
 
-	if app.Package != nil {
-		if installerVal, ok := app.Package.Managers[TypeInstaller]; ok && installerVal.IsInstaller() {
-			hasInstallerPackage = true
-			if cmd, ok := installerVal.Installer.Command[OSLinux]; ok {
-				installerLinuxInput.SetValue(cmd)
-			}
-			if cmd, ok := installerVal.Installer.Command[OSWindows]; ok {
-				installerWindowsInput.SetValue(cmd)
-			}
-			installerBinaryInput.SetValue(installerVal.Installer.Binary)
-		}
-	}
+	if app != nil {
+		nameInput.SetValue(app.Name)
+		descriptionInput.SetValue(app.Description)
+		whenInput.SetValue(app.When)
 
-	// Load package deps
-	packageDeps := make(map[string][]string)
-	if app.Package != nil && len(app.Package.Managers) > 0 {
-		for k, v := range app.Package.Managers {
-			if k == TypeGit || k == TypeInstaller {
-				continue
-			}
-			if len(v.Deps) > 0 {
-				packageDeps[k] = append([]string{}, v.Deps...)
+		// Load package managers (only string-based managers, skip git and installer)
+		if app.Package != nil && len(app.Package.Managers) > 0 {
+			for k, v := range app.Package.Managers {
+				if k == TypeGit || k == TypeInstaller {
+					continue
+				}
+				if !v.IsGit() && !v.IsInstaller() {
+					packageManagers[k] = v.PackageName
+				}
 			}
 		}
-	}
 
-	depInput := newFormInput(PlaceholderDep, CharLimitDep, InputWidthNarrow)
+		// Load git package if present
+		if app.Package != nil {
+			if gitVal, ok := app.Package.Managers[TypeGit]; ok && gitVal.IsGit() {
+				hasGitPackage = true
+				gitURLInput.SetValue(gitVal.Git.URL)
+				gitBranchInput.SetValue(gitVal.Git.Branch)
+				gitSudo = gitVal.Git.Sudo
+
+				if target, ok := gitVal.Git.Targets[OSLinux]; ok {
+					gitLinuxInput.SetValue(target)
+				}
+				if target, ok := gitVal.Git.Targets[OSWindows]; ok {
+					gitWindowsInput.SetValue(target)
+				}
+			}
+		}
+
+		// Load installer package if present
+		if app.Package != nil {
+			if installerVal, ok := app.Package.Managers[TypeInstaller]; ok && installerVal.IsInstaller() {
+				hasInstallerPackage = true
+				if cmd, ok := installerVal.Installer.Command[OSLinux]; ok {
+					installerLinuxInput.SetValue(cmd)
+				}
+				if cmd, ok := installerVal.Installer.Command[OSWindows]; ok {
+					installerWindowsInput.SetValue(cmd)
+				}
+				installerBinaryInput.SetValue(installerVal.Installer.Binary)
+			}
+		}
+
+		// Load package deps
+		if app.Package != nil && len(app.Package.Managers) > 0 {
+			for k, v := range app.Package.Managers {
+				if k == TypeGit || k == TypeInstaller {
+					continue
+				}
+				if len(v.Deps) > 0 {
+					packageDeps[k] = append([]string{}, v.Deps...)
+				}
+			}
+		}
+	}
 
 	m.applicationForm = &ApplicationForm{
 		nameInput:             nameInput,
