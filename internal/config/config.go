@@ -74,12 +74,19 @@ func (c *Config) ExpandPaths(envVars map[string]string) {
 	}
 }
 
-// GetFilteredApplications returns applications filtered by when expressions
+// GetFilteredApplications returns applications filtered by when expressions.
+// Silent on evaluation errors — prefer GetFilteredApplicationsWithLogger.
 func (c *Config) GetFilteredApplications(renderer PathRenderer) []Application {
+	return c.GetFilteredApplicationsWithLogger(renderer, nil)
+}
+
+// GetFilteredApplicationsWithLogger is like GetFilteredApplications but logs
+// when-expression render errors at warn level to the supplied logger.
+func (c *Config) GetFilteredApplicationsWithLogger(renderer PathRenderer, logger *slog.Logger) []Application {
 	result := make([]Application, 0, len(c.Applications))
 
 	for _, app := range c.Applications {
-		if EvaluateWhen(app.When, renderer) {
+		if EvaluateWhenWithLogger(app.When, renderer, logger) {
 			result = append(result, app)
 		}
 	}

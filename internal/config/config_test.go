@@ -1,7 +1,10 @@
 package config
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1388,4 +1391,31 @@ func TestManagerValueMarshalYAML(t *testing.T) {
 			t.Errorf("Round-trip Deps = %v, want [libssl-dev cmake]", val.Deps)
 		}
 	})
+}
+
+func TestGetFilteredApplicationsWithLogger_SurfacesWhenErrors(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+
+	cfg := &Config{
+		Version: 3,
+		Applications: []Application{
+			{Name: "good", When: ""},
+			{Name: "broken", When: "{{ eq .OS }}"}, // malformed template
+		},
+	}
+	renderer := &mockWhenRenderer{err: fmt.Errorf("template parse error: missing value")}
+
+	apps := cfg.GetFilteredApplicationsWithLogger(renderer, logger)
+
+	// "good" (empty when) is included; "broken" is excluded because the
+	// renderer returned an error.
+	if len(apps) != 1 || apps[0].Name != "good" {
+		t.Errorf("apps = %+v, want only [good]", apps)
+	}
+	if !strings.Contains(buf.String(), "when expression") {
+		t.Errorf("expected warning about when expression; log = %q", buf.String())
+	}
 }
