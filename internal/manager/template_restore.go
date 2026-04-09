@@ -2,6 +2,7 @@ package manager
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -171,6 +172,14 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 				m.logger.Warn("merge conflict detected",
 					slog.String("template", relPath),
 					slog.String("conflict_file", conflictPath))
+			} else {
+				// No conflict this round — remove any stale conflict file from a previous run.
+				conflictPath := tmpl.ConflictPath(tmplAbsPath)
+				if err := m.fs.Remove(conflictPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+					m.logger.Warn("could not remove stale conflict file",
+						slog.String("path", conflictPath),
+						slog.String("error", err.Error()))
+				}
 			}
 
 			finalContent = []byte(mergeResult.Content)

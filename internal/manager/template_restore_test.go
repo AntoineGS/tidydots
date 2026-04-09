@@ -1285,6 +1285,60 @@ func TestWriteFileAtomic_OverwritesStaleTempFile(t *testing.T) {
 	}
 }
 
+func TestRenderTemplateAndLink_RemovesStaleConflictFile(t *testing.T) {
+	skipIfNoSymlink(t)
+	backupRoot, targetDir, mgr, _ := setupTemplateTest(t)
+
+	backupDir := filepath.Join(backupRoot, "config")
+	if err := os.MkdirAll(backupDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	tmplPath := filepath.Join(backupDir, "zshrc.tmpl")
+	renderedPath := filepath.Join(backupDir, "zshrc.tmpl.rendered")
+	conflictPath := filepath.Join(backupDir, "zshrc.tmpl.conflict")
+
+	subEntry := config.SubEntry{
+		Name:    "config",
+		Backup:  "./config",
+		Targets: map[string]string{"linux": targetDir},
+	}
+
+	// Initial render: seed the state store with a record for zshrc.tmpl
+	// whose PureRender is the template output ("clean\n").
+	if err := os.WriteFile(tmplPath, []byte("clean\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.RestoreFolderWithTemplates(subEntry, backupDir, targetDir); err != nil {
+		t.Fatalf("initial RestoreFolderWithTemplates: %v", err)
+	}
+
+	// Plant a stale conflict file from a hypothetical previous run.
+	staleConflict := []byte("<<<<<<< user\nstale\n=======\nother\n>>>>>>> template\n")
+	if err := os.WriteFile(conflictPath, staleConflict, 0600); err != nil {
+		t.Fatalf("seed stale conflict file: %v", err)
+	}
+
+	// Remove the rendered file on disk so the unchanged-template early-exit
+	// (which requires the rendered file to exist) doesn't fire. This forces
+	// the re-render path into the merge branch with record != nil.
+	if err := os.Remove(renderedPath); err != nil {
+		t.Fatalf("remove rendered file: %v", err)
+	}
+
+	// Re-render with the template unchanged. The merge path will see
+	// base == theirs == ours == "clean\n", so HasConflict is false and
+	// the cleanup branch must remove the stale conflict file.
+	if err := mgr.RestoreFolderWithTemplates(subEntry, backupDir, targetDir); err != nil {
+		t.Fatalf("re-render RestoreFolderWithTemplates: %v", err)
+	}
+
+	// Assert: stale conflict file has been removed.
+	if _, err := os.Stat(conflictPath); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("stale conflict file still present: err=%v", err)
+	}
+}
+
 func TestStateStoreKey_IsForwardSlashNormalized(t *testing.T) {
 	// Simulate a Windows-style relative path and assert the state store key
 	// is normalized to forward slashes regardless of OS separator.
