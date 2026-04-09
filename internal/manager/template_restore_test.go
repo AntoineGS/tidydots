@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/fsys"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	"github.com/AntoineGS/tidydots/internal/state"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
@@ -1133,6 +1134,40 @@ func TestHasModifiedRenderedFiles(t *testing.T) {
 			t.Error("should return true when rendered file differs from pure render baseline")
 		}
 	})
+}
+
+func TestWriteFileAtomic_WritesViaTempAndRename(t *testing.T) {
+	tmp := t.TempDir()
+	target := filepath.Join(tmp, "rendered.txt")
+
+	// Pre-populate the target with content that must survive a failed write.
+	if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	mgr := &Manager{fs: fsys.OsFS{}}
+	if err := mgr.writeFileAtomic(target, []byte("new"), 0o644); err != nil {
+		t.Fatalf("writeFileAtomic: %v", err)
+	}
+
+	got, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(got) != "new" {
+		t.Errorf("target content = %q, want %q", got, "new")
+	}
+
+	// No leftover temp file in the directory
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tidydots-tmp") {
+			t.Errorf("leftover temp file: %s", e.Name())
+		}
+	}
 }
 
 func TestStateStoreKey_IsForwardSlashNormalized(t *testing.T) {

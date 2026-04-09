@@ -18,6 +18,26 @@ func normalizeStateKey(relPath string) string {
 	return filepath.ToSlash(relPath)
 }
 
+// writeFileAtomic writes data to path via a sibling temp file and a rename,
+// so a crash mid-write cannot truncate the existing content.
+func (m *Manager) writeFileAtomic(path string, data []byte, perm fs.FileMode) error {
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
+	tmpPath := filepath.Join(dir, "."+base+".tidydots-tmp")
+
+	if err := m.fs.WriteFile(tmpPath, data, perm); err != nil {
+		return fmt.Errorf("writing temp file: %w", err)
+	}
+
+	if err := m.fs.Rename(tmpPath, path); err != nil {
+		// Best-effort cleanup of orphaned temp file.
+		_ = m.fs.Remove(tmpPath)
+		return fmt.Errorf("renaming temp file into place: %w", err)
+	}
+
+	return nil
+}
+
 // RestoreFolderWithTemplates handles folders that contain .tmpl files.
 // It delegates folder-level operations (adoption, merge, folder symlink) to RestoreFolder,
 // then renders templates and creates relative symlinks inside the backup directory.
@@ -172,7 +192,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 		return NewPathError("restore", renderedAbsPath, fmt.Errorf("creating rendered dir: %w", mkdirErr))
 	}
 
-	if writeErr := m.fs.WriteFile(filepath.Clean(renderedAbsPath), finalContent, FilePerms); writeErr != nil {
+	if writeErr := m.writeFileAtomic(filepath.Clean(renderedAbsPath), finalContent, FilePerms); writeErr != nil {
 		return NewPathError("restore", renderedAbsPath, fmt.Errorf("writing rendered file: %w", writeErr))
 	}
 
