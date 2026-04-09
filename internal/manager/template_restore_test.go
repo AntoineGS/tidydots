@@ -2,6 +2,8 @@ package manager
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1167,6 +1169,119 @@ func TestWriteFileAtomic_WritesViaTempAndRename(t *testing.T) {
 		if strings.HasSuffix(e.Name(), ".tidydots-tmp") {
 			t.Errorf("leftover temp file: %s", e.Name())
 		}
+	}
+}
+
+// spyFS records call order for writeFileAtomic tests and can inject errors.
+type spyFS struct {
+	fsys.OsFS
+	calls     []string
+	renameErr error
+	removeErr error
+}
+
+func (s *spyFS) WriteFile(name string, data []byte, perm fs.FileMode) error {
+	s.calls = append(s.calls, "WriteFile:"+name)
+	return s.OsFS.WriteFile(name, data, perm)
+}
+
+func (s *spyFS) Rename(oldpath, newpath string) error {
+	s.calls = append(s.calls, "Rename:"+oldpath+"->"+newpath)
+	if s.renameErr != nil {
+		return s.renameErr
+	}
+	return s.OsFS.Rename(oldpath, newpath)
+}
+
+func (s *spyFS) Remove(name string) error {
+	s.calls = append(s.calls, "Remove:"+name)
+	if s.removeErr != nil {
+		return s.removeErr
+	}
+	return s.OsFS.Remove(name)
+}
+
+func TestWriteFileAtomic_CallOrderUsesTempThenRename(t *testing.T) {
+	tmp := t.TempDir()
+	target := filepath.Join(tmp, "out.txt")
+
+	spy := &spyFS{}
+	mgr := &Manager{fs: spy}
+
+	if err := mgr.writeFileAtomic(target, []byte("data"), 0o644); err != nil {
+		t.Fatalf("writeFileAtomic: %v", err)
+	}
+
+	if len(spy.calls) != 2 {
+		t.Fatalf("expected 2 calls, got %d: %v", len(spy.calls), spy.calls)
+	}
+	expectedTmp := filepath.Join(tmp, ".out.txt.tidydots-tmp")
+	if spy.calls[0] != "WriteFile:"+expectedTmp {
+		t.Errorf("call[0] = %q, want WriteFile on temp path %q", spy.calls[0], expectedTmp)
+	}
+	if spy.calls[1] != "Rename:"+expectedTmp+"->"+target {
+		t.Errorf("call[1] = %q, want Rename from temp to target", spy.calls[1])
+	}
+}
+
+func TestWriteFileAtomic_RenameFailureRemovesTempAndWrapsError(t *testing.T) {
+	tmp := t.TempDir()
+	target := filepath.Join(tmp, "out.txt")
+
+	spy := &spyFS{renameErr: errors.New("simulated rename failure")}
+	mgr := &Manager{fs: spy}
+
+	err := mgr.writeFileAtomic(target, []byte("data"), 0o644)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "renaming temp file") {
+		t.Errorf("error message = %q, want it to mention renaming", err.Error())
+	}
+	if !strings.Contains(err.Error(), "simulated rename failure") {
+		t.Errorf("error message = %q, want it to wrap original error", err.Error())
+	}
+
+	// Verify the cleanup Remove was called on the temp path.
+	expectedTmp := filepath.Join(tmp, ".out.txt.tidydots-tmp")
+	var sawRemove bool
+	for _, c := range spy.calls {
+		if c == "Remove:"+expectedTmp {
+			sawRemove = true
+			break
+		}
+	}
+	if !sawRemove {
+		t.Errorf("expected Remove call on temp path %q, calls = %v", expectedTmp, spy.calls)
+	}
+}
+
+func TestWriteFileAtomic_OverwritesStaleTempFile(t *testing.T) {
+	tmp := t.TempDir()
+	target := filepath.Join(tmp, "out.txt")
+	staleTmp := filepath.Join(tmp, ".out.txt.tidydots-tmp")
+
+	// Leftover temp file from a simulated prior crash.
+	if err := os.WriteFile(staleTmp, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("seed stale: %v", err)
+	}
+
+	mgr := &Manager{fs: fsys.OsFS{}}
+	if err := mgr.writeFileAtomic(target, []byte("fresh"), 0o644); err != nil {
+		t.Fatalf("writeFileAtomic: %v", err)
+	}
+
+	got, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read target: %v", err)
+	}
+	if string(got) != "fresh" {
+		t.Errorf("target content = %q, want %q", got, "fresh")
+	}
+
+	// No leftover temp file after success.
+	if _, err := os.Stat(staleTmp); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("stale temp file still present: err=%v", err)
 	}
 }
 
