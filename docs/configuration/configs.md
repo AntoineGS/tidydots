@@ -41,6 +41,8 @@ backup: "./shell/zsh"      # Nested directory
 
 The `targets` field is a map from OS identifier to the target path on that OS. tidydots looks up the current OS and uses the corresponding path.
 
+At least one target must be declared. A config entry with `backup` set but no targets will be rejected during validation.
+
 ```yaml
 targets:
   linux: "~/.config/nvim"
