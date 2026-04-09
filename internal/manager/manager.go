@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/AntoineGS/tidydots/internal/cmdexec"
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/fsys"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	"github.com/AntoineGS/tidydots/internal/state"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
@@ -38,6 +40,8 @@ type Manager struct {
 	logger         *slog.Logger
 	templateEngine *tmpl.Engine
 	stateStore     *state.Store
+	fs             fsys.FS
+	runner         cmdexec.Runner
 	DryRun         bool
 	Verbose        bool
 	NoMerge        bool
@@ -64,7 +68,25 @@ func New(cfg *config.Config, plat *platform.Platform) *Manager {
 		ctx:            context.Background(), // Default context
 		logger:         slog.New(handler),
 		templateEngine: engine,
+		fs:             fsys.OsFS{},
+		runner:         cmdexec.OsRunner{},
 	}
+}
+
+// WithFS returns a new Manager with the given filesystem implementation.
+// Used primarily for testing with an in-memory filesystem.
+func (m *Manager) WithFS(f fsys.FS) *Manager {
+	m2 := *m
+	m2.fs = f
+	return &m2
+}
+
+// WithRunner returns a new Manager with the given command runner.
+// Used primarily for testing with a stub command runner.
+func (m *Manager) WithRunner(r cmdexec.Runner) *Manager {
+	m2 := *m
+	m2.runner = r
+	return &m2
 }
 
 // InitStateStore initializes the SQLite state store for template render history.
