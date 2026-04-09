@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -94,13 +95,21 @@ func TestValidateConfig(t *testing.T) {
 					{
 						Name: "nvim",
 						Entries: []SubEntry{
-							{Name: "nvim-config", Backup: "./nvim"},
+							{
+								Name:    "nvim-config",
+								Backup:  "./nvim",
+								Targets: map[string]string{"linux": "~/.config/nvim"},
+							},
 						},
 					},
 					{
 						Name: "zsh",
 						Entries: []SubEntry{
-							{Name: "zshrc", Backup: "./zsh"},
+							{
+								Name:    "zshrc",
+								Backup:  "./zsh",
+								Targets: map[string]string{"linux": "~/.zshrc"},
+							},
 						},
 					},
 				},
@@ -171,8 +180,16 @@ func TestValidateConfig(t *testing.T) {
 					{
 						Name: "nvim",
 						Entries: []SubEntry{
-							{Name: "config", Backup: "./nvim"},
-							{Name: "config", Backup: "./nvim2"},
+							{
+								Name:    "config",
+								Backup:  "./nvim",
+								Targets: map[string]string{"linux": "~/.config/nvim"},
+							},
+							{
+								Name:    "config",
+								Backup:  "./nvim2",
+								Targets: map[string]string{"linux": "~/.config/nvim2"},
+							},
 						},
 					},
 				},
@@ -228,13 +245,21 @@ func TestValidateConfig(t *testing.T) {
 					{
 						Name: "nvim",
 						Entries: []SubEntry{
-							{Name: "config", Backup: "./nvim"},
+							{
+								Name:    "config",
+								Backup:  "./nvim",
+								Targets: map[string]string{"linux": "~/.config/nvim"},
+							},
 						},
 					},
 					{
 						Name: "zsh",
 						Entries: []SubEntry{
-							{Name: "config", Backup: "./zsh"},
+							{
+								Name:    "config",
+								Backup:  "./zsh",
+								Targets: map[string]string{"linux": "~/.zshrc"},
+							},
 						},
 					},
 				},
@@ -249,7 +274,11 @@ func TestValidateConfig(t *testing.T) {
 					{
 						Name: "nvim",
 						Entries: []SubEntry{
-							{Name: "config", Backup: "../../../etc/shadow"},
+							{
+								Name:    "config",
+								Backup:  "../../../etc/shadow",
+								Targets: map[string]string{"linux": "~/.config/nvim"},
+							},
 						},
 					},
 				},
@@ -426,5 +455,39 @@ func TestValidateConfig(t *testing.T) {
 				tt.checkErrs(t, errs)
 			}
 		})
+	}
+}
+
+func TestValidateConfig_RejectsConfigEntryWithoutTargets(t *testing.T) {
+	cfg := &Config{
+		Version: 3,
+		Applications: []Application{
+			{
+				Name: "nvim",
+				Entries: []SubEntry{
+					{
+						Name:    "nvim-config",
+						Backup:  "./nvim",
+						Targets: map[string]string{}, // empty — bug bait
+					},
+				},
+			},
+		},
+	}
+
+	errs := ValidateConfig(cfg)
+	if len(errs) == 0 {
+		t.Fatal("expected validation error for config entry with empty targets, got none")
+	}
+
+	var found bool
+	for _, err := range errs {
+		if strings.Contains(err.Error(), "targets") && strings.Contains(err.Error(), "nvim-config") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no error mentioned targets for nvim-config; errors = %v", errs)
 	}
 }

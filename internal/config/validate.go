@@ -32,6 +32,14 @@ func isTemplatePath(path string) bool {
 func validateEntryPaths(appName string, entry SubEntry) []error {
 	var errs []error
 
+	// Config-type entries must declare at least one target OS.
+	if entry.IsConfig() && len(entry.Targets) == 0 {
+		errs = append(errs, NewFieldError(
+			fmt.Sprintf("%s/%s", appName, entry.Name),
+			"targets", "", fmt.Errorf("at least one target is required"),
+		))
+	}
+
 	// Validate backup path
 	if entry.Backup != "" && !isTemplatePath(entry.Backup) {
 		if err := ValidatePath(entry.Backup); err != nil {
