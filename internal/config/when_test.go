@@ -1,7 +1,10 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
+	"log/slog"
+	"strings"
 	"testing"
 )
 
@@ -100,5 +103,48 @@ func TestEvaluateWhen(t *testing.T) {
 				t.Errorf("EvaluateWhen(%q) = %v, want %v", tt.when, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestEvaluateWhenWithLogger_LogsRenderErrors(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+
+	renderer := &mockWhenRenderer{err: fmt.Errorf("template parse: unexpected {{")}
+
+	got := EvaluateWhenWithLogger("{{ eq .OS \"linux\" }}", renderer, logger)
+	if got {
+		t.Errorf("EvaluateWhenWithLogger on error = true, want false")
+	}
+	if !strings.Contains(buf.String(), "when expression") {
+		t.Errorf("expected warning about when expression; log = %q", buf.String())
+	}
+}
+
+func TestEvaluateWhenWithLogger_NilLoggerDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	renderer := &mockWhenRenderer{err: fmt.Errorf("boom")}
+	got := EvaluateWhenWithLogger("{{ .OS }}", renderer, nil)
+	if got {
+		t.Errorf("EvaluateWhenWithLogger(nil logger) on error = true, want false")
+	}
+}
+
+func TestEvaluateWhenWithLogger_SuccessDoesNotLog(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+
+	renderer := &mockWhenRenderer{result: "true"}
+	got := EvaluateWhenWithLogger("{{ eq .OS \"linux\" }}", renderer, logger)
+	if !got {
+		t.Errorf("EvaluateWhenWithLogger on success = false, want true")
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected no log output on success, got %q", buf.String())
 	}
 }
