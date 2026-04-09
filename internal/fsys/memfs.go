@@ -1,0 +1,589 @@
+package fsys
+
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+)
+
+// MemFS is an in-memory filesystem implementation intended for use in tests.
+type MemFS struct {
+	mu       sync.RWMutex
+	files    map[string][]byte
+	dirs     map[string]bool
+	symlinks map[string]string
+	perms    map[string]fs.FileMode
+}
+
+// NewMemFS creates a new empty MemFS with the root directory pre-created.
+func NewMemFS() *MemFS {
+	m := &MemFS{
+		files:    make(map[string][]byte),
+		dirs:     make(map[string]bool),
+		symlinks: make(map[string]string),
+		perms:    make(map[string]fs.FileMode),
+	}
+	m.dirs["/"] = true
+	return m
+}
+
+// pathError wraps an error as an os.PathError.
+func pathError(op, path string, err error) error {
+	return &os.PathError{Op: op, Path: path, Err: err}
+}
+
+// Stat returns a FileInfo for the named path, following symlinks.
+func (m *MemFS) Stat(name string) (fs.FileInfo, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Follow symlinks.
+	resolved, err := m.resolveSymlink(name)
+	if err != nil {
+		return nil, pathError("stat", name, os.ErrNotExist)
+	}
+
+	return m.statResolved(resolved, name)
+}
+
+// resolveSymlink resolves a path through symlinks (must be called with lock held).
+func (m *MemFS) resolveSymlink(name string) (string, error) {
+	visited := make(map[string]bool)
+	current := name
+
+	for {
+		if visited[current] {
+			return "", fmt.Errorf("too many levels of symbolic links")
+		}
+		visited[current] = true
+
+		if target, ok := m.symlinks[current]; ok {
+			if !filepath.IsAbs(target) {
+				target = filepath.Join(filepath.Dir(current), target)
+			}
+			current = target
+			continue
+		}
+
+		// Check if it's a known file or directory.
+		if _, ok := m.files[current]; ok {
+			return current, nil
+		}
+		if m.dirs[current] {
+			return current, nil
+		}
+
+		return "", os.ErrNotExist
+	}
+}
+
+// statResolved builds a FileInfo for an already-resolved path (lock must be held).
+func (m *MemFS) statResolved(resolved, displayName string) (fs.FileInfo, error) {
+	if data, ok := m.files[resolved]; ok {
+		perm := m.perms[resolved]
+		if perm == 0 {
+			perm = 0o644
+		}
+		return &memFileInfo{
+			name:  filepath.Base(displayName),
+			size:  int64(len(data)),
+			mode:  perm,
+			isDir: false,
+		}, nil
+	}
+	if m.dirs[resolved] {
+		perm := m.perms[resolved]
+		if perm == 0 {
+			perm = 0o755
+		}
+		return &memFileInfo{
+			name:  filepath.Base(displayName),
+			size:  0,
+			mode:  perm | fs.ModeDir,
+			isDir: true,
+		}, nil
+	}
+	return nil, pathError("stat", displayName, os.ErrNotExist)
+}
+
+// Lstat returns a FileInfo for the named path without following symlinks.
+func (m *MemFS) Lstat(name string) (fs.FileInfo, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Check if it's a symlink first.
+	if _, ok := m.symlinks[name]; ok {
+		return &memFileInfo{
+			name:  filepath.Base(name),
+			size:  0,
+			mode:  fs.ModeSymlink | 0o777,
+			isDir: false,
+		}, nil
+	}
+
+	if data, ok := m.files[name]; ok {
+		perm := m.perms[name]
+		if perm == 0 {
+			perm = 0o644
+		}
+		return &memFileInfo{
+			name:  filepath.Base(name),
+			size:  int64(len(data)),
+			mode:  perm,
+			isDir: false,
+		}, nil
+	}
+	if m.dirs[name] {
+		perm := m.perms[name]
+		if perm == 0 {
+			perm = 0o755
+		}
+		return &memFileInfo{
+			name:  filepath.Base(name),
+			size:  0,
+			mode:  perm | fs.ModeDir,
+			isDir: true,
+		}, nil
+	}
+
+	return nil, pathError("lstat", name, os.ErrNotExist)
+}
+
+// ReadFile reads and returns the content of the named file.
+func (m *MemFS) ReadFile(name string) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Follow symlinks.
+	resolved, err := m.resolveSymlink(name)
+	if err != nil {
+		return nil, pathError("open", name, os.ErrNotExist)
+	}
+
+	data, ok := m.files[resolved]
+	if !ok {
+		return nil, pathError("open", name, os.ErrNotExist)
+	}
+
+	result := make([]byte, len(data))
+	copy(result, data)
+	return result, nil
+}
+
+// WriteFile writes data to the named file.
+func (m *MemFS) WriteFile(name string, data []byte, perm fs.FileMode) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Ensure parent directory exists.
+	parent := filepath.Dir(name)
+	if parent != name && !m.dirs[parent] {
+		return pathError("open", name, os.ErrNotExist)
+	}
+
+	content := make([]byte, len(data))
+	copy(content, data)
+	m.files[name] = content
+	m.perms[name] = perm
+	return nil
+}
+
+// MkdirAll creates path and all necessary parent directories.
+func (m *MemFS) MkdirAll(path string, perm fs.FileMode) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	parts := strings.Split(filepath.Clean(path), string(filepath.Separator))
+	current := ""
+	for _, part := range parts {
+		if part == "" {
+			current = "/"
+		} else {
+			if current == "/" {
+				current = "/" + part
+			} else {
+				current = current + "/" + part
+			}
+		}
+		if !m.dirs[current] {
+			m.dirs[current] = true
+			m.perms[current] = perm | fs.ModeDir
+		}
+	}
+	return nil
+}
+
+// Remove removes the named file or empty directory.
+func (m *MemFS) Remove(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.files[name]; ok {
+		delete(m.files, name)
+		delete(m.perms, name)
+		return nil
+	}
+	if _, ok := m.symlinks[name]; ok {
+		delete(m.symlinks, name)
+		return nil
+	}
+	if m.dirs[name] {
+		// Check the directory is empty.
+		prefix := name + "/"
+		for k := range m.files {
+			if strings.HasPrefix(k, prefix) {
+				return pathError("remove", name, fmt.Errorf("directory not empty"))
+			}
+		}
+		for k := range m.dirs {
+			if strings.HasPrefix(k, prefix) {
+				return pathError("remove", name, fmt.Errorf("directory not empty"))
+			}
+		}
+		delete(m.dirs, name)
+		delete(m.perms, name)
+		return nil
+	}
+
+	return pathError("remove", name, os.ErrNotExist)
+}
+
+// RemoveAll removes path and any children it contains.
+func (m *MemFS) RemoveAll(path string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	prefix := path + "/"
+
+	for k := range m.files {
+		if k == path || strings.HasPrefix(k, prefix) {
+			delete(m.files, k)
+			delete(m.perms, k)
+		}
+	}
+	for k := range m.symlinks {
+		if k == path || strings.HasPrefix(k, prefix) {
+			delete(m.symlinks, k)
+		}
+	}
+	for k := range m.dirs {
+		if k == path || strings.HasPrefix(k, prefix) {
+			delete(m.dirs, k)
+			delete(m.perms, k)
+		}
+	}
+	return nil
+}
+
+// Symlink creates newname as a symbolic link pointing to oldname.
+func (m *MemFS) Symlink(oldname, newname string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.symlinks[newname]; ok {
+		return pathError("symlink", newname, os.ErrExist)
+	}
+	if _, ok := m.files[newname]; ok {
+		return pathError("symlink", newname, os.ErrExist)
+	}
+
+	// Ensure parent directory exists.
+	parent := filepath.Dir(newname)
+	if parent != newname && !m.dirs[parent] {
+		return pathError("symlink", newname, os.ErrNotExist)
+	}
+
+	m.symlinks[newname] = oldname
+	return nil
+}
+
+// Readlink returns the destination of the named symbolic link.
+func (m *MemFS) Readlink(name string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	target, ok := m.symlinks[name]
+	if !ok {
+		return "", pathError("readlink", name, os.ErrNotExist)
+	}
+	return target, nil
+}
+
+// Rename renames (moves) oldpath to newpath.
+func (m *MemFS) Rename(oldpath, newpath string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if data, ok := m.files[oldpath]; ok {
+		perm := m.perms[oldpath]
+		m.files[newpath] = data
+		m.perms[newpath] = perm
+		delete(m.files, oldpath)
+		delete(m.perms, oldpath)
+		return nil
+	}
+	if target, ok := m.symlinks[oldpath]; ok {
+		m.symlinks[newpath] = target
+		delete(m.symlinks, oldpath)
+		return nil
+	}
+	if m.dirs[oldpath] {
+		// Move directory and all its contents.
+		prefix := oldpath + "/"
+		newPrefix := newpath + "/"
+
+		m.dirs[newpath] = true
+		m.perms[newpath] = m.perms[oldpath]
+		delete(m.dirs, oldpath)
+		delete(m.perms, oldpath)
+
+		for k, v := range m.files {
+			if strings.HasPrefix(k, prefix) {
+				newKey := newPrefix + k[len(prefix):]
+				m.files[newKey] = v
+				m.perms[newKey] = m.perms[k]
+				delete(m.files, k)
+				delete(m.perms, k)
+			}
+		}
+		for k := range m.dirs {
+			if strings.HasPrefix(k, prefix) {
+				newKey := newPrefix + k[len(prefix):]
+				m.dirs[newKey] = true
+				m.perms[newKey] = m.perms[k]
+				delete(m.dirs, k)
+				delete(m.perms, k)
+			}
+		}
+		return nil
+	}
+
+	return pathError("rename", oldpath, os.ErrNotExist)
+}
+
+// ReadDir reads the named directory, returning sorted directory entries.
+func (m *MemFS) ReadDir(name string) ([]os.DirEntry, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if !m.dirs[name] {
+		return nil, pathError("open", name, os.ErrNotExist)
+	}
+
+	prefix := strings.TrimRight(name, "/") + "/"
+	seen := make(map[string]bool)
+	var entries []os.DirEntry
+
+	entries = m.readDirFiles(prefix, seen, entries)
+	entries = m.readDirSymlinks(prefix, seen, entries)
+	entries = m.readDirDirs(prefix, seen, entries)
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
+	return entries, nil
+}
+
+// readDirFiles appends direct file children of prefix to entries (lock must be held).
+func (m *MemFS) readDirFiles(prefix string, seen map[string]bool, entries []os.DirEntry) []os.DirEntry {
+	for k := range m.files {
+		rest, ok := directChild(k, prefix)
+		if !ok || seen[rest] {
+			continue
+		}
+		seen[rest] = true
+		perm := m.perms[k]
+		if perm == 0 {
+			perm = 0o644
+		}
+		entries = append(entries, &memDirEntry{name: rest, isDir: false, mode: perm})
+	}
+	return entries
+}
+
+// readDirSymlinks appends direct symlink children of prefix to entries (lock must be held).
+func (m *MemFS) readDirSymlinks(prefix string, seen map[string]bool, entries []os.DirEntry) []os.DirEntry {
+	for k := range m.symlinks {
+		rest, ok := directChild(k, prefix)
+		if !ok || seen[rest] {
+			continue
+		}
+		seen[rest] = true
+		entries = append(entries, &memDirEntry{name: rest, isDir: false, mode: fs.ModeSymlink | 0o777})
+	}
+	return entries
+}
+
+// readDirDirs appends direct sub-directory children of prefix to entries (lock must be held).
+func (m *MemFS) readDirDirs(prefix string, seen map[string]bool, entries []os.DirEntry) []os.DirEntry {
+	for k := range m.dirs {
+		rest, ok := directChild(k, prefix)
+		if !ok || seen[rest] {
+			continue
+		}
+		seen[rest] = true
+		perm := m.perms[k]
+		if perm == 0 {
+			perm = 0o755
+		}
+		entries = append(entries, &memDirEntry{name: rest, isDir: true, mode: perm | fs.ModeDir})
+	}
+	return entries
+}
+
+// directChild returns the name of a direct child of the directory identified by
+// prefix, and true if k is indeed a direct child. Returns "", false otherwise.
+func directChild(k, prefix string) (string, bool) {
+	if !strings.HasPrefix(k, prefix) {
+		return "", false
+	}
+	rest := k[len(prefix):]
+	if strings.Contains(rest, "/") {
+		return "", false
+	}
+	return rest, true
+}
+
+// WalkDir walks the file tree rooted at root, calling fn for each file or directory.
+func (m *MemFS) WalkDir(root string, fn fs.WalkDirFunc) error {
+	m.mu.RLock()
+	// Collect all paths under root (snapshot).
+	paths := m.collectPaths(root)
+	m.mu.RUnlock()
+
+	sort.Strings(paths)
+
+	for _, p := range paths {
+		m.mu.RLock()
+		info, err := m.lstatLocked(p)
+		m.mu.RUnlock()
+
+		var de os.DirEntry
+		if info != nil {
+			de = &memDirEntry{
+				name:  filepath.Base(p),
+				isDir: info.IsDir(),
+				mode:  info.Mode(),
+			}
+		}
+
+		if walkErr := fn(p, de, err); walkErr != nil {
+			if errors.Is(walkErr, fs.SkipDir) {
+				// Skip remaining entries under this directory.
+				continue
+			}
+			return walkErr
+		}
+	}
+	return nil
+}
+
+// collectPaths collects all paths under root (must be called with lock held).
+func (m *MemFS) collectPaths(root string) []string {
+	seen := make(map[string]bool)
+
+	addPath := func(p string) {
+		if p == root || strings.HasPrefix(p, root+"/") {
+			seen[p] = true
+		}
+	}
+
+	if m.dirs[root] {
+		seen[root] = true
+	}
+	for k := range m.files {
+		addPath(k)
+	}
+	for k := range m.dirs {
+		addPath(k)
+	}
+	for k := range m.symlinks {
+		addPath(k)
+	}
+
+	result := make([]string, 0, len(seen))
+	for p := range seen {
+		result = append(result, p)
+	}
+	return result
+}
+
+// lstatLocked returns FileInfo without following symlinks (must be called with lock held).
+func (m *MemFS) lstatLocked(name string) (fs.FileInfo, error) {
+	if _, ok := m.symlinks[name]; ok {
+		return &memFileInfo{
+			name:  filepath.Base(name),
+			size:  0,
+			mode:  fs.ModeSymlink | 0o777,
+			isDir: false,
+		}, nil
+	}
+	if data, ok := m.files[name]; ok {
+		perm := m.perms[name]
+		if perm == 0 {
+			perm = 0o644
+		}
+		return &memFileInfo{
+			name:  filepath.Base(name),
+			size:  int64(len(data)),
+			mode:  perm,
+			isDir: false,
+		}, nil
+	}
+	if m.dirs[name] {
+		perm := m.perms[name]
+		if perm == 0 {
+			perm = 0o755
+		}
+		return &memFileInfo{
+			name:  filepath.Base(name),
+			size:  0,
+			mode:  perm | fs.ModeDir,
+			isDir: true,
+		}, nil
+	}
+	return nil, pathError("lstat", name, os.ErrNotExist)
+}
+
+// memFileInfo implements fs.FileInfo.
+type memFileInfo struct {
+	name  string
+	size  int64
+	mode  fs.FileMode
+	isDir bool
+}
+
+func (f *memFileInfo) Name() string       { return f.name }
+func (f *memFileInfo) Size() int64        { return f.size }
+func (f *memFileInfo) Mode() fs.FileMode  { return f.mode }
+func (f *memFileInfo) ModTime() time.Time { return time.Time{} }
+func (f *memFileInfo) IsDir() bool        { return f.isDir }
+func (f *memFileInfo) Sys() any           { return nil }
+
+// memDirEntry implements os.DirEntry.
+type memDirEntry struct {
+	name  string
+	isDir bool
+	mode  fs.FileMode
+}
+
+func (d *memDirEntry) Name() string { return d.name }
+func (d *memDirEntry) IsDir() bool  { return d.isDir }
+func (d *memDirEntry) Type() fs.FileMode {
+	return d.mode.Type()
+}
+func (d *memDirEntry) Info() (fs.FileInfo, error) {
+	return &memFileInfo{
+		name:  d.name,
+		size:  0,
+		mode:  d.mode,
+		isDir: d.isDir,
+	}, nil
+}

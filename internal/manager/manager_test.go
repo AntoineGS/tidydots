@@ -114,9 +114,9 @@ func TestIsSymlink(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isSymlink(tt.path)
+			got := testIsSymlink(tt.path)
 			if got != tt.want {
-				t.Errorf("isSymlink(%q) = %v, want %v", tt.path, got, tt.want)
+				t.Errorf("testIsSymlink(%q) = %v, want %v", tt.path, got, tt.want)
 			}
 		})
 	}
@@ -143,9 +143,9 @@ func TestPathExists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := PathExists(tt.path)
+			got := testPathExists(tt.path)
 			if got != tt.want {
-				t.Errorf("PathExists(%q) = %v, want %v", tt.path, got, tt.want)
+				t.Errorf("testPathExists(%q) = %v, want %v", tt.path, got, tt.want)
 			}
 		})
 	}
@@ -164,7 +164,8 @@ func TestCopyFile(t *testing.T) {
 
 	dstFile := filepath.Join(tmpDir, "subdir", "dest.txt")
 
-	if err := copyFile(srcFile, dstFile); err != nil {
+	mgr := newUtilityManager()
+	if err := mgr.copyFile(srcFile, dstFile); err != nil {
 		t.Fatalf("copyFile() error = %v", err)
 	}
 
@@ -197,16 +198,17 @@ func TestCopyDir(t *testing.T) {
 
 	dstDir := filepath.Join(tmpDir, "dest")
 
-	if err := copyDir(srcDir, dstDir); err != nil {
+	mgr := newUtilityManager()
+	if err := mgr.copyDir(srcDir, dstDir); err != nil {
 		t.Fatalf("copyDir() error = %v", err)
 	}
 
 	// Check files exist
-	if !PathExists(filepath.Join(dstDir, "file1.txt")) {
+	if !testPathExists(filepath.Join(dstDir, "file1.txt")) {
 		t.Error("file1.txt not copied")
 	}
 
-	if !PathExists(filepath.Join(dstDir, "subdir", "file2.txt")) {
+	if !testPathExists(filepath.Join(dstDir, "subdir", "file2.txt")) {
 		t.Error("subdir/file2.txt not copied")
 	}
 
@@ -221,6 +223,7 @@ func TestRemoveAll(t *testing.T) {
 	t.Parallel()
 	skipIfNoSymlink(t)
 	tmpDir := t.TempDir()
+	mgr := newUtilityManager()
 
 	// Test removing regular file
 	regularFile := filepath.Join(tmpDir, "regular.txt")
@@ -228,11 +231,11 @@ func TestRemoveAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := removeAll(regularFile); err != nil {
+	if err := mgr.removeAll(regularFile); err != nil {
 		t.Fatalf("removeAll(regular file) error = %v", err)
 	}
 
-	if PathExists(regularFile) {
+	if testPathExists(regularFile) {
 		t.Error("Regular file still exists after removeAll")
 	}
 
@@ -245,11 +248,11 @@ func TestRemoveAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := removeAll(dir); err != nil {
+	if err := mgr.removeAll(dir); err != nil {
 		t.Fatalf("removeAll(dir) error = %v", err)
 	}
 
-	if PathExists(dir) {
+	if testPathExists(dir) {
 		t.Error("Directory still exists after removeAll")
 	}
 
@@ -263,16 +266,16 @@ func TestRemoveAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := removeAll(symlink); err != nil {
+	if err := mgr.removeAll(symlink); err != nil {
 		t.Fatalf("removeAll(symlink) error = %v", err)
 	}
 
-	if !PathExists(symlink) {
+	if !testPathExists(symlink) {
 		t.Error("Symlink should not be removed by removeAll")
 	}
 
 	// Test non-existent path (should not error)
-	if err := removeAll(filepath.Join(tmpDir, "nonexistent")); err != nil {
+	if err := mgr.removeAll(filepath.Join(tmpDir, "nonexistent")); err != nil {
 		t.Fatalf("removeAll(nonexistent) error = %v", err)
 	}
 }
@@ -329,7 +332,8 @@ func TestCopyFilePreservesPermissions(t *testing.T) {
 
 	dstFile := filepath.Join(tmpDir, "dest.sh")
 
-	if err := copyFile(srcFile, dstFile); err != nil {
+	mgr := newUtilityManager()
+	if err := mgr.copyFile(srcFile, dstFile); err != nil {
 		t.Fatalf("copyFile() error = %v", err)
 	}
 
@@ -349,7 +353,8 @@ func TestCopyFileNonexistentSource(t *testing.T) {
 	srcFile := filepath.Join(tmpDir, "nonexistent.txt")
 	dstFile := filepath.Join(tmpDir, "dest.txt")
 
-	err := copyFile(srcFile, dstFile)
+	mgr := newUtilityManager()
+	err := mgr.copyFile(srcFile, dstFile)
 	if err == nil {
 		t.Error("copyFile() should error for nonexistent source")
 	}
@@ -362,7 +367,8 @@ func TestCopyDirNonexistentSource(t *testing.T) {
 	srcDir := filepath.Join(tmpDir, "nonexistent")
 	dstDir := filepath.Join(tmpDir, "dest")
 
-	err := copyDir(srcDir, dstDir)
+	mgr := newUtilityManager()
+	err := mgr.copyDir(srcDir, dstDir)
 	if err == nil {
 		t.Error("copyDir() should error for nonexistent source")
 	}
@@ -385,12 +391,12 @@ func TestIsSymlinkWithDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !isSymlink(symlinkDir) {
-		t.Error("isSymlink() should return true for directory symlink")
+	if !testIsSymlink(symlinkDir) {
+		t.Error("testIsSymlink() should return true for directory symlink")
 	}
 
-	if isSymlink(dir) {
-		t.Error("isSymlink() should return false for real directory")
+	if testIsSymlink(dir) {
+		t.Error("testIsSymlink() should return false for real directory")
 	}
 }
 
@@ -410,8 +416,8 @@ func TestPathExistsWithSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !PathExists(symlink) {
-		t.Error("PathExists() should return true for symlink")
+	if !testPathExists(symlink) {
+		t.Error("testPathExists() should return true for symlink")
 	}
 
 	// Test with broken symlink
@@ -421,8 +427,8 @@ func TestPathExistsWithSymlink(t *testing.T) {
 	}
 
 	// Broken symlinks still "exist" in terms of Lstat
-	if !PathExists(brokenLink) {
-		t.Error("PathExists() should return true for broken symlink (Lstat behavior)")
+	if !testPathExists(brokenLink) {
+		t.Error("testPathExists() should return true for broken symlink (Lstat behavior)")
 	}
 }
 

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -93,13 +91,13 @@ func (m *Manager) backupSubEntry(appName string, subEntry config.SubEntry, targe
 
 func (m *Manager) backupFolderSubEntry(_ string, subEntry config.SubEntry, backup, target string) error {
 	// Similar to existing backupFolder logic
-	if !PathExists(target) {
+	if !m.pathExists(target) {
 		m.logger.Debug("target folder does not exist", slog.String("path", target))
 		return nil
 	}
 
 	// Skip symlinks - they point to our backup already
-	if isSymlink(target) {
+	if m.isSymlink(target) {
 		m.logger.Debug("skipping symlink", slog.String("path", target))
 		return nil
 	}
@@ -109,17 +107,19 @@ func (m *Manager) backupFolderSubEntry(_ string, subEntry config.SubEntry, backu
 		slog.String("to", backup))
 
 	if !m.DryRun {
-		if err := os.MkdirAll(filepath.Dir(backup), DirPerms); err != nil {
+		if err := m.fs.MkdirAll(filepath.Dir(backup), DirPerms); err != nil {
 			return NewPathError("backup", backup, fmt.Errorf("creating parent directory: %w", err))
 		}
 
 		// Copy source folder contents into backup directory (e.g., /source/nvim/* -> /backup/*)
 		if subEntry.Sudo {
-			cmd := exec.CommandContext(m.ctx, "sudo", "cp", "-rT", target, backup) //nolint:gosec // intentional sudo command
-			return cmd.Run()
+			if _, err := m.runner.RunWithSudo(m.ctx, "cp", "-rT", target, backup); err != nil {
+				return err
+			}
+			return nil
 		}
 
-		return copyDir(target, backup)
+		return m.copyDir(target, backup)
 	}
 
 	return nil
@@ -127,13 +127,13 @@ func (m *Manager) backupFolderSubEntry(_ string, subEntry config.SubEntry, backu
 
 func (m *Manager) backupFilesSubEntry(_ string, subEntry config.SubEntry, backup, target string) error {
 	// Similar to existing backupFiles logic
-	if !PathExists(target) {
+	if !m.pathExists(target) {
 		m.logger.Debug("target directory does not exist", slog.String("path", target))
 		return nil
 	}
 
 	if !m.DryRun {
-		if err := os.MkdirAll(backup, DirPerms); err != nil {
+		if err := m.fs.MkdirAll(backup, DirPerms); err != nil {
 			return NewPathError("backup", backup, fmt.Errorf("creating backup directory: %w", err))
 		}
 	}
@@ -142,13 +142,13 @@ func (m *Manager) backupFilesSubEntry(_ string, subEntry config.SubEntry, backup
 		srcFile := filepath.Join(target, file)
 		dstFile := filepath.Join(backup, file)
 
-		if !PathExists(srcFile) {
+		if !m.pathExists(srcFile) {
 			m.logger.Debug("source file does not exist", slog.String("path", srcFile))
 			continue
 		}
 
 		// Skip symlinks
-		if isSymlink(srcFile) {
+		if m.isSymlink(srcFile) {
 			m.logger.Debug("skipping symlink", slog.String("path", srcFile))
 			continue
 		}
@@ -165,12 +165,11 @@ func (m *Manager) backupFilesSubEntry(_ string, subEntry config.SubEntry, backup
 
 		if !m.DryRun {
 			if subEntry.Sudo {
-				cmd := exec.CommandContext(m.ctx, "sudo", "cp", srcFile, dstFile) //nolint:gosec // intentional sudo command
-				if err := cmd.Run(); err != nil {
+				if _, err := m.runner.RunWithSudo(m.ctx, "cp", srcFile, dstFile); err != nil {
 					return NewPathError("backup", srcFile, fmt.Errorf("copying file: %w", err))
 				}
 			} else {
-				if err := copyFile(srcFile, dstFile); err != nil {
+				if err := m.copyFile(srcFile, dstFile); err != nil {
 					return NewPathError("backup", srcFile, fmt.Errorf("copying file: %w", err))
 				}
 			}

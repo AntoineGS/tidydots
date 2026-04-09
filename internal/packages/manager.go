@@ -3,6 +3,7 @@ package packages
 import (
 	"context"
 
+	"github.com/AntoineGS/tidydots/internal/cmdexec"
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
@@ -18,6 +19,7 @@ type Manager struct {
 	Preferred    PackageManager
 	Available    []PackageManager
 	availableSet map[PackageManager]bool
+	runner       cmdexec.Runner
 	DryRun       bool
 	Verbose      bool
 }
@@ -34,11 +36,20 @@ func NewManager(cfg *Config, osType string, dryRun, verbose bool) *Manager {
 		OS:      osType,
 		DryRun:  dryRun,
 		Verbose: verbose,
+		runner:  cmdexec.OsRunner{},
 	}
 	m.detectAvailableManagers()
 	m.selectPreferredManager()
 
 	return m
+}
+
+// WithRunner returns a new Manager with the given command runner.
+// Used primarily for testing with a stub command runner.
+func (m *Manager) WithRunner(r cmdexec.Runner) *Manager {
+	m2 := *m
+	m2.runner = r
+	return &m2
 }
 
 // WithContext returns a new Manager with the given context for cancellation support.
@@ -50,7 +61,7 @@ func (m *Manager) WithContext(ctx context.Context) *Manager {
 
 func (m *Manager) detectAvailableManagers() {
 	m.availableSet = make(map[PackageManager]bool)
-	for _, mgr := range platform.DetectAvailableManagers() {
+	for _, mgr := range platform.DetectAvailableManagersWithRunner(m.runner) {
 		pm := PackageManager(mgr)
 		m.Available = append(m.Available, pm)
 		m.availableSet[pm] = true

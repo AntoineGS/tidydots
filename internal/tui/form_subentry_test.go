@@ -53,35 +53,35 @@ func TestInitSubEntryFormNew_FilePickerFields(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 
 	// Initialize new sub-entry form
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	if m.subEntryForm == nil {
 		t.Fatal("subEntryForm is nil after initSubEntryFormNew")
 	}
 
 	// Verify addFileMode is initialized to ModeNone
-	if m.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("addFileMode = %d, want %d (ModeNone)", m.subEntryForm.addFileMode, ModeNone)
+	if m.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("addFileMode = %d, want %d (ModeNone)", m.subEntryForm.AddFileMode, ModeNone)
 	}
 
 	// Verify modeMenuCursor is initialized to 0
-	if m.subEntryForm.modeMenuCursor != 0 {
-		t.Errorf("modeMenuCursor = %d, want 0", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 0 {
+		t.Errorf("modeMenuCursor = %d, want 0", m.subEntryForm.ModeMenuCursor)
 	}
 
 	// Verify selectedFiles is initialized as empty map (not nil)
-	if m.subEntryForm.selectedFiles == nil {
+	if m.subEntryForm.SelectedFiles == nil {
 		t.Error("selectedFiles is nil, want empty map")
 	}
 
-	if len(m.subEntryForm.selectedFiles) != 0 {
-		t.Errorf("len(selectedFiles) = %d, want 0", len(m.subEntryForm.selectedFiles))
+	if len(m.subEntryForm.SelectedFiles) != 0 {
+		t.Errorf("len(selectedFiles) = %d, want 0", len(m.subEntryForm.SelectedFiles))
 	}
 
 	// Verify filePicker is zero value (will be initialized in Phase 4)
 	// filepicker.Model is a struct, so we can't directly compare to zero value
 	// We'll just verify the field exists by accessing it
-	_ = m.subEntryForm.filePicker
+	_ = m.subEntryForm.FilePicker
 }
 
 // TestInitSubEntryFormEdit_FilePickerFields verifies fields are initialized in edit mode
@@ -108,33 +108,33 @@ func TestInitSubEntryFormEdit_FilePickerFields(t *testing.T) {
 	m := NewModel(cfg, plat, false)
 
 	// Initialize edit sub-entry form
-	m.initSubEntryFormEdit(0, 0)
+	m.initSubEntryForm(0, 0)
 
 	if m.subEntryForm == nil {
 		t.Fatal("subEntryForm is nil after initSubEntryFormEdit")
 	}
 
 	// Verify addFileMode is initialized to ModeNone
-	if m.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("addFileMode = %d, want %d (ModeNone)", m.subEntryForm.addFileMode, ModeNone)
+	if m.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("addFileMode = %d, want %d (ModeNone)", m.subEntryForm.AddFileMode, ModeNone)
 	}
 
 	// Verify modeMenuCursor is initialized to 0
-	if m.subEntryForm.modeMenuCursor != 0 {
-		t.Errorf("modeMenuCursor = %d, want 0", m.subEntryForm.modeMenuCursor)
+	if m.subEntryForm.ModeMenuCursor != 0 {
+		t.Errorf("modeMenuCursor = %d, want 0", m.subEntryForm.ModeMenuCursor)
 	}
 
 	// Verify selectedFiles is initialized as empty map (not nil)
-	if m.subEntryForm.selectedFiles == nil {
+	if m.subEntryForm.SelectedFiles == nil {
 		t.Error("selectedFiles is nil, want empty map")
 	}
 
-	if len(m.subEntryForm.selectedFiles) != 0 {
-		t.Errorf("len(selectedFiles) = %d, want 0", len(m.subEntryForm.selectedFiles))
+	if len(m.subEntryForm.SelectedFiles) != 0 {
+		t.Errorf("len(selectedFiles) = %d, want 0", len(m.subEntryForm.SelectedFiles))
 	}
 
 	// Verify filePicker is zero value (will be initialized in Phase 4)
-	_ = m.subEntryForm.filePicker
+	_ = m.subEntryForm.FilePicker
 }
 
 // TestSubEntryForm_AddFileModeTransitions tests state transitions for AddFileMode
@@ -154,14 +154,14 @@ func TestSubEntryForm_AddFileModeTransitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			form := &SubEntryForm{
-				addFileMode: tt.initialMode,
+				AddFileMode: tt.initialMode,
 			}
 
 			// Transition to new mode
-			form.addFileMode = tt.newMode
+			form.AddFileMode = tt.newMode
 
-			if form.addFileMode != tt.newMode {
-				t.Errorf("addFileMode = %d, want %d", form.addFileMode, tt.newMode)
+			if form.AddFileMode != tt.newMode {
+				t.Errorf("addFileMode = %d, want %d", form.AddFileMode, tt.newMode)
 			}
 		})
 	}
@@ -170,84 +170,84 @@ func TestSubEntryForm_AddFileModeTransitions(t *testing.T) {
 // TestSubEntryForm_SelectedFilesManagement tests adding/removing selected files
 func TestSubEntryForm_SelectedFilesManagement(t *testing.T) {
 	form := &SubEntryForm{
-		selectedFiles: make(map[string]bool),
+		SelectedFiles: make(map[string]bool),
 	}
 
 	// Test adding files
-	form.selectedFiles["/path/to/file1"] = true
-	form.selectedFiles["/path/to/file2"] = true
+	form.SelectedFiles["/path/to/file1"] = true
+	form.SelectedFiles["/path/to/file2"] = true
 
-	if len(form.selectedFiles) != 2 {
-		t.Errorf("len(selectedFiles) = %d, want 2", len(form.selectedFiles))
+	if len(form.SelectedFiles) != 2 {
+		t.Errorf("len(selectedFiles) = %d, want 2", len(form.SelectedFiles))
 	}
 
-	if !form.selectedFiles["/path/to/file1"] {
+	if !form.SelectedFiles["/path/to/file1"] {
 		t.Error("file1 not selected")
 	}
 
-	if !form.selectedFiles["/path/to/file2"] {
+	if !form.SelectedFiles["/path/to/file2"] {
 		t.Error("file2 not selected")
 	}
 
 	// Test removing a file
-	delete(form.selectedFiles, "/path/to/file1")
+	delete(form.SelectedFiles, "/path/to/file1")
 
-	if len(form.selectedFiles) != 1 {
-		t.Errorf("len(selectedFiles) = %d, want 1 after deletion", len(form.selectedFiles))
+	if len(form.SelectedFiles) != 1 {
+		t.Errorf("len(selectedFiles) = %d, want 1 after deletion", len(form.SelectedFiles))
 	}
 
-	if form.selectedFiles["/path/to/file1"] {
+	if form.SelectedFiles["/path/to/file1"] {
 		t.Error("file1 still selected after deletion")
 	}
 
-	if !form.selectedFiles["/path/to/file2"] {
+	if !form.SelectedFiles["/path/to/file2"] {
 		t.Error("file2 not selected")
 	}
 
 	// Test clearing all selections
-	form.selectedFiles = make(map[string]bool)
+	form.SelectedFiles = make(map[string]bool)
 
-	if len(form.selectedFiles) != 0 {
-		t.Errorf("len(selectedFiles) = %d, want 0 after clearing", len(form.selectedFiles))
+	if len(form.SelectedFiles) != 0 {
+		t.Errorf("len(selectedFiles) = %d, want 0 after clearing", len(form.SelectedFiles))
 	}
 }
 
 // TestSubEntryForm_ModeMenuCursor tests cursor navigation for mode menu
 func TestSubEntryForm_ModeMenuCursor(t *testing.T) {
 	form := &SubEntryForm{
-		modeMenuCursor: 0,
+		ModeMenuCursor: 0,
 	}
 
 	// Test incrementing cursor
-	form.modeMenuCursor++
-	if form.modeMenuCursor != 1 {
-		t.Errorf("modeMenuCursor = %d, want 1", form.modeMenuCursor)
+	form.ModeMenuCursor++
+	if form.ModeMenuCursor != 1 {
+		t.Errorf("modeMenuCursor = %d, want 1", form.ModeMenuCursor)
 	}
 
-	form.modeMenuCursor++
-	if form.modeMenuCursor != 2 {
-		t.Errorf("modeMenuCursor = %d, want 2", form.modeMenuCursor)
+	form.ModeMenuCursor++
+	if form.ModeMenuCursor != 2 {
+		t.Errorf("modeMenuCursor = %d, want 2", form.ModeMenuCursor)
 	}
 
 	// Test wrapping (assuming 2 menu items: Browse and Type)
 	maxCursor := 1 // 0-indexed, so 0=Browse, 1=Type
-	form.modeMenuCursor++
-	if form.modeMenuCursor > maxCursor {
-		form.modeMenuCursor = 0
+	form.ModeMenuCursor++
+	if form.ModeMenuCursor > maxCursor {
+		form.ModeMenuCursor = 0
 	}
 
-	if form.modeMenuCursor != 0 {
-		t.Errorf("modeMenuCursor = %d, want 0 after wrapping", form.modeMenuCursor)
+	if form.ModeMenuCursor != 0 {
+		t.Errorf("modeMenuCursor = %d, want 0 after wrapping", form.ModeMenuCursor)
 	}
 
 	// Test decrementing with wrapping
-	form.modeMenuCursor--
-	if form.modeMenuCursor < 0 {
-		form.modeMenuCursor = maxCursor
+	form.ModeMenuCursor--
+	if form.ModeMenuCursor < 0 {
+		form.ModeMenuCursor = maxCursor
 	}
 
-	if form.modeMenuCursor != 1 {
-		t.Errorf("modeMenuCursor = %d, want 1 after wrapping backward", form.modeMenuCursor)
+	if form.ModeMenuCursor != 1 {
+		t.Errorf("modeMenuCursor = %d, want 1 after wrapping backward", form.ModeMenuCursor)
 	}
 }
 
@@ -269,9 +269,9 @@ func TestUpdateFileAddModeChoice_Navigation(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
-	m.subEntryForm.addFileMode = ModeChoosing
-	m.subEntryForm.modeMenuCursor = 0
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.AddFileMode = ModeChoosing
+	m.subEntryForm.ModeMenuCursor = 0
 
 	tests := []struct {
 		name           string
@@ -286,17 +286,17 @@ func TestUpdateFileAddModeChoice_Navigation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m.subEntryForm.modeMenuCursor = 0
+			m.subEntryForm.ModeMenuCursor = 0
 			updatedModel, _ := m.updateFileAddModeChoice(createKeyMsg(tt.key))
 			model := updatedModel.(Model)
 
-			if model.subEntryForm.modeMenuCursor != tt.expectedCursor {
-				t.Errorf("cursor = %d, want %d", model.subEntryForm.modeMenuCursor, tt.expectedCursor)
+			if model.subEntryForm.ModeMenuCursor != tt.expectedCursor {
+				t.Errorf("cursor = %d, want %d", model.subEntryForm.ModeMenuCursor, tt.expectedCursor)
 			}
 
 			// Should still be in ModeChoosing
-			if model.subEntryForm.addFileMode != ModeChoosing {
-				t.Errorf("addFileMode = %d, want %d (ModeChoosing)", model.subEntryForm.addFileMode, ModeChoosing)
+			if model.subEntryForm.AddFileMode != ModeChoosing {
+				t.Errorf("addFileMode = %d, want %d (ModeChoosing)", model.subEntryForm.AddFileMode, ModeChoosing)
 			}
 		})
 	}
@@ -320,25 +320,25 @@ func TestUpdateFileAddModeChoice_WrapAround(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
-	m.subEntryForm.addFileMode = ModeChoosing
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.AddFileMode = ModeChoosing
 
 	// Test down wrapping: Type -> Browse target
-	m.subEntryForm.modeMenuCursor = 2
+	m.subEntryForm.ModeMenuCursor = 2
 	updatedModel, _ := m.updateFileAddModeChoice(createKeyMsg(KeyDown))
 	model := updatedModel.(Model)
 
-	if model.subEntryForm.modeMenuCursor != 0 {
-		t.Errorf("cursor = %d, want 0 after wrapping down", model.subEntryForm.modeMenuCursor)
+	if model.subEntryForm.ModeMenuCursor != 0 {
+		t.Errorf("cursor = %d, want 0 after wrapping down", model.subEntryForm.ModeMenuCursor)
 	}
 
 	// Test up wrapping: Browse target -> Type
-	m.subEntryForm.modeMenuCursor = 0
+	m.subEntryForm.ModeMenuCursor = 0
 	updatedModel, _ = m.updateFileAddModeChoice(createKeyMsg("up"))
 	model = updatedModel.(Model)
 
-	if model.subEntryForm.modeMenuCursor != 2 {
-		t.Errorf("cursor = %d, want 2 after wrapping up", model.subEntryForm.modeMenuCursor)
+	if model.subEntryForm.ModeMenuCursor != 2 {
+		t.Errorf("cursor = %d, want 2 after wrapping up", model.subEntryForm.ModeMenuCursor)
 	}
 }
 
@@ -360,17 +360,17 @@ func TestUpdateFileAddModeChoice_SelectBrowse(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
-	m.subEntryForm.addFileMode = ModeChoosing
-	m.subEntryForm.modeMenuCursor = 0
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.AddFileMode = ModeChoosing
+	m.subEntryForm.ModeMenuCursor = 0
 
 	// Press enter to select Browse
 	updatedModel, _ := m.updateFileAddModeChoice(createKeyMsg(KeyEnter))
 	model := updatedModel.(Model)
 
 	// Should transition to ModePicker
-	if model.subEntryForm.addFileMode != ModePicker {
-		t.Errorf("addFileMode = %d, want %d (ModePicker)", model.subEntryForm.addFileMode, ModePicker)
+	if model.subEntryForm.AddFileMode != ModePicker {
+		t.Errorf("addFileMode = %d, want %d (ModePicker)", model.subEntryForm.AddFileMode, ModePicker)
 	}
 }
 
@@ -392,17 +392,17 @@ func TestUpdateFileAddModeChoice_SelectType(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
-	m.subEntryForm.addFileMode = ModeChoosing
-	m.subEntryForm.modeMenuCursor = 2
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.AddFileMode = ModeChoosing
+	m.subEntryForm.ModeMenuCursor = 2
 
 	// Press enter to select Type
 	updatedModel, _ := m.updateFileAddModeChoice(createKeyMsg(KeyEnter))
 	model := updatedModel.(Model)
 
 	// Should transition to ModeTextInput
-	if model.subEntryForm.addFileMode != ModeTextInput {
-		t.Errorf("addFileMode = %d, want %d (ModeTextInput)", model.subEntryForm.addFileMode, ModeTextInput)
+	if model.subEntryForm.AddFileMode != ModeTextInput {
+		t.Errorf("addFileMode = %d, want %d (ModeTextInput)", model.subEntryForm.AddFileMode, ModeTextInput)
 	}
 }
 
@@ -424,22 +424,22 @@ func TestUpdateFileAddModeChoice_Cancel(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
-	m.subEntryForm.addFileMode = ModeChoosing
-	m.subEntryForm.modeMenuCursor = 1
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.AddFileMode = ModeChoosing
+	m.subEntryForm.ModeMenuCursor = 1
 
 	// Press ESC to cancel
 	updatedModel, _ := m.updateFileAddModeChoice(createKeyMsg(KeyEsc))
 	model := updatedModel.(Model)
 
 	// Should return to ModeNone
-	if model.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("addFileMode = %d, want %d (ModeNone)", model.subEntryForm.addFileMode, ModeNone)
+	if model.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("addFileMode = %d, want %d (ModeNone)", model.subEntryForm.AddFileMode, ModeNone)
 	}
 
 	// Cursor should be reset
-	if model.subEntryForm.modeMenuCursor != 0 {
-		t.Errorf("modeMenuCursor = %d, want 0 after cancel", model.subEntryForm.modeMenuCursor)
+	if model.subEntryForm.ModeMenuCursor != 0 {
+		t.Errorf("modeMenuCursor = %d, want 0 after cancel", model.subEntryForm.ModeMenuCursor)
 	}
 }
 
@@ -461,9 +461,9 @@ func TestViewFileAddModeMenu_Content(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
-	m.subEntryForm.addFileMode = ModeChoosing
-	m.subEntryForm.modeMenuCursor = 0
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.AddFileMode = ModeChoosing
+	m.subEntryForm.ModeMenuCursor = 0
 
 	// Render the menu
 	view := m.viewFileAddModeMenu()
@@ -524,15 +524,15 @@ func TestInitFilePicker_FromModePicker(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up form with a target path
-	m.subEntryForm.linuxTargetInput.SetValue("~/.config/nvim")
-	m.subEntryForm.addFileMode = ModePicker
+	m.subEntryForm.LinuxTargetInput.SetValue("~/.config/nvim")
+	m.subEntryForm.AddFileMode = ModePicker
 
 	// Verify filePicker was initialized (non-nil check would be in actual usage)
-	if m.subEntryForm.addFileMode != ModePicker {
-		t.Errorf("addFileMode = %d, want %d (ModePicker)", m.subEntryForm.addFileMode, ModePicker)
+	if m.subEntryForm.AddFileMode != ModePicker {
+		t.Errorf("addFileMode = %d, want %d (ModePicker)", m.subEntryForm.AddFileMode, ModePicker)
 	}
 }
 
@@ -554,24 +554,24 @@ func TestUpdateSubEntryFilePicker_Cancel(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up file picker mode
-	m.subEntryForm.addFileMode = ModePicker
-	initialFilesCount := len(m.subEntryForm.files)
+	m.subEntryForm.AddFileMode = ModePicker
+	initialFilesCount := len(m.subEntryForm.Files)
 
 	// Simulate ESC key - should be handled by updateSubEntryFilePicker
 	// For now, we test the state transition directly
-	m.subEntryForm.addFileMode = ModeNone
+	m.subEntryForm.AddFileMode = ModeNone
 
 	// Verify mode reset
-	if m.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("addFileMode = %d, want %d (ModeNone) after cancel", m.subEntryForm.addFileMode, ModeNone)
+	if m.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("addFileMode = %d, want %d (ModeNone) after cancel", m.subEntryForm.AddFileMode, ModeNone)
 	}
 
 	// Verify no files were added
-	if len(m.subEntryForm.files) != initialFilesCount {
-		t.Errorf("files count changed: got %d, want %d", len(m.subEntryForm.files), initialFilesCount)
+	if len(m.subEntryForm.Files) != initialFilesCount {
+		t.Errorf("files count changed: got %d, want %d", len(m.subEntryForm.Files), initialFilesCount)
 	}
 }
 
@@ -593,30 +593,30 @@ func TestAddFileFromPicker_SingleSelection(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Set up target and add file mode
-	m.subEntryForm.linuxTargetInput.SetValue("~/.config/nvim")
-	m.subEntryForm.addFileMode = ModePicker
+	m.subEntryForm.LinuxTargetInput.SetValue("~/.config/nvim")
+	m.subEntryForm.AddFileMode = ModePicker
 
 	// Simulate file selection by directly modifying state
 	// In real implementation, this would come from filepicker.Model
 	testFile := "init.lua"
-	m.subEntryForm.files = append(m.subEntryForm.files, testFile)
-	m.subEntryForm.addFileMode = ModeNone
+	m.subEntryForm.Files = append(m.subEntryForm.Files, testFile)
+	m.subEntryForm.AddFileMode = ModeNone
 
 	// Verify file was added
-	if len(m.subEntryForm.files) != 1 {
-		t.Errorf("files count = %d, want 1", len(m.subEntryForm.files))
+	if len(m.subEntryForm.Files) != 1 {
+		t.Errorf("files count = %d, want 1", len(m.subEntryForm.Files))
 	}
 
-	if m.subEntryForm.files[0] != testFile {
-		t.Errorf("files[0] = %s, want %s", m.subEntryForm.files[0], testFile)
+	if m.subEntryForm.Files[0] != testFile {
+		t.Errorf("files[0] = %s, want %s", m.subEntryForm.Files[0], testFile)
 	}
 
 	// Verify mode reset
-	if m.subEntryForm.addFileMode != ModeNone {
-		t.Errorf("addFileMode = %d, want %d (ModeNone)", m.subEntryForm.addFileMode, ModeNone)
+	if m.subEntryForm.AddFileMode != ModeNone {
+		t.Errorf("addFileMode = %d, want %d (ModeNone)", m.subEntryForm.AddFileMode, ModeNone)
 	}
 }
 
@@ -638,7 +638,7 @@ func TestPickerStartDirectory_Resolution(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	tests := []struct {
 		name       string
@@ -731,26 +731,26 @@ func TestFilePicker_MultipleSelections(t *testing.T) {
 	}
 	plat := &platform.Platform{OS: "linux"}
 	m := NewModel(cfg, plat, false)
-	m.initSubEntryFormNew(0)
+	m.initSubEntryForm(0, -1)
 
 	// Add first file
-	m.subEntryForm.files = append(m.subEntryForm.files, "init.lua")
-	m.subEntryForm.addFileMode = ModeNone
+	m.subEntryForm.Files = append(m.subEntryForm.Files, "init.lua")
+	m.subEntryForm.AddFileMode = ModeNone
 
 	// Add second file
-	m.subEntryForm.addFileMode = ModePicker
-	m.subEntryForm.files = append(m.subEntryForm.files, "plugins.lua")
-	m.subEntryForm.addFileMode = ModeNone
+	m.subEntryForm.AddFileMode = ModePicker
+	m.subEntryForm.Files = append(m.subEntryForm.Files, "plugins.lua")
+	m.subEntryForm.AddFileMode = ModeNone
 
 	// Verify both files added
-	if len(m.subEntryForm.files) != 2 {
-		t.Errorf("files count = %d, want 2", len(m.subEntryForm.files))
+	if len(m.subEntryForm.Files) != 2 {
+		t.Errorf("files count = %d, want 2", len(m.subEntryForm.Files))
 	}
 
 	expectedFiles := []string{"init.lua", "plugins.lua"}
 	for i, expected := range expectedFiles {
-		if m.subEntryForm.files[i] != expected {
-			t.Errorf("files[%d] = %s, want %s", i, m.subEntryForm.files[i], expected)
+		if m.subEntryForm.Files[i] != expected {
+			t.Errorf("files[%d] = %s, want %s", i, m.subEntryForm.Files[i], expected)
 		}
 	}
 }

@@ -7,14 +7,12 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
-	tmpl "github.com/AntoineGS/tidydots/internal/template"
 )
 
 // RestoreWithContext restores configurations with context support
@@ -90,13 +88,13 @@ func (m *Manager) Restore() error {
 	return errors.Join(errs...)
 }
 
-// symlinkPointsTo checks if a symlink at 'path' points to 'expectedTarget'
-func symlinkPointsTo(path, expectedTarget string) bool {
-	if !isSymlink(path) {
+// symlinkPointsTo checks if a symlink at 'path' points to 'expectedTarget'.
+func (m *Manager) symlinkPointsTo(path, expectedTarget string) bool {
+	if !m.isSymlink(path) {
 		return false
 	}
 
-	link, err := os.Readlink(path)
+	link, err := m.fs.Readlink(path)
 	if err != nil {
 		return false
 	}
@@ -104,9 +102,12 @@ func symlinkPointsTo(path, expectedTarget string) bool {
 	return link == expectedTarget
 }
 
-func createSymlink(ctx context.Context, source, target string, useSudo bool) error {
+// createSymlink creates a symbolic link from source to target using the
+// Manager's filesystem and runner abstractions. When useSudo is true and
+// the OS supports it, the underlying ln command is executed with sudo.
+func (m *Manager) createSymlink(source, target string, useSudo bool) error {
 	// Validate source exists
-	if _, err := os.Stat(source); err != nil {
+	if _, err := m.fs.Stat(source); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return NewPathError("restore", source, fmt.Errorf("symlink source does not exist"))
 		}
@@ -115,11 +116,13 @@ func createSymlink(ctx context.Context, source, target string, useSudo bool) err
 	}
 
 	if useSudo && runtime.GOOS != platform.OSWindows {
-		cmd := exec.CommandContext(ctx, "sudo", "ln", "-s", source, target) //nolint:gosec // intentional sudo command
-		return cmd.Run()
+		if _, err := m.runner.RunWithSudo(m.ctx, "ln", "-s", source, target); err != nil {
+			return err
+		}
+		return nil
 	}
 
-	return os.Symlink(source, target)
+	return m.fs.Symlink(source, target)
 }
 
 func (m *Manager) restoreSubEntry(_ string, subEntry config.SubEntry, target string) error {
@@ -127,7 +130,7 @@ func (m *Manager) restoreSubEntry(_ string, subEntry config.SubEntry, target str
 
 	if subEntry.IsFolder() {
 		// Check if folder contains template files
-		if hasTemplateFiles(backupPath) {
+		if m.hasTemplateFiles(backupPath) {
 			return m.RestoreFolderWithTemplates(subEntry, backupPath, target)
 		}
 		return m.RestoreFolder(subEntry, backupPath, target)
@@ -141,28 +144,28 @@ func (m *Manager) restoreSubEntry(_ string, subEntry config.SubEntry, target str
 //nolint:gocyclo // complexity acceptable for restore logic
 func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string) error {
 	// Check if already a symlink pointing to the correct source
-	if symlinkPointsTo(target, source) {
+	if m.symlinkPointsTo(target, source) {
 		m.logger.Debug("already a symlink", slog.String("path", target))
 		return nil
 	}
 
 	// If it's a symlink but points to wrong location, remove it
-	if isSymlink(target) {
+	if m.isSymlink(target) {
 		m.logger.Info("removing incorrect symlink", slog.String("path", target))
 		if !m.DryRun {
-			if err := os.Remove(target); err != nil {
+			if err := m.fs.Remove(target); err != nil {
 				return NewPathError("restore", target, fmt.Errorf("removing incorrect symlink: %w", err))
 			}
 		}
 	}
 
 	// Handle merge case: both source and target exist
-	if PathExists(source) && PathExists(target) && !isSymlink(target) {
+	if m.pathExists(source) && m.pathExists(target) && !m.isSymlink(target) {
 		if m.NoMerge {
 			if !m.ForceDelete {
 				// List files and return error
 				var fileList []string
-				err := filepath.WalkDir(target, func(path string, d fs.DirEntry, walkErr error) error {
+				err := m.fs.WalkDir(target, func(path string, d fs.DirEntry, walkErr error) error {
 					if walkErr != nil {
 						return walkErr
 					}
@@ -189,7 +192,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 
 			if !m.DryRun {
 				summary := NewMergeSummary(subEntry.Name)
-				if err := MergeFolder(m.ctx, source, target, subEntry.Sudo, summary); err != nil {
+				if err := m.MergeFolder(source, target, subEntry.Sudo, summary); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("merging folder: %w", err))
 				}
 
@@ -214,7 +217,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 				}
 
 				// Remove empty directories after merge
-				if err := removeEmptyDirs(target); err != nil {
+				if err := m.removeEmptyDirs(target); err != nil {
 					m.logger.Warn("failed to clean up empty directories",
 						slog.String("target", target),
 						slog.String("error", err.Error()))
@@ -223,33 +226,32 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 		}
 	}
 
-	if !PathExists(source) && PathExists(target) {
+	if !m.pathExists(source) && m.pathExists(target) {
 		m.logger.Info("adopting folder",
 			slog.String("from", target),
 			slog.String("to", source))
 
 		if !m.DryRun {
 			backupParent := filepath.Dir(source)
-			if !PathExists(backupParent) {
-				if err := os.MkdirAll(backupParent, DirPerms); err != nil {
+			if !m.pathExists(backupParent) {
+				if err := m.fs.MkdirAll(backupParent, DirPerms); err != nil {
 					return NewPathError("adopt", source, fmt.Errorf("creating backup parent: %w", err))
 				}
 			}
 
 			if subEntry.Sudo {
-				cmd := exec.CommandContext(m.ctx, "sudo", "mv", target, source) //nolint:gosec // intentional sudo command
-				if err := cmd.Run(); err != nil {
+				if _, err := m.runner.RunWithSudo(m.ctx, "mv", target, source); err != nil {
 					return NewPathError("adopt", target, fmt.Errorf("moving to backup: %w", err))
 				}
 			} else {
-				if err := os.Rename(target, source); err != nil {
+				if err := m.fs.Rename(target, source); err != nil {
 					return NewPathError("adopt", target, fmt.Errorf("moving to backup: %w", err))
 				}
 			}
 		}
 	}
 
-	if !PathExists(source) {
+	if !m.pathExists(source) {
 		if m.DryRun {
 			m.logger.Info("source folder does not exist (dry-run, skipping)", slog.String("path", source))
 			return nil
@@ -259,34 +261,32 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 	}
 
 	parentDir := filepath.Dir(target)
-	if !PathExists(parentDir) {
+	if !m.pathExists(parentDir) {
 		m.logger.Info("creating directory", slog.String("path", parentDir))
 
 		if !m.DryRun {
 			if subEntry.Sudo {
-				cmd := exec.CommandContext(m.ctx, "sudo", "mkdir", "-p", parentDir) //nolint:gosec // intentional sudo command
-				if err := cmd.Run(); err != nil {
+				if _, err := m.runner.RunWithSudo(m.ctx, "mkdir", "-p", parentDir); err != nil {
 					return NewPathError("restore", parentDir, fmt.Errorf("creating parent: %w", err))
 				}
 			} else {
-				if err := os.MkdirAll(parentDir, DirPerms); err != nil {
+				if err := m.fs.MkdirAll(parentDir, DirPerms); err != nil {
 					return NewPathError("restore", parentDir, fmt.Errorf("creating parent: %w", err))
 				}
 			}
 		}
 	}
 
-	if PathExists(target) && !isSymlink(target) {
+	if m.pathExists(target) && !m.isSymlink(target) {
 		m.logger.Info("removing folder", slog.String("path", target))
 
 		if !m.DryRun {
 			if subEntry.Sudo {
-				cmd := exec.CommandContext(m.ctx, "sudo", "rm", "-rf", target) //nolint:gosec // intentional sudo command
-				if err := cmd.Run(); err != nil {
+				if _, err := m.runner.RunWithSudo(m.ctx, "rm", "-rf", target); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("removing existing: %w", err))
 				}
 			} else {
-				if err := removeAll(target); err != nil {
+				if err := m.removeAll(target); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("removing existing: %w", err))
 				}
 			}
@@ -298,7 +298,7 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 		slog.String("source", source))
 
 	if !m.DryRun {
-		return createSymlink(m.ctx, source, target, subEntry.Sudo)
+		return m.createSymlink(source, target, subEntry.Sudo)
 	}
 
 	return nil
@@ -308,25 +308,24 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 //
 //nolint:gocyclo // complexity acceptable for restore logic
 func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) error {
-	if !PathExists(source) {
+	if !m.pathExists(source) {
 		if !m.DryRun {
-			if err := os.MkdirAll(source, DirPerms); err != nil {
+			if err := m.fs.MkdirAll(source, DirPerms); err != nil {
 				return NewPathError("restore", source, fmt.Errorf("creating backup directory: %w", err))
 			}
 		}
 	}
 
-	if !PathExists(target) {
+	if !m.pathExists(target) {
 		m.logger.Info("creating directory", slog.String("path", target))
 
 		if !m.DryRun {
 			if subEntry.Sudo {
-				cmd := exec.CommandContext(m.ctx, "sudo", "mkdir", "-p", target) //nolint:gosec // intentional sudo command
-				if err := cmd.Run(); err != nil {
+				if _, err := m.runner.RunWithSudo(m.ctx, "mkdir", "-p", target); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("creating target directory: %w", err))
 				}
 			} else {
-				if err := os.MkdirAll(target, DirPerms); err != nil {
+				if err := m.fs.MkdirAll(target, DirPerms); err != nil {
 					return NewPathError("restore", target, fmt.Errorf("creating target directory: %w", err))
 				}
 			}
@@ -338,23 +337,23 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 		dstFile := filepath.Join(target, file)
 
 		// Check if already a symlink pointing to correct source
-		if symlinkPointsTo(dstFile, srcFile) {
+		if m.symlinkPointsTo(dstFile, srcFile) {
 			m.logger.Debug("already a symlink", slog.String("path", dstFile))
 			continue
 		}
 
 		// If it's a symlink but points to wrong location, remove it
-		if isSymlink(dstFile) {
+		if m.isSymlink(dstFile) {
 			m.logger.Info("removing incorrect symlink", slog.String("path", dstFile))
 			if !m.DryRun {
-				if err := os.Remove(dstFile); err != nil {
+				if err := m.fs.Remove(dstFile); err != nil {
 					return NewPathError("restore", dstFile, fmt.Errorf("removing incorrect symlink: %w", err))
 				}
 			}
 		}
 
 		// Handle merge case: both source and target file exist
-		if PathExists(srcFile) && PathExists(dstFile) && !isSymlink(dstFile) {
+		if m.pathExists(srcFile) && m.pathExists(dstFile) && !m.isSymlink(dstFile) {
 			if m.NoMerge {
 				if !m.ForceDelete {
 					return NewPathError("restore", dstFile, fmt.Errorf(
@@ -369,7 +368,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 
 				if !m.DryRun {
 					summary := NewMergeSummary(subEntry.Name)
-					if err := mergeFile(m.ctx, dstFile, source, file, subEntry.Sudo, summary); err != nil {
+					if err := m.mergeFile(dstFile, source, file, subEntry.Sudo, summary); err != nil {
 						return NewPathError("restore", dstFile, fmt.Errorf("merging file: %w", err))
 					}
 
@@ -391,24 +390,23 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 			}
 		}
 
-		if !PathExists(srcFile) && PathExists(dstFile) {
+		if !m.pathExists(srcFile) && m.pathExists(dstFile) {
 			m.logger.Info("adopting file",
 				slog.String("from", dstFile),
 				slog.String("to", srcFile))
 
 			if !m.DryRun {
 				if subEntry.Sudo {
-					cmd := exec.CommandContext(m.ctx, "sudo", "mv", dstFile, srcFile) //nolint:gosec // intentional sudo command
-					if err := cmd.Run(); err != nil {
+					if _, err := m.runner.RunWithSudo(m.ctx, "mv", dstFile, srcFile); err != nil {
 						return NewPathError("adopt", dstFile, fmt.Errorf("moving to backup: %w", err))
 					}
 				} else {
-					if err := os.Rename(dstFile, srcFile); err != nil {
-						if err := copyFile(dstFile, srcFile); err != nil {
+					if err := m.fs.Rename(dstFile, srcFile); err != nil {
+						if err := m.copyFile(dstFile, srcFile); err != nil {
 							return NewPathError("adopt", dstFile, fmt.Errorf("copying to backup: %w", err))
 						}
 
-						if err := os.Remove(dstFile); err != nil {
+						if err := m.fs.Remove(dstFile); err != nil {
 							return NewPathError("adopt", dstFile, fmt.Errorf("removing original: %w", err))
 						}
 					}
@@ -416,7 +414,7 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 			}
 		}
 
-		if !PathExists(srcFile) {
+		if !m.pathExists(srcFile) {
 			if m.DryRun {
 				m.logger.Info("source file does not exist (dry-run, skipping)", slog.String("path", srcFile))
 				continue
@@ -425,17 +423,16 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 			return NewPathError("restore", srcFile, fmt.Errorf("source file does not exist"))
 		}
 
-		if PathExists(dstFile) && !isSymlink(dstFile) {
+		if m.pathExists(dstFile) && !m.isSymlink(dstFile) {
 			m.logger.Info("removing file", slog.String("path", dstFile))
 
 			if !m.DryRun {
 				if subEntry.Sudo {
-					cmd := exec.CommandContext(m.ctx, "sudo", "rm", "-f", dstFile) //nolint:gosec // intentional sudo command
-					if err := cmd.Run(); err != nil {
+					if _, err := m.runner.RunWithSudo(m.ctx, "rm", "-f", dstFile); err != nil {
 						return NewPathError("restore", dstFile, fmt.Errorf("removing existing file: %w", err))
 					}
 				} else {
-					if err := os.Remove(dstFile); err != nil {
+					if err := m.fs.Remove(dstFile); err != nil {
 						return NewPathError("restore", dstFile, fmt.Errorf("removing existing file: %w", err))
 					}
 				}
@@ -447,33 +444,11 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 			slog.String("source", srcFile))
 
 		if !m.DryRun {
-			if err := createSymlink(m.ctx, srcFile, dstFile, subEntry.Sudo); err != nil {
+			if err := m.createSymlink(srcFile, dstFile, subEntry.Sudo); err != nil {
 				return NewPathError("restore", dstFile, fmt.Errorf("creating symlink: %w", err))
 			}
 		}
 	}
 
 	return nil
-}
-
-// hasTemplateFiles returns true if the directory contains any .tmpl files.
-// It walks the directory tree and returns early on the first match.
-func hasTemplateFiles(dir string) bool {
-	if !PathExists(dir) {
-		return false
-	}
-
-	found := false
-	_ = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil || found {
-			return filepath.SkipDir
-		}
-		if !d.IsDir() && tmpl.IsTemplateFile(d.Name()) {
-			found = true
-			return filepath.SkipAll
-		}
-		return nil
-	})
-
-	return found
 }

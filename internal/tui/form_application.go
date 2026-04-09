@@ -9,229 +9,150 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/tui/forms"
 )
 
-// applicationFieldType represents the type of field in the ApplicationForm
-type applicationFieldType int
+// Field type aliases from forms package for use in root tui methods.
+type applicationFieldType = forms.ApplicationFieldType
 
 const (
-	appFieldName applicationFieldType = iota
-	appFieldDescription
-	appFieldPackages
-	appFieldWhen
+	appFieldName        = forms.AppFieldName
+	appFieldDescription = forms.AppFieldDescription
+	appFieldPackages    = forms.AppFieldPackages
+	appFieldWhen        = forms.AppFieldWhen
 )
 
-// initApplicationFormNew initializes the form for creating a new application
-func (m *Model) initApplicationFormNew() {
-	nameInput := textinput.New()
-	nameInput.Placeholder = PlaceholderNeovim
-	nameInput.Focus()
-	nameInput.CharLimit = 64
-	nameInput.SetWidth(40)
+// initApplicationForm initializes the application form.
+// If appIdx >= 0, loads data from the existing application at that index (edit mode).
+// If appIdx < 0, creates an empty form (new mode).
+func (m *Model) initApplicationForm(appIdx int) {
+	// Resolve config index and app data (edit mode only)
+	configAppIdx := -1
+	var app *config.Application
 
-	descriptionInput := textinput.New()
-	descriptionInput.Placeholder = "e.g., Neovim text editor"
-	descriptionInput.CharLimit = 256
-	descriptionInput.SetWidth(40)
-
-	packageNameInput := textinput.New()
-	packageNameInput.Placeholder = PlaceholderNeovim
-	packageNameInput.CharLimit = 128
-	packageNameInput.SetWidth(40)
-
-	whenInput := textinput.New()
-	whenInput.Placeholder = PlaceholderWhen
-	whenInput.CharLimit = 512
-	whenInput.SetWidth(60)
-
-	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
-	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
-
-	depInput := textinput.New()
-	depInput.Placeholder = PlaceholderDep
-	depInput.CharLimit = 128
-	depInput.SetWidth(40)
-
-	m.applicationForm = &ApplicationForm{
-		nameInput:             nameInput,
-		descriptionInput:      descriptionInput,
-		packageManagers:       make(map[string]string),
-		packagesCursor:        0,
-		editingPackage:        false,
-		packageNameInput:      packageNameInput,
-		lastPackageName:       "",
-		whenInput:             whenInput,
-		focusIndex:            0,
-		editingField:          false,
-		originalValue:         "",
-		editAppIdx:            -1,
-		err:                   "",
-		gitURLInput:           gitURLInput,
-		gitBranchInput:        gitBranchInput,
-		gitLinuxInput:         gitLinuxInput,
-		gitWindowsInput:       gitWindowsInput,
-		gitFieldCursor:        -1,
-		hasGitPackage:         false,
-		gitSudo:               false,
-		installerLinuxInput:   installerLinuxInput,
-		installerWindowsInput: installerWindowsInput,
-		installerBinaryInput:  installerBinaryInput,
-		installerFieldCursor:  -1,
-		hasInstallerPackage:   false,
-		packageDeps:           make(map[string][]string),
-		depsCursor:            0,
-		editingDeps:           false,
-		editingDepItem:        false,
-		depsManagerKey:        "",
-		depInput:              depInput,
-	}
-
-	m.activeForm = FormApplication
-	m.Screen = ScreenAddForm
-}
-
-// initApplicationFormEdit initializes the form for editing an existing application
-func (m *Model) initApplicationFormEdit(appIdx int) {
-	// appIdx is an index into m.Applications (sorted), not m.Config.Applications (unsorted)
-	// We need to find the correct index in m.Config.Applications by application name
-	if appIdx < 0 || appIdx >= len(m.Applications) {
-		return
-	}
-
-	appName := m.Applications[appIdx].Application.Name
-	configAppIdx := m.findConfigApplicationIndex(appName)
-	if configAppIdx < 0 {
-		return
-	}
-
-	app := m.Config.Applications[configAppIdx]
-
-	nameInput := textinput.New()
-	nameInput.Placeholder = PlaceholderNeovim
-	nameInput.SetValue(app.Name)
-	nameInput.Focus()
-	nameInput.CharLimit = 64
-	nameInput.SetWidth(40)
-
-	descriptionInput := textinput.New()
-	descriptionInput.Placeholder = "e.g., Neovim text editor"
-	descriptionInput.SetValue(app.Description)
-	descriptionInput.CharLimit = 256
-	descriptionInput.SetWidth(40)
-
-	packageNameInput := textinput.New()
-	packageNameInput.Placeholder = PlaceholderNeovim
-	packageNameInput.CharLimit = 128
-	packageNameInput.SetWidth(40)
-
-	whenInput := textinput.New()
-	whenInput.Placeholder = PlaceholderWhen
-	whenInput.CharLimit = 512
-	whenInput.SetWidth(60)
-	whenInput.SetValue(app.When)
-
-	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
-	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
-
-	// Load package managers (only string-based managers, skip git and installer)
-	packageManagers := make(map[string]string)
-	if app.Package != nil && len(app.Package.Managers) > 0 {
-		for k, v := range app.Package.Managers {
-			if k == TypeGit || k == TypeInstaller {
-				continue
-			}
-			if !v.IsGit() && !v.IsInstaller() {
-				packageManagers[k] = v.PackageName
-			}
+	if appIdx >= 0 {
+		if appIdx >= len(m.Applications) {
+			return
 		}
+		appName := m.Applications[appIdx].Application.Name
+		configAppIdx = m.findConfigApplicationIndex(appName)
+		if configAppIdx < 0 {
+			return
+		}
+		app = &m.Config.Applications[configAppIdx]
 	}
 
-	// Load git package if present
+	nameInput := newFormInput(PlaceholderNeovim, CharLimitName, InputWidthNarrow)
+	nameInput.Focus()
+
+	descriptionInput := newFormInput("e.g., Neovim text editor", CharLimitDesc, InputWidthNarrow)
+	packageNameInput := newFormInput(PlaceholderNeovim, CharLimitPkgName, InputWidthNarrow)
+	whenInput := newFormInput(PlaceholderWhen, CharLimitWhen, InputWidthWide)
+
+	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
+	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
+
+	depInput := newFormInput(PlaceholderDep, CharLimitDep, InputWidthNarrow)
+
+	packageManagers := make(map[string]string)
+	packageDeps := make(map[string][]string)
 	hasGitPackage := false
 	gitSudo := false
-
-	if app.Package != nil {
-		if gitVal, ok := app.Package.Managers[TypeGit]; ok && gitVal.IsGit() {
-			hasGitPackage = true
-			gitURLInput.SetValue(gitVal.Git.URL)
-			gitBranchInput.SetValue(gitVal.Git.Branch)
-			gitSudo = gitVal.Git.Sudo
-
-			if target, ok := gitVal.Git.Targets[OSLinux]; ok {
-				gitLinuxInput.SetValue(target)
-			}
-			if target, ok := gitVal.Git.Targets[OSWindows]; ok {
-				gitWindowsInput.SetValue(target)
-			}
-		}
-	}
-
-	// Load installer package if present
 	hasInstallerPackage := false
 
-	if app.Package != nil {
-		if installerVal, ok := app.Package.Managers[TypeInstaller]; ok && installerVal.IsInstaller() {
-			hasInstallerPackage = true
-			if cmd, ok := installerVal.Installer.Command[OSLinux]; ok {
-				installerLinuxInput.SetValue(cmd)
-			}
-			if cmd, ok := installerVal.Installer.Command[OSWindows]; ok {
-				installerWindowsInput.SetValue(cmd)
-			}
-			installerBinaryInput.SetValue(installerVal.Installer.Binary)
-		}
-	}
+	if app != nil {
+		nameInput.SetValue(app.Name)
+		descriptionInput.SetValue(app.Description)
+		whenInput.SetValue(app.When)
 
-	// Load package deps
-	packageDeps := make(map[string][]string)
-	if app.Package != nil && len(app.Package.Managers) > 0 {
-		for k, v := range app.Package.Managers {
-			if k == TypeGit || k == TypeInstaller {
-				continue
-			}
-			if len(v.Deps) > 0 {
-				packageDeps[k] = append([]string{}, v.Deps...)
+		// Load package managers (only string-based managers, skip git and installer)
+		if app.Package != nil && len(app.Package.Managers) > 0 {
+			for k, v := range app.Package.Managers {
+				if k == TypeGit || k == TypeInstaller {
+					continue
+				}
+				if !v.IsGit() && !v.IsInstaller() {
+					packageManagers[k] = v.PackageName
+				}
 			}
 		}
-	}
 
-	depInput := textinput.New()
-	depInput.Placeholder = PlaceholderDep
-	depInput.CharLimit = 128
-	depInput.SetWidth(40)
+		// Load git package if present
+		if app.Package != nil {
+			if gitVal, ok := app.Package.Managers[TypeGit]; ok && gitVal.IsGit() {
+				hasGitPackage = true
+				gitURLInput.SetValue(gitVal.Git.URL)
+				gitBranchInput.SetValue(gitVal.Git.Branch)
+				gitSudo = gitVal.Git.Sudo
+
+				if target, ok := gitVal.Git.Targets[OSLinux]; ok {
+					gitLinuxInput.SetValue(target)
+				}
+				if target, ok := gitVal.Git.Targets[OSWindows]; ok {
+					gitWindowsInput.SetValue(target)
+				}
+			}
+		}
+
+		// Load installer package if present
+		if app.Package != nil {
+			if installerVal, ok := app.Package.Managers[TypeInstaller]; ok && installerVal.IsInstaller() {
+				hasInstallerPackage = true
+				if cmd, ok := installerVal.Installer.Command[OSLinux]; ok {
+					installerLinuxInput.SetValue(cmd)
+				}
+				if cmd, ok := installerVal.Installer.Command[OSWindows]; ok {
+					installerWindowsInput.SetValue(cmd)
+				}
+				installerBinaryInput.SetValue(installerVal.Installer.Binary)
+			}
+		}
+
+		// Load package deps
+		if app.Package != nil && len(app.Package.Managers) > 0 {
+			for k, v := range app.Package.Managers {
+				if k == TypeGit || k == TypeInstaller {
+					continue
+				}
+				if len(v.Deps) > 0 {
+					packageDeps[k] = append([]string{}, v.Deps...)
+				}
+			}
+		}
+	}
 
 	m.applicationForm = &ApplicationForm{
-		nameInput:             nameInput,
-		descriptionInput:      descriptionInput,
-		packageManagers:       packageManagers,
-		packagesCursor:        0,
-		editingPackage:        false,
-		packageNameInput:      packageNameInput,
-		lastPackageName:       "",
-		whenInput:             whenInput,
-		focusIndex:            0,
-		editingField:          false,
-		originalValue:         "",
-		editAppIdx:            configAppIdx,
-		err:                   "",
-		gitURLInput:           gitURLInput,
-		gitBranchInput:        gitBranchInput,
-		gitLinuxInput:         gitLinuxInput,
-		gitWindowsInput:       gitWindowsInput,
-		gitFieldCursor:        -1,
-		hasGitPackage:         hasGitPackage,
-		gitSudo:               gitSudo,
-		installerLinuxInput:   installerLinuxInput,
-		installerWindowsInput: installerWindowsInput,
-		installerBinaryInput:  installerBinaryInput,
-		installerFieldCursor:  -1,
-		hasInstallerPackage:   hasInstallerPackage,
-		packageDeps:           packageDeps,
-		depsCursor:            0,
-		editingDeps:           false,
-		editingDepItem:        false,
-		depsManagerKey:        "",
-		depInput:              depInput,
+		NameInput:             nameInput,
+		DescriptionInput:      descriptionInput,
+		PackageManagers:       packageManagers,
+		PackagesCursor:        0,
+		EditingPackage:        false,
+		PackageNameInput:      packageNameInput,
+		LastPackageName:       "",
+		WhenInput:             whenInput,
+		FocusIndex:            0,
+		EditingField:          false,
+		OriginalValue:         "",
+		EditAppIdx:            configAppIdx,
+		Err:                   "",
+		GitURLInput:           gitURLInput,
+		GitBranchInput:        gitBranchInput,
+		GitLinuxInput:         gitLinuxInput,
+		GitWindowsInput:       gitWindowsInput,
+		GitFieldCursor:        -1,
+		HasGitPackage:         hasGitPackage,
+		GitSudo:               gitSudo,
+		InstallerLinuxInput:   installerLinuxInput,
+		InstallerWindowsInput: installerWindowsInput,
+		InstallerBinaryInput:  installerBinaryInput,
+		InstallerFieldCursor:  -1,
+		HasInstallerPackage:   hasInstallerPackage,
+		PackageDeps:           packageDeps,
+		DepsCursor:            0,
+		EditingDeps:           false,
+		EditingDepItem:        false,
+		DepsManagerKey:        "",
+		DepInput:              depInput,
 	}
 
 	m.activeForm = FormApplication
@@ -244,18 +165,7 @@ func (m *Model) getApplicationFieldType() applicationFieldType {
 		return appFieldName
 	}
 
-	switch m.applicationForm.focusIndex {
-	case 0:
-		return appFieldName
-	case 1:
-		return appFieldDescription
-	case 2:
-		return appFieldPackages
-	case 3:
-		return appFieldWhen
-	default:
-		return appFieldName
-	}
+	return m.applicationForm.GetFieldType()
 }
 
 // updateApplicationForm handles key events for the application form
@@ -265,44 +175,44 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Handle deps list editing
-	if m.applicationForm.editingDeps {
-		if m.applicationForm.editingDepItem {
+	if m.applicationForm.EditingDeps {
+		if m.applicationForm.EditingDepItem {
 			return m.updateDepsItemInput(msg)
 		}
 		return m.updateDepsList(msg)
 	}
 
 	// Handle editing a git text field
-	if m.applicationForm.editingGitField {
+	if m.applicationForm.EditingGitField {
 		return m.updateApplicationGitFieldInput(msg)
 	}
 
 	// Handle editing an installer text field
-	if m.applicationForm.editingInstallerField {
+	if m.applicationForm.EditingInstallerField {
 		return m.updateApplicationInstallerFieldInput(msg)
 	}
 
 	// Handle editing a text field
-	if m.applicationForm.editingField {
+	if m.applicationForm.EditingField {
 		return m.updateApplicationFieldInput(msg)
 	}
 
 	// Handle editing package name
-	if m.applicationForm.editingPackage {
+	if m.applicationForm.EditingPackage {
 		return m.updateApplicationPackageInput(msg)
 	}
 
 	// Handle editing when expression
-	if m.applicationForm.editingWhen {
+	if m.applicationForm.EditingWhen {
 		return m.updateApplicationWhenInput(msg)
 	}
 
 	// Handle packages list navigation
 	if m.getApplicationFieldType() == appFieldPackages {
-		if m.applicationForm.packagesCursor == len(displayPackageManagers) && m.applicationForm.gitFieldCursor >= 0 {
+		if m.applicationForm.PackagesCursor == len(displayPackageManagers) && m.applicationForm.GitFieldCursor >= 0 {
 			return m.updateApplicationGitFields(msg)
 		}
-		if m.applicationForm.packagesCursor == len(displayPackageManagers)+1 && m.applicationForm.installerFieldCursor >= 0 {
+		if m.applicationForm.PackagesCursor == len(displayPackageManagers)+1 && m.applicationForm.InstallerFieldCursor >= 0 {
 			return m.updateApplicationInstallerFields(msg)
 		}
 		return m.updateApplicationPackagesList(msg)
@@ -321,43 +231,43 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.Down):
-		m.applicationForm.focusIndex++
-		if m.applicationForm.focusIndex > 3 {
-			m.applicationForm.focusIndex = 0
+		m.applicationForm.FocusIndex++
+		if m.applicationForm.FocusIndex > 3 {
+			m.applicationForm.FocusIndex = 0
 		}
 		m.updateApplicationFormFocus()
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.Up):
-		m.applicationForm.focusIndex--
-		if m.applicationForm.focusIndex < 0 {
-			m.applicationForm.focusIndex = 3
+		m.applicationForm.FocusIndex--
+		if m.applicationForm.FocusIndex < 0 {
+			m.applicationForm.FocusIndex = 3
 		}
 		if m.getApplicationFieldType() == appFieldPackages {
-			m.applicationForm.packagesCursor = len(displayPackageManagers) + 1
-			m.applicationForm.gitFieldCursor = -1
-			m.applicationForm.installerFieldCursor = -1
+			m.applicationForm.PackagesCursor = len(displayPackageManagers) + 1
+			m.applicationForm.GitFieldCursor = -1
+			m.applicationForm.InstallerFieldCursor = -1
 		}
 		m.updateApplicationFormFocus()
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.TabNext):
-		m.applicationForm.focusIndex++
-		if m.applicationForm.focusIndex > 3 {
-			m.applicationForm.focusIndex = 0
+		m.applicationForm.FocusIndex++
+		if m.applicationForm.FocusIndex > 3 {
+			m.applicationForm.FocusIndex = 0
 		}
 		m.updateApplicationFormFocus()
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.TabPrev):
-		m.applicationForm.focusIndex--
-		if m.applicationForm.focusIndex < 0 {
-			m.applicationForm.focusIndex = 3
+		m.applicationForm.FocusIndex--
+		if m.applicationForm.FocusIndex < 0 {
+			m.applicationForm.FocusIndex = 3
 		}
 		if m.getApplicationFieldType() == appFieldPackages {
-			m.applicationForm.packagesCursor = len(displayPackageManagers) + 1
-			m.applicationForm.gitFieldCursor = -1
-			m.applicationForm.installerFieldCursor = -1
+			m.applicationForm.PackagesCursor = len(displayPackageManagers) + 1
+			m.applicationForm.GitFieldCursor = -1
+			m.applicationForm.InstallerFieldCursor = -1
 		}
 		m.updateApplicationFormFocus()
 		return m, nil
@@ -370,17 +280,17 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if ft == appFieldWhen {
-			m.applicationForm.editingWhen = true
-			m.applicationForm.originalValue = m.applicationForm.whenInput.Value()
-			m.applicationForm.whenInput.Focus()
-			m.applicationForm.whenInput.SetCursor(len(m.applicationForm.whenInput.Value()))
+			m.applicationForm.EditingWhen = true
+			m.applicationForm.OriginalValue = m.applicationForm.WhenInput.Value()
+			m.applicationForm.WhenInput.Focus()
+			m.applicationForm.WhenInput.SetCursor(len(m.applicationForm.WhenInput.Value()))
 			return m, nil
 		}
 
 	case key.Matches(msg, FormNavKeys.Save):
 		// Save the form
 		if err := m.saveApplicationForm(); err != nil {
-			m.applicationForm.err = err.Error()
+			m.applicationForm.Err = err.Error()
 			return m, nil
 		}
 		// Success - go back to list
@@ -391,7 +301,7 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Clear error when navigating
-	m.applicationForm.err = ""
+	m.applicationForm.Err = ""
 
 	return m, nil
 }
@@ -417,7 +327,7 @@ func (m Model) updateApplicationFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.
 
 	case key.Matches(msg, TextEditKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		// Save and exit edit mode
-		m.applicationForm.editingField = false
+		m.applicationForm.EditingField = false
 		m.updateApplicationFormFocus()
 		return m, nil
 	}
@@ -425,15 +335,15 @@ func (m Model) updateApplicationFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.
 	// Handle text input for the focused field
 	switch ft {
 	case appFieldName:
-		m.applicationForm.nameInput, cmd = m.applicationForm.nameInput.Update(msg)
+		m.applicationForm.NameInput, cmd = m.applicationForm.NameInput.Update(msg)
 	case appFieldDescription:
-		m.applicationForm.descriptionInput, cmd = m.applicationForm.descriptionInput.Update(msg)
+		m.applicationForm.DescriptionInput, cmd = m.applicationForm.DescriptionInput.Update(msg)
 	case appFieldPackages, appFieldWhen:
 		// List/when fields don't need text input updates here
 	}
 
 	// Clear error when typing
-	m.applicationForm.err = ""
+	m.applicationForm.Err = ""
 
 	return m, cmd
 }
@@ -460,60 +370,56 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.Up):
-		if m.applicationForm.packagesCursor > 0 {
-			m.applicationForm.packagesCursor--
+		if m.applicationForm.PackagesCursor > 0 {
+			m.applicationForm.PackagesCursor--
 			// Reset field cursors when moving between items
-			m.applicationForm.gitFieldCursor = -1
-			m.applicationForm.installerFieldCursor = -1
+			m.applicationForm.GitFieldCursor = -1
+			m.applicationForm.InstallerFieldCursor = -1
 		} else {
 			// Move to previous field
-			m.applicationForm.focusIndex--
+			m.applicationForm.FocusIndex--
 			m.updateApplicationFormFocus()
 		}
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.Down):
 		switch {
-		case m.applicationForm.packagesCursor < maxCursor:
+		case m.applicationForm.PackagesCursor < maxCursor:
 			// Moving to next item - handle git sub-field entry
-			if m.applicationForm.packagesCursor == gitItemIdx && m.applicationForm.hasGitPackage && m.applicationForm.gitFieldCursor == -1 {
-				m.applicationForm.gitFieldCursor = 0
+			if m.applicationForm.PackagesCursor == gitItemIdx && m.applicationForm.HasGitPackage && m.applicationForm.GitFieldCursor == -1 {
+				m.applicationForm.GitFieldCursor = 0
 				return m, nil
 			}
-			m.applicationForm.packagesCursor++
-			m.applicationForm.gitFieldCursor = -1
-			m.applicationForm.installerFieldCursor = -1
-		case m.applicationForm.packagesCursor == installerItemIdx && m.applicationForm.hasInstallerPackage && m.applicationForm.installerFieldCursor == -1:
+			m.applicationForm.PackagesCursor++
+			m.applicationForm.GitFieldCursor = -1
+			m.applicationForm.InstallerFieldCursor = -1
+		case m.applicationForm.PackagesCursor == installerItemIdx && m.applicationForm.HasInstallerPackage && m.applicationForm.InstallerFieldCursor == -1:
 			// Enter installer sub-fields (handled separately since installer is the last item, so packagesCursor == maxCursor)
-			m.applicationForm.installerFieldCursor = 0
+			m.applicationForm.InstallerFieldCursor = 0
 		default:
 			// Move to next field
-			m.applicationForm.focusIndex++
-			if m.applicationForm.focusIndex > 3 {
-				m.applicationForm.focusIndex = 0
+			m.applicationForm.FocusIndex++
+			if m.applicationForm.FocusIndex > 3 {
+				m.applicationForm.FocusIndex = 0
 			}
-			m.applicationForm.packagesCursor = 0
-			m.applicationForm.gitFieldCursor = -1
-			m.applicationForm.installerFieldCursor = -1
+			m.applicationForm.ResetCursors()
 			m.updateApplicationFormFocus()
 		}
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.TabNext):
-		m.applicationForm.focusIndex++
-		if m.applicationForm.focusIndex > 3 {
-			m.applicationForm.focusIndex = 0
+		m.applicationForm.FocusIndex++
+		if m.applicationForm.FocusIndex > 3 {
+			m.applicationForm.FocusIndex = 0
 		}
-		m.applicationForm.packagesCursor = 0
-		m.applicationForm.gitFieldCursor = -1
-		m.applicationForm.installerFieldCursor = -1
+		m.applicationForm.ResetCursors()
 		m.updateApplicationFormFocus()
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.TabPrev):
-		m.applicationForm.focusIndex--
-		m.applicationForm.gitFieldCursor = -1
-		m.applicationForm.installerFieldCursor = -1
+		m.applicationForm.FocusIndex--
+		m.applicationForm.GitFieldCursor = -1
+		m.applicationForm.InstallerFieldCursor = -1
 		m.updateApplicationFormFocus()
 		return m, nil
 
@@ -525,11 +431,11 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 
 	case key.Matches(msg, key.NewBinding(key.WithKeys("p"))):
 		// Enter deps editing for the current native manager
-		if m.applicationForm.packagesCursor >= 0 && m.applicationForm.packagesCursor < len(displayPackageManagers) {
-			manager := displayPackageManagers[m.applicationForm.packagesCursor]
-			m.applicationForm.depsManagerKey = manager
-			m.applicationForm.editingDeps = true
-			m.applicationForm.depsCursor = 0
+		if m.applicationForm.PackagesCursor >= 0 && m.applicationForm.PackagesCursor < len(displayPackageManagers) {
+			manager := displayPackageManagers[m.applicationForm.PackagesCursor]
+			m.applicationForm.DepsManagerKey = manager
+			m.applicationForm.EditingDeps = true
+			m.applicationForm.DepsCursor = 0
 			return m, nil
 		}
 		return m, nil
@@ -537,7 +443,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 	case key.Matches(msg, FormNavKeys.Save):
 		// Save the form
 		if err := m.saveApplicationForm(); err != nil {
-			m.applicationForm.err = err.Error()
+			m.applicationForm.Err = err.Error()
 			return m, nil
 		}
 		m.activeForm = FormNone
@@ -552,71 +458,71 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 // handlePackagesListActivate handles enter/space on the packages list
 func (m Model) handlePackagesListActivate(gitItemIdx, installerItemIdx int) (tea.Model, tea.Cmd) {
 	// Handle git item
-	if m.applicationForm.packagesCursor == gitItemIdx {
-		if !m.applicationForm.hasGitPackage {
-			m.applicationForm.hasGitPackage = true
+	if m.applicationForm.PackagesCursor == gitItemIdx {
+		if !m.applicationForm.HasGitPackage {
+			m.applicationForm.HasGitPackage = true
 		}
-		m.applicationForm.gitFieldCursor = GitFieldURL
+		m.applicationForm.GitFieldCursor = GitFieldURL
 		return m, nil
 	}
 	// Handle installer item
-	if m.applicationForm.packagesCursor == installerItemIdx {
-		if !m.applicationForm.hasInstallerPackage {
-			m.applicationForm.hasInstallerPackage = true
+	if m.applicationForm.PackagesCursor == installerItemIdx {
+		if !m.applicationForm.HasInstallerPackage {
+			m.applicationForm.HasInstallerPackage = true
 		}
-		m.applicationForm.installerFieldCursor = InstallerFieldLinux
+		m.applicationForm.InstallerFieldCursor = InstallerFieldLinux
 		return m, nil
 	}
 	// Edit the selected package manager's package name
-	if m.applicationForm.packagesCursor < 0 || m.applicationForm.packagesCursor >= len(displayPackageManagers) {
+	if m.applicationForm.PackagesCursor < 0 || m.applicationForm.PackagesCursor >= len(displayPackageManagers) {
 		return m, nil
 	}
-	manager := displayPackageManagers[m.applicationForm.packagesCursor]
-	currentValue := m.applicationForm.packageManagers[manager]
+	manager := displayPackageManagers[m.applicationForm.PackagesCursor]
+	currentValue := m.applicationForm.PackageManagers[manager]
 
 	// Auto-populate with last package name if empty
-	if currentValue == "" && m.applicationForm.lastPackageName != "" {
-		currentValue = m.applicationForm.lastPackageName
+	if currentValue == "" && m.applicationForm.LastPackageName != "" {
+		currentValue = m.applicationForm.LastPackageName
 	}
 
-	m.applicationForm.editingPackage = true
-	m.applicationForm.packageNameInput.SetValue(currentValue)
-	m.applicationForm.packageNameInput.Focus()
-	m.applicationForm.packageNameInput.SetCursor(len(currentValue))
+	m.applicationForm.EditingPackage = true
+	m.applicationForm.PackageNameInput.SetValue(currentValue)
+	m.applicationForm.PackageNameInput.Focus()
+	m.applicationForm.PackageNameInput.SetCursor(len(currentValue))
 	return m, nil
 }
 
 // handlePackagesListDelete handles delete/backspace on the packages list
 func (m Model) handlePackagesListDelete(gitItemIdx, installerItemIdx int) (tea.Model, tea.Cmd) {
 	// Handle git item deletion
-	if m.applicationForm.packagesCursor == gitItemIdx && m.applicationForm.gitFieldCursor == -1 {
-		m.applicationForm.hasGitPackage = false
-		m.applicationForm.gitFieldCursor = -1
-		m.applicationForm.gitSudo = false
-		m.applicationForm.gitURLInput.SetValue("")
-		m.applicationForm.gitBranchInput.SetValue("")
-		m.applicationForm.gitLinuxInput.SetValue("")
-		m.applicationForm.gitWindowsInput.SetValue("")
-		m.applicationForm.err = ""
+	if m.applicationForm.PackagesCursor == gitItemIdx && m.applicationForm.GitFieldCursor == -1 {
+		m.applicationForm.HasGitPackage = false
+		m.applicationForm.GitFieldCursor = -1
+		m.applicationForm.GitSudo = false
+		m.applicationForm.GitURLInput.SetValue("")
+		m.applicationForm.GitBranchInput.SetValue("")
+		m.applicationForm.GitLinuxInput.SetValue("")
+		m.applicationForm.GitWindowsInput.SetValue("")
+		m.applicationForm.Err = ""
 		return m, nil
 	}
 	// Handle installer item deletion
-	if m.applicationForm.packagesCursor == installerItemIdx && m.applicationForm.installerFieldCursor == -1 {
-		m.applicationForm.hasInstallerPackage = false
-		m.applicationForm.installerFieldCursor = -1
-		m.applicationForm.installerLinuxInput.SetValue("")
-		m.applicationForm.installerWindowsInput.SetValue("")
-		m.applicationForm.installerBinaryInput.SetValue("")
-		m.applicationForm.err = ""
+	if m.applicationForm.PackagesCursor == installerItemIdx && m.applicationForm.InstallerFieldCursor == -1 {
+		m.applicationForm.HasInstallerPackage = false
+		m.applicationForm.InstallerFieldCursor = -1
+		m.applicationForm.InstallerLinuxInput.SetValue("")
+		m.applicationForm.InstallerWindowsInput.SetValue("")
+		m.applicationForm.InstallerBinaryInput.SetValue("")
+		m.applicationForm.Err = ""
 		return m, nil
 	}
 	// Clear the package name for the selected manager
-	if m.applicationForm.packagesCursor < 0 || m.applicationForm.packagesCursor >= len(displayPackageManagers) {
+	if m.applicationForm.PackagesCursor < 0 || m.applicationForm.PackagesCursor >= len(displayPackageManagers) {
 		return m, nil
 	}
-	manager := displayPackageManagers[m.applicationForm.packagesCursor]
-	delete(m.applicationForm.packageManagers, manager)
-	m.applicationForm.err = ""
+	manager := displayPackageManagers[m.applicationForm.PackagesCursor]
+	delete(m.applicationForm.PackageManagers, manager)
+	m.applicationForm.Err = ""
 	return m, nil
 }
 
@@ -626,63 +532,63 @@ func (m Model) updateDepsList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	manager := m.applicationForm.depsManagerKey
-	deps := m.applicationForm.packageDeps[manager]
+	manager := m.applicationForm.DepsManagerKey
+	deps := m.applicationForm.PackageDeps[manager]
 	maxIdx := len(deps) // last position is "Add" button
 
 	switch {
 	case key.Matches(msg, FormNavKeys.Cancel):
-		m.applicationForm.editingDeps = false
-		m.applicationForm.depsManagerKey = ""
+		m.applicationForm.EditingDeps = false
+		m.applicationForm.DepsManagerKey = ""
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.Up):
-		if m.applicationForm.depsCursor > 0 {
-			m.applicationForm.depsCursor--
+		if m.applicationForm.DepsCursor > 0 {
+			m.applicationForm.DepsCursor--
 		}
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.Down):
-		if m.applicationForm.depsCursor < maxIdx {
-			m.applicationForm.depsCursor++
+		if m.applicationForm.DepsCursor < maxIdx {
+			m.applicationForm.DepsCursor++
 		}
 		return m, nil
 
 	case key.Matches(msg, FilesListKeys.Edit):
-		if m.applicationForm.depsCursor == maxIdx {
+		if m.applicationForm.DepsCursor == maxIdx {
 			// Add new dep
-			m.applicationForm.editingDepItem = true
-			m.applicationForm.depInput.SetValue("")
-			m.applicationForm.depInput.Focus()
+			m.applicationForm.EditingDepItem = true
+			m.applicationForm.DepInput.SetValue("")
+			m.applicationForm.DepInput.Focus()
 			return m, nil
 		}
-		if m.applicationForm.depsCursor < len(deps) {
+		if m.applicationForm.DepsCursor < len(deps) {
 			// Edit existing dep
-			m.applicationForm.editingDepItem = true
-			m.applicationForm.depInput.SetValue(deps[m.applicationForm.depsCursor])
-			m.applicationForm.depInput.Focus()
-			m.applicationForm.depInput.SetCursor(len(deps[m.applicationForm.depsCursor]))
+			m.applicationForm.EditingDepItem = true
+			m.applicationForm.DepInput.SetValue(deps[m.applicationForm.DepsCursor])
+			m.applicationForm.DepInput.Focus()
+			m.applicationForm.DepInput.SetCursor(len(deps[m.applicationForm.DepsCursor]))
 			return m, nil
 		}
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.Delete):
-		if m.applicationForm.depsCursor < len(deps) {
-			deps = append(deps[:m.applicationForm.depsCursor], deps[m.applicationForm.depsCursor+1:]...)
+		if m.applicationForm.DepsCursor < len(deps) {
+			deps = append(deps[:m.applicationForm.DepsCursor], deps[m.applicationForm.DepsCursor+1:]...)
 			if len(deps) == 0 {
-				delete(m.applicationForm.packageDeps, manager)
+				delete(m.applicationForm.PackageDeps, manager)
 			} else {
-				m.applicationForm.packageDeps[manager] = deps
+				m.applicationForm.PackageDeps[manager] = deps
 			}
-			if m.applicationForm.depsCursor > 0 && m.applicationForm.depsCursor >= len(deps) {
-				m.applicationForm.depsCursor--
+			if m.applicationForm.DepsCursor > 0 && m.applicationForm.DepsCursor >= len(deps) {
+				m.applicationForm.DepsCursor--
 			}
 		}
 		return m, nil
 
 	case key.Matches(msg, FormNavKeys.Save):
 		if err := m.saveApplicationForm(); err != nil {
-			m.applicationForm.err = err.Error()
+			m.applicationForm.Err = err.Error()
 			return m, nil
 		}
 		m.activeForm = FormNone
@@ -708,30 +614,30 @@ func (m Model) updateDepsItemInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case key.Matches(msg, TextEditKeys.Cancel):
-		m.applicationForm.editingDepItem = false
-		m.applicationForm.depInput.SetValue("")
+		m.applicationForm.EditingDepItem = false
+		m.applicationForm.DepInput.SetValue("")
 		return m, nil
 
 	case key.Matches(msg, TextEditKeys.Confirm):
-		value := strings.TrimSpace(m.applicationForm.depInput.Value())
+		value := strings.TrimSpace(m.applicationForm.DepInput.Value())
 		if value != "" {
-			manager := m.applicationForm.depsManagerKey
-			deps := m.applicationForm.packageDeps[manager]
-			if m.applicationForm.depsCursor < len(deps) {
+			manager := m.applicationForm.DepsManagerKey
+			deps := m.applicationForm.PackageDeps[manager]
+			if m.applicationForm.DepsCursor < len(deps) {
 				// Edit existing
-				deps[m.applicationForm.depsCursor] = value
-				m.applicationForm.packageDeps[manager] = deps
+				deps[m.applicationForm.DepsCursor] = value
+				m.applicationForm.PackageDeps[manager] = deps
 			} else {
 				// Add new
-				m.applicationForm.packageDeps[manager] = append(deps, value)
+				m.applicationForm.PackageDeps[manager] = append(deps, value)
 			}
 		}
-		m.applicationForm.editingDepItem = false
-		m.applicationForm.depInput.SetValue("")
+		m.applicationForm.EditingDepItem = false
+		m.applicationForm.DepInput.SetValue("")
 		return m, nil
 	}
 
-	m.applicationForm.depInput, cmd = m.applicationForm.depInput.Update(msg)
+	m.applicationForm.DepInput, cmd = m.applicationForm.DepInput.Update(msg)
 	return m, cmd
 }
 
@@ -750,36 +656,36 @@ func (m Model) updateApplicationPackageInput(msg tea.KeyPressMsg) (tea.Model, te
 	switch {
 	case key.Matches(msg, TextEditKeys.Cancel):
 		// Cancel editing package name
-		m.applicationForm.editingPackage = false
-		m.applicationForm.packageNameInput.SetValue("")
-		m.applicationForm.err = ""
+		m.applicationForm.EditingPackage = false
+		m.applicationForm.PackageNameInput.SetValue("")
+		m.applicationForm.Err = ""
 		return m, nil
 
 	case key.Matches(msg, SearchKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
-		pkgName := strings.TrimSpace(m.applicationForm.packageNameInput.Value())
-		if m.applicationForm.packagesCursor < 0 || m.applicationForm.packagesCursor >= len(displayPackageManagers) {
-			m.applicationForm.editingPackage = false
-			m.applicationForm.packageNameInput.SetValue("")
+		pkgName := strings.TrimSpace(m.applicationForm.PackageNameInput.Value())
+		if m.applicationForm.PackagesCursor < 0 || m.applicationForm.PackagesCursor >= len(displayPackageManagers) {
+			m.applicationForm.EditingPackage = false
+			m.applicationForm.PackageNameInput.SetValue("")
 			return m, nil
 		}
-		manager := displayPackageManagers[m.applicationForm.packagesCursor]
+		manager := displayPackageManagers[m.applicationForm.PackagesCursor]
 
 		if pkgName != "" {
-			m.applicationForm.packageManagers[manager] = pkgName
-			m.applicationForm.lastPackageName = pkgName // Remember for auto-populate
+			m.applicationForm.PackageManagers[manager] = pkgName
+			m.applicationForm.LastPackageName = pkgName // Remember for auto-populate
 		} else {
 			// Clear if empty
-			delete(m.applicationForm.packageManagers, manager)
+			delete(m.applicationForm.PackageManagers, manager)
 		}
 
-		m.applicationForm.editingPackage = false
-		m.applicationForm.packageNameInput.SetValue("")
+		m.applicationForm.EditingPackage = false
+		m.applicationForm.PackageNameInput.SetValue("")
 		return m, nil
 	}
 
 	// Handle text input
-	m.applicationForm.packageNameInput, cmd = m.applicationForm.packageNameInput.Update(msg)
-	m.applicationForm.err = ""
+	m.applicationForm.PackageNameInput, cmd = m.applicationForm.PackageNameInput.Update(msg)
+	m.applicationForm.Err = ""
 	return m, cmd
 }
 
@@ -798,22 +704,22 @@ func (m Model) updateApplicationWhenInput(msg tea.KeyPressMsg) (tea.Model, tea.C
 	switch {
 	case key.Matches(msg, TextEditKeys.Cancel):
 		// Cancel editing and restore original value
-		m.applicationForm.whenInput.SetValue(m.applicationForm.originalValue)
-		m.applicationForm.editingWhen = false
-		m.applicationForm.whenInput.Blur()
-		m.applicationForm.err = ""
+		m.applicationForm.WhenInput.SetValue(m.applicationForm.OriginalValue)
+		m.applicationForm.EditingWhen = false
+		m.applicationForm.WhenInput.Blur()
+		m.applicationForm.Err = ""
 		return m, nil
 
 	case key.Matches(msg, TextEditKeys.Confirm) || key.Matches(msg, TextEditKeys.SaveForm):
 		// Save and exit edit mode
-		m.applicationForm.editingWhen = false
-		m.applicationForm.whenInput.Blur()
+		m.applicationForm.EditingWhen = false
+		m.applicationForm.WhenInput.Blur()
 		return m, nil
 	}
 
 	// Handle text input
-	m.applicationForm.whenInput, cmd = m.applicationForm.whenInput.Update(msg)
-	m.applicationForm.err = ""
+	m.applicationForm.WhenInput, cmd = m.applicationForm.WhenInput.Update(msg)
+	m.applicationForm.Err = ""
 
 	return m, cmd
 }
@@ -850,47 +756,47 @@ func (m Model) viewApplicationForm() string {
 	}
 	fmt.Fprintf(&b, "  %s\n", packagesLabel)
 
-	if m.applicationForm.editingDeps {
+	if m.applicationForm.EditingDeps {
 		// Show deps editing view instead of regular packages section
 		b.WriteString(renderDepsSection(
-			m.applicationForm.depsManagerKey,
-			m.applicationForm.packageDeps[m.applicationForm.depsManagerKey],
-			m.applicationForm.depsCursor,
-			m.applicationForm.editingDepItem,
-			m.applicationForm.depInput,
+			m.applicationForm.DepsManagerKey,
+			m.applicationForm.PackageDeps[m.applicationForm.DepsManagerKey],
+			m.applicationForm.DepsCursor,
+			m.applicationForm.EditingDepItem,
+			m.applicationForm.DepInput,
 		))
 	} else {
 		b.WriteString(renderPackagesSection(
 			ft == appFieldPackages,
-			m.applicationForm.packageManagers,
-			m.applicationForm.packagesCursor,
-			m.applicationForm.editingPackage,
-			m.applicationForm.packageNameInput,
-			m.applicationForm.packageDeps,
+			m.applicationForm.PackageManagers,
+			m.applicationForm.PackagesCursor,
+			m.applicationForm.EditingPackage,
+			m.applicationForm.PackageNameInput,
+			m.applicationForm.PackageDeps,
 		))
-		onGitItem := ft == appFieldPackages && m.applicationForm.packagesCursor == len(displayPackageManagers)
+		onGitItem := ft == appFieldPackages && m.applicationForm.PackagesCursor == len(displayPackageManagers)
 		b.WriteString(renderGitPackageSection(
 			ft == appFieldPackages,
 			onGitItem,
-			m.applicationForm.hasGitPackage,
-			m.applicationForm.gitFieldCursor,
-			m.applicationForm.editingGitField,
-			m.applicationForm.gitURLInput,
-			m.applicationForm.gitBranchInput,
-			m.applicationForm.gitLinuxInput,
-			m.applicationForm.gitWindowsInput,
-			m.applicationForm.gitSudo,
+			m.applicationForm.HasGitPackage,
+			m.applicationForm.GitFieldCursor,
+			m.applicationForm.EditingGitField,
+			m.applicationForm.GitURLInput,
+			m.applicationForm.GitBranchInput,
+			m.applicationForm.GitLinuxInput,
+			m.applicationForm.GitWindowsInput,
+			m.applicationForm.GitSudo,
 		))
-		onInstallerItem := ft == appFieldPackages && m.applicationForm.packagesCursor == len(displayPackageManagers)+1
+		onInstallerItem := ft == appFieldPackages && m.applicationForm.PackagesCursor == len(displayPackageManagers)+1
 		b.WriteString(renderInstallerPackageSection(
 			ft == appFieldPackages,
 			onInstallerItem,
-			m.applicationForm.hasInstallerPackage,
-			m.applicationForm.installerFieldCursor,
-			m.applicationForm.editingInstallerField,
-			m.applicationForm.installerLinuxInput,
-			m.applicationForm.installerWindowsInput,
-			m.applicationForm.installerBinaryInput,
+			m.applicationForm.HasInstallerPackage,
+			m.applicationForm.InstallerFieldCursor,
+			m.applicationForm.EditingInstallerField,
+			m.applicationForm.InstallerLinuxInput,
+			m.applicationForm.InstallerWindowsInput,
+			m.applicationForm.InstallerBinaryInput,
 		))
 	}
 	b.WriteString("\n")
@@ -903,14 +809,14 @@ func (m Model) viewApplicationForm() string {
 	fmt.Fprintf(&b, "  %s\n", whenLabel)
 	b.WriteString(renderWhenField(
 		ft == appFieldWhen,
-		m.applicationForm.editingWhen,
-		m.applicationForm.whenInput,
+		m.applicationForm.EditingWhen,
+		m.applicationForm.WhenInput,
 	))
 	b.WriteString("\n")
 
 	// Error message
-	if m.applicationForm.err != "" {
-		b.WriteString(ErrorStyle.Render("  Error: " + m.applicationForm.err))
+	if m.applicationForm.Err != "" {
+		b.WriteString(ErrorStyle.Render("  Error: " + m.applicationForm.Err))
 		b.WriteString("\n\n")
 	}
 
@@ -927,15 +833,15 @@ func (m Model) renderApplicationFieldValue(fieldType applicationFieldType, place
 	}
 
 	currentFt := m.getApplicationFieldType()
-	isEditing := m.applicationForm.editingField && currentFt == fieldType
+	isEditing := m.applicationForm.EditingField && currentFt == fieldType
 	isFocused := currentFt == fieldType
 
 	var input textinput.Model
 	switch fieldType {
 	case appFieldName:
-		input = m.applicationForm.nameInput
+		input = m.applicationForm.NameInput
 	case appFieldDescription:
-		input = m.applicationForm.descriptionInput
+		input = m.applicationForm.DescriptionInput
 	case appFieldPackages, appFieldWhen:
 		return placeholder
 	default:
@@ -965,8 +871,8 @@ func (m Model) renderApplicationFormHelp() string {
 
 	ft := m.getApplicationFieldType()
 
-	if m.applicationForm.editingDeps {
-		if m.applicationForm.editingDepItem {
+	if m.applicationForm.EditingDeps {
+		if m.applicationForm.EditingDepItem {
 			return RenderHelpFromBindings(m.width,
 				TextEditKeys.Confirm,
 				TextEditKeys.Cancel,
@@ -980,7 +886,7 @@ func (m Model) renderApplicationFormHelp() string {
 		)
 	}
 
-	if m.applicationForm.editingGitField || m.applicationForm.editingInstallerField {
+	if m.applicationForm.EditingGitField || m.applicationForm.EditingInstallerField {
 		return RenderHelpFromBindings(m.width,
 			TextEditKeys.Confirm,
 			TextEditKeys.SaveForm,
@@ -988,7 +894,7 @@ func (m Model) renderApplicationFormHelp() string {
 		)
 	}
 
-	if m.applicationForm.editingPackage {
+	if m.applicationForm.EditingPackage {
 		return RenderHelpFromBindings(m.width,
 			TextEditKeys.Confirm,
 			TextEditKeys.SaveForm,
@@ -996,7 +902,7 @@ func (m Model) renderApplicationFormHelp() string {
 		)
 	}
 
-	if m.applicationForm.editingWhen {
+	if m.applicationForm.EditingWhen {
 		return RenderHelpFromBindings(m.width,
 			TextEditKeys.Confirm,
 			TextEditKeys.SaveForm,
@@ -1004,7 +910,7 @@ func (m Model) renderApplicationFormHelp() string {
 		)
 	}
 
-	if m.applicationForm.editingField {
+	if m.applicationForm.EditingField {
 		return RenderHelpFromBindings(m.width,
 			TextEditKeys.Confirm,
 			TextEditKeys.SaveForm,
@@ -1014,35 +920,35 @@ func (m Model) renderApplicationFormHelp() string {
 
 	if ft == appFieldPackages {
 		// Git package states
-		if m.applicationForm.packagesCursor == len(displayPackageManagers) {
-			if !m.applicationForm.hasGitPackage {
+		if m.applicationForm.PackagesCursor == len(displayPackageManagers) {
+			if !m.applicationForm.HasGitPackage {
 				addBinding := key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "add"))
 				return RenderHelpFromBindings(m.width, addBinding, FormNavKeys.Save)
 			}
-			if m.applicationForm.gitFieldCursor == -1 {
+			if m.applicationForm.GitFieldCursor == -1 {
 				return RenderHelpFromBindings(m.width, FormNavKeys.Delete, FormNavKeys.Save)
 			}
-			if m.applicationForm.gitFieldCursor == GitFieldSudo {
+			if m.applicationForm.GitFieldCursor == GitFieldSudo {
 				return RenderHelpFromBindings(m.width, FormNavKeys.Toggle, FormNavKeys.Save)
 			}
 			return RenderHelpFromBindings(m.width, FormNavKeys.Edit, FormNavKeys.Save)
 		}
 		// Installer package states
-		if m.applicationForm.packagesCursor == len(displayPackageManagers)+1 {
-			if !m.applicationForm.hasInstallerPackage {
+		if m.applicationForm.PackagesCursor == len(displayPackageManagers)+1 {
+			if !m.applicationForm.HasInstallerPackage {
 				addBinding := key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "add"))
 				return RenderHelpFromBindings(m.width, addBinding, FormNavKeys.Save)
 			}
-			if m.applicationForm.installerFieldCursor == -1 {
+			if m.applicationForm.InstallerFieldCursor == -1 {
 				return RenderHelpFromBindings(m.width, FormNavKeys.Delete, FormNavKeys.Save)
 			}
 			return RenderHelpFromBindings(m.width, FormNavKeys.Edit, FormNavKeys.Save)
 		}
 		// Bounds check for packagesCursor
 		depsBinding := key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "deps"))
-		if m.applicationForm.packagesCursor >= 0 && m.applicationForm.packagesCursor < len(displayPackageManagers) {
-			manager := displayPackageManagers[m.applicationForm.packagesCursor]
-			if m.applicationForm.packageManagers[manager] != "" {
+		if m.applicationForm.PackagesCursor >= 0 && m.applicationForm.PackagesCursor < len(displayPackageManagers) {
+			manager := displayPackageManagers[m.applicationForm.PackagesCursor]
+			if m.applicationForm.PackageManagers[manager] != "" {
 				return RenderHelpFromBindings(m.width,
 					FormNavKeys.Edit,
 					depsBinding,
@@ -1078,85 +984,14 @@ func (m *Model) saveApplicationForm() error {
 		return errors.New("no form data")
 	}
 
-	name := strings.TrimSpace(m.applicationForm.nameInput.Value())
-	description := strings.TrimSpace(m.applicationForm.descriptionInput.Value())
-
-	// Validation
-	if name == "" {
-		return errors.New("name is required")
-	}
-
-	// Build when expression and package
-	when := strings.TrimSpace(m.applicationForm.whenInput.Value())
-	pkg := buildPackageSpec(m.applicationForm.packageManagers)
-
-	// Merge git package data
-	pkg = mergeGitPackage(
-		pkg,
-		m.applicationForm.hasGitPackage,
-		m.applicationForm.gitURLInput,
-		m.applicationForm.gitBranchInput,
-		m.applicationForm.gitLinuxInput,
-		m.applicationForm.gitWindowsInput,
-		m.applicationForm.gitSudo,
-	)
-
-	// Validate git package if present
-	if m.applicationForm.hasGitPackage {
-		gitURL := strings.TrimSpace(m.applicationForm.gitURLInput.Value())
-		if gitURL == "" {
-			return errors.New("git package URL is required")
-		}
-		gitLinux := strings.TrimSpace(m.applicationForm.gitLinuxInput.Value())
-		gitWindows := strings.TrimSpace(m.applicationForm.gitWindowsInput.Value())
-		if gitLinux == "" && gitWindows == "" {
-			return errors.New("git package requires at least one target (Linux or Windows)")
-		}
-	}
-
-	// Merge installer package data
-	pkg = mergeInstallerPackage(
-		pkg,
-		m.applicationForm.hasInstallerPackage,
-		m.applicationForm.installerLinuxInput,
-		m.applicationForm.installerWindowsInput,
-		m.applicationForm.installerBinaryInput,
-	)
-
-	// Validate installer package if present
-	if m.applicationForm.hasInstallerPackage {
-		installerLinux := strings.TrimSpace(m.applicationForm.installerLinuxInput.Value())
-		installerWindows := strings.TrimSpace(m.applicationForm.installerWindowsInput.Value())
-		if installerLinux == "" && installerWindows == "" {
-			return errors.New("installer package requires at least one command (Linux or Windows)")
-		}
-	}
-
-	// Merge deps into package managers
-	if pkg != nil && len(m.applicationForm.packageDeps) > 0 {
-		for manager, deps := range m.applicationForm.packageDeps {
-			if mv, ok := pkg.Managers[manager]; ok {
-				mv.Deps = deps
-				pkg.Managers[manager] = mv
-			} else if len(deps) > 0 {
-				// Deps-only entry (no main package name)
-				pkg.Managers[manager] = config.ManagerValue{Deps: deps}
-			}
-		}
-	} else if pkg == nil && len(m.applicationForm.packageDeps) > 0 {
-		pkg = &config.EntryPackage{
-			Managers: make(map[string]config.ManagerValue),
-		}
-		for manager, deps := range m.applicationForm.packageDeps {
-			if len(deps) > 0 {
-				pkg.Managers[manager] = config.ManagerValue{Deps: deps}
-			}
-		}
+	name, description, when, pkg, err := m.applicationForm.BuildApplication()
+	if err != nil {
+		return err
 	}
 
 	// Save based on edit mode
-	if m.applicationForm.editAppIdx >= 0 {
-		return m.saveEditedApplication(m.applicationForm.editAppIdx, name, description, when, pkg)
+	if m.applicationForm.EditAppIdx >= 0 {
+		return m.saveEditedApplication(m.applicationForm.EditAppIdx, name, description, when, pkg)
 	}
 	return m.saveNewApplication(config.Application{
 		Name:        name,
@@ -1172,21 +1007,7 @@ func (m *Model) updateApplicationFormFocus() {
 	if m.applicationForm == nil {
 		return
 	}
-
-	m.applicationForm.nameInput.Blur()
-	m.applicationForm.descriptionInput.Blur()
-
-	ft := m.getApplicationFieldType()
-	switch ft {
-	case appFieldName:
-		m.applicationForm.nameInput.Focus()
-	case appFieldDescription:
-		m.applicationForm.descriptionInput.Focus()
-	case appFieldPackages:
-		// List fields don't use textinput focus
-	case appFieldWhen:
-		// When field focus is handled separately
-	}
+	m.applicationForm.UpdateFocus()
 }
 
 // enterApplicationFieldEditMode enters edit mode for the current text field
@@ -1194,24 +1015,7 @@ func (m *Model) enterApplicationFieldEditMode() {
 	if m.applicationForm == nil {
 		return
 	}
-
-	m.applicationForm.editingField = true
-	ft := m.getApplicationFieldType()
-
-	switch ft {
-	case appFieldName:
-		m.applicationForm.originalValue = m.applicationForm.nameInput.Value()
-		m.applicationForm.nameInput.Focus()
-		m.applicationForm.nameInput.SetCursor(len(m.applicationForm.nameInput.Value()))
-	case appFieldDescription:
-		m.applicationForm.originalValue = m.applicationForm.descriptionInput.Value()
-		m.applicationForm.descriptionInput.Focus()
-		m.applicationForm.descriptionInput.SetCursor(len(m.applicationForm.descriptionInput.Value()))
-	case appFieldPackages:
-		// List fields don't use text input editing
-	case appFieldWhen:
-		// When field has its own edit mode
-	}
+	m.applicationForm.EnterFieldEditMode()
 }
 
 // cancelApplicationFieldEdit cancels editing and restores the original value
@@ -1219,144 +1023,8 @@ func (m *Model) cancelApplicationFieldEdit() {
 	if m.applicationForm == nil {
 		return
 	}
-
-	ft := m.getApplicationFieldType()
-	switch ft {
-	case appFieldName:
-		m.applicationForm.nameInput.SetValue(m.applicationForm.originalValue)
-	case appFieldDescription:
-		m.applicationForm.descriptionInput.SetValue(m.applicationForm.originalValue)
-	case appFieldPackages:
-		// List fields don't use text input restoration
-	case appFieldWhen:
-		// When field has its own cancel handling
-	}
-
-	m.applicationForm.editingField = false
-	m.applicationForm.err = ""
-	m.updateApplicationFormFocus()
+	m.applicationForm.CancelFieldEdit()
 }
 
-// NewApplicationForm creates a new ApplicationForm for testing purposes
-func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
-	nameInput := textinput.New()
-	nameInput.SetValue(app.Name)
-
-	descriptionInput := textinput.New()
-	descriptionInput.SetValue(app.Description)
-
-	whenInput := textinput.New()
-	whenInput.Placeholder = PlaceholderWhen
-	whenInput.CharLimit = 512
-	whenInput.SetWidth(60)
-	whenInput.SetValue(app.When)
-
-	editAppIdx := -1
-	if isEdit {
-		editAppIdx = 0
-	}
-
-	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
-	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
-
-	// Load package managers (only string-based managers, skip git and installer)
-	packageManagers := make(map[string]string)
-	if app.Package != nil && len(app.Package.Managers) > 0 {
-		for k, v := range app.Package.Managers {
-			if k == TypeGit || k == TypeInstaller {
-				continue
-			}
-			if !v.IsGit() && !v.IsInstaller() {
-				packageManagers[k] = v.PackageName
-			}
-		}
-	}
-
-	// Load git package if present
-	hasGitPackage := false
-	gitSudo := false
-
-	if app.Package != nil {
-		if gitVal, ok := app.Package.Managers[TypeGit]; ok && gitVal.IsGit() {
-			hasGitPackage = true
-			gitURLInput.SetValue(gitVal.Git.URL)
-			gitBranchInput.SetValue(gitVal.Git.Branch)
-			gitSudo = gitVal.Git.Sudo
-
-			if target, ok := gitVal.Git.Targets[OSLinux]; ok {
-				gitLinuxInput.SetValue(target)
-			}
-			if target, ok := gitVal.Git.Targets[OSWindows]; ok {
-				gitWindowsInput.SetValue(target)
-			}
-		}
-	}
-
-	// Load installer package if present
-	hasInstallerPackage := false
-
-	if app.Package != nil {
-		if installerVal, ok := app.Package.Managers[TypeInstaller]; ok && installerVal.IsInstaller() {
-			hasInstallerPackage = true
-			if cmd, ok := installerVal.Installer.Command[OSLinux]; ok {
-				installerLinuxInput.SetValue(cmd)
-			}
-			if cmd, ok := installerVal.Installer.Command[OSWindows]; ok {
-				installerWindowsInput.SetValue(cmd)
-			}
-			installerBinaryInput.SetValue(installerVal.Installer.Binary)
-		}
-	}
-
-	// Load package deps
-	packageDeps := make(map[string][]string)
-	if app.Package != nil && len(app.Package.Managers) > 0 {
-		for k, v := range app.Package.Managers {
-			if k == TypeGit || k == TypeInstaller {
-				continue
-			}
-			if len(v.Deps) > 0 {
-				packageDeps[k] = append([]string{}, v.Deps...)
-			}
-		}
-	}
-
-	depInput := textinput.New()
-	depInput.Placeholder = PlaceholderDep
-	depInput.CharLimit = 128
-	depInput.SetWidth(40)
-
-	return &ApplicationForm{
-		nameInput:             nameInput,
-		descriptionInput:      descriptionInput,
-		whenInput:             whenInput,
-		packageManagers:       packageManagers,
-		editAppIdx:            editAppIdx,
-		gitURLInput:           gitURLInput,
-		gitBranchInput:        gitBranchInput,
-		gitLinuxInput:         gitLinuxInput,
-		gitWindowsInput:       gitWindowsInput,
-		gitFieldCursor:        -1,
-		hasGitPackage:         hasGitPackage,
-		gitSudo:               gitSudo,
-		installerLinuxInput:   installerLinuxInput,
-		installerWindowsInput: installerWindowsInput,
-		installerBinaryInput:  installerBinaryInput,
-		installerFieldCursor:  -1,
-		hasInstallerPackage:   hasInstallerPackage,
-		packageDeps:           packageDeps,
-		depsCursor:            0,
-		editingDeps:           false,
-		editingDepItem:        false,
-		depsManagerKey:        "",
-		depInput:              depInput,
-	}
-}
-
-// Validate checks if the ApplicationForm has valid data
-func (f *ApplicationForm) Validate() error {
-	if strings.TrimSpace(f.nameInput.Value()) == "" {
-		return errors.New("application name is required")
-	}
-	return nil
-}
+// NewApplicationForm delegates to forms.NewApplicationForm.
+var NewApplicationForm = forms.NewApplicationForm

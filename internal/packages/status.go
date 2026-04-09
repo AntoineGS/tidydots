@@ -1,17 +1,15 @@
 package packages
 
 import (
-	"bytes"
 	"context"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	"github.com/AntoineGS/tidydots/internal/cmdexec"
 	"github.com/AntoineGS/tidydots/internal/config"
-	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
 // installedCache holds the lazily-populated set of installed package IDs for
@@ -29,6 +27,11 @@ type bulkCacheEntry struct {
 // the results. For other managers, it runs the per-package check command.
 // Returns true if the package is installed, false otherwise.
 func IsInstalled(ctx context.Context, pkgName string, manager string) bool {
+	return isInstalledWithRunner(ctx, pkgName, manager, cmdexec.OsRunner{})
+}
+
+// isInstalledWithRunner checks if a package is installed using the given runner.
+func isInstalledWithRunner(ctx context.Context, pkgName string, manager string, r cmdexec.Runner) bool {
 	mc, ok := managerCmds[PackageManager(manager)]
 	if !ok {
 		slog.Debug("no check command for manager, assuming not installed",
@@ -42,7 +45,7 @@ func IsInstalled(ctx context.Context, pkgName string, manager string) bool {
 		return isInstalledBulk(ctx, pkgName, manager, mc)
 	}
 
-	return isInstalledSingle(ctx, pkgName, manager, mc)
+	return isInstalledSingle(ctx, pkgName, manager, mc, r)
 }
 
 // isInstalledBulk checks installation via cached bulk list output.
@@ -69,17 +72,13 @@ func isInstalledBulk(ctx context.Context, pkgName, manager string, mc managerCmd
 }
 
 // isInstalledSingle checks installation by running the per-package check command.
-func isInstalledSingle(ctx context.Context, pkgName, manager string, mc managerCmd) bool {
+func isInstalledSingle(ctx context.Context, pkgName, manager string, mc managerCmd, r cmdexec.Runner) bool {
 	args := expandArgs(mc.check, pkgName)
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...) //nolint:gosec // args from trusted lookup table
 
-	var stderr bytes.Buffer
-	cmd.Stdout = nil
-	cmd.Stderr = &stderr
-	err := cmd.Run()
+	result, err := r.Run(ctx, args[0], args[1:]...) //nolint:gosec // args from trusted lookup table
 
 	if err != nil {
-		errMsg := strings.TrimSpace(stderr.String())
+		errMsg := strings.TrimSpace(string(result.Stderr))
 		slog.Debug("package check command failed",
 			slog.String("package", pkgName),
 			slog.String("manager", manager),
@@ -109,7 +108,13 @@ func IsInstallerInstalled(binary string) bool {
 		return false
 	}
 
-	return platform.IsCommandAvailable(binary)
+	return isInstallerInstalledWithRunner(binary, cmdexec.OsRunner{})
+}
+
+// isInstallerInstalledWithRunner checks binary availability using the given runner.
+func isInstallerInstalledWithRunner(binary string, r cmdexec.Runner) bool {
+	_, err := r.LookPath(binary)
+	return err == nil
 }
 
 // IsGitInstalled checks whether a git repository has been cloned at the

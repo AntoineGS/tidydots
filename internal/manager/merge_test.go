@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -235,7 +234,7 @@ func TestMergeFile_NoConflict(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the file
-	err := mergeFile(context.Background(), targetFile, backupDir, "unique.txt", false, summary)
+	err := newUtilityManager().mergeFile(targetFile, backupDir, "unique.txt", false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -244,12 +243,12 @@ func TestMergeFile_NoConflict(t *testing.T) {
 
 	// Assert: Target file was moved to backup
 	backupFile := filepath.Join(backupDir, "unique.txt")
-	if !PathExists(backupFile) {
+	if !testPathExists(backupFile) {
 		t.Errorf("Backup file not created at %q", backupFile)
 	}
 
 	// Assert: Target file no longer exists
-	if PathExists(targetFile) {
+	if testPathExists(targetFile) {
 		t.Errorf("Target file still exists at %q, should have been moved", targetFile)
 	}
 
@@ -291,7 +290,7 @@ func TestMergeFile_WithConflict(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the file
-	err := mergeFile(context.Background(), targetFile, backupDir, "config.json", false, summary)
+	err := newUtilityManager().mergeFile(targetFile, backupDir, "config.json", false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -326,7 +325,7 @@ func TestMergeFile_WithConflict(t *testing.T) {
 	}
 
 	// Assert: Target file no longer exists
-	if PathExists(targetFile) {
+	if testPathExists(targetFile) {
 		t.Errorf("Target file still exists at %q, should have been moved", targetFile)
 	}
 
@@ -373,7 +372,7 @@ func TestMergeFolder_Recursive(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the entire folder
-	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary)
+	err := newUtilityManager().MergeFolder(backupDir, targetDir, false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -393,7 +392,7 @@ func TestMergeFolder_Recursive(t *testing.T) {
 	// Assert: All files exist in backup with correct content
 	for _, f := range files {
 		backupFile := filepath.Join(backupDir, f.path)
-		if !PathExists(backupFile) {
+		if !testPathExists(backupFile) {
 			t.Errorf("Backup file not created at %q", backupFile)
 			continue
 		}
@@ -409,7 +408,7 @@ func TestMergeFolder_Recursive(t *testing.T) {
 
 		// Assert: Target files no longer exist
 		targetFile := filepath.Join(targetDir, f.path)
-		if PathExists(targetFile) {
+		if testPathExists(targetFile) {
 			t.Errorf("Target file still exists at %q, should have been moved", targetFile)
 		}
 	}
@@ -476,7 +475,7 @@ func TestMergeFolder_WithConflicts(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the entire folder
-	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary)
+	err := newUtilityManager().MergeFolder(backupDir, targetDir, false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -496,7 +495,7 @@ func TestMergeFolder_WithConflicts(t *testing.T) {
 	// Assert: Unique files exist in backup with correct content
 	for _, f := range uniqueFiles {
 		backupFile := filepath.Join(backupDir, f.path)
-		if !PathExists(backupFile) {
+		if !testPathExists(backupFile) {
 			t.Errorf("Backup file not created at %q", backupFile)
 			continue
 		}
@@ -573,7 +572,7 @@ func TestRemoveEmptyDirs(t *testing.T) {
 	}
 
 	// Act: Remove empty directories
-	err := removeEmptyDirs(rootDir)
+	err := newUtilityManager().removeEmptyDirs(rootDir)
 
 	// Assert: No error
 	if err != nil {
@@ -581,20 +580,20 @@ func TestRemoveEmptyDirs(t *testing.T) {
 	}
 
 	// Assert: Empty directories are removed (a/b/c/d should all be gone)
-	if PathExists(filepath.Join(rootDir, "a")) {
+	if testPathExists(filepath.Join(rootDir, "a")) {
 		t.Errorf("Empty directory 'a' still exists, should be removed")
 	}
 
 	// Assert: Directory with file is preserved
-	if !PathExists(dirWithFile) {
+	if !testPathExists(dirWithFile) {
 		t.Errorf("Directory with file 'e/f' was removed, should be preserved")
 	}
-	if !PathExists(fileInDir) {
+	if !testPathExists(fileInDir) {
 		t.Errorf("File 'e/f/file.txt' was removed, should be preserved")
 	}
 
 	// Assert: Root directory still exists (should never be removed)
-	if !PathExists(rootDir) {
+	if !testPathExists(rootDir) {
 		t.Errorf("Root directory was removed, should be preserved")
 	}
 }
@@ -650,12 +649,12 @@ func TestRestoreFolder_NoMerge_Fails(t *testing.T) {
 	}
 
 	// Assert: Target directory still has content (nothing was deleted)
-	if !PathExists(filepath.Join(targetDir, "local.txt")) {
+	if !testPathExists(filepath.Join(targetDir, "local.txt")) {
 		t.Error("Target file was deleted, should be preserved when operation fails")
 	}
 
 	// Assert: Symlink was not created
-	if isSymlink(targetDir) {
+	if testIsSymlink(targetDir) {
 		t.Error("Target should not be a symlink, operation should have failed before symlinking")
 	}
 }
@@ -703,7 +702,7 @@ func TestRestoreFolder_NoMerge_ForceDelete_Succeeds(t *testing.T) {
 	}
 
 	// Assert: Target is now a symlink
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("Target should be a symlink")
 	}
 
@@ -719,7 +718,7 @@ func TestRestoreFolder_NoMerge_ForceDelete_Succeeds(t *testing.T) {
 	// Assert: Target file was deleted (not merged)
 	// Since targetDir is now a symlink, we can't check for the old file
 	// But we can verify the backup directory doesn't have the target file
-	if PathExists(filepath.Join(backupDir, "local.txt")) {
+	if testPathExists(filepath.Join(backupDir, "local.txt")) {
 		t.Error("Target file should NOT have been merged into backup with ForceDelete")
 	}
 }
@@ -768,7 +767,7 @@ func TestMergeFolder_SymlinkInTarget(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge the folder
-	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary)
+	err := newUtilityManager().MergeFolder(backupDir, targetDir, false, summary)
 
 	// Assert: No error
 	if err != nil {
@@ -782,19 +781,19 @@ func TestMergeFolder_SymlinkInTarget(t *testing.T) {
 
 	// Assert: Regular file exists in backup
 	regularBackup := filepath.Join(backupDir, "regular.txt")
-	if !PathExists(regularBackup) {
+	if !testPathExists(regularBackup) {
 		t.Error("Regular file not merged to backup")
 	}
 
 	// Assert: Symlink was moved to backup
 	linkedBackup := filepath.Join(backupDir, "linked.txt")
-	if !PathExists(linkedBackup) {
+	if !testPathExists(linkedBackup) {
 		t.Error("Symlink not merged to backup")
 	}
 
 	// Current behavior: Symlink is preserved as-is
 	// (Future enhancement: could resolve and copy content instead)
-	if !isSymlink(linkedBackup) {
+	if !testIsSymlink(linkedBackup) {
 		t.Error("Backup file should be a symlink (current behavior)")
 	}
 
@@ -875,7 +874,7 @@ func TestMergeFolder_DuplicateConflicts(t *testing.T) {
 	}
 
 	summary1 := NewMergeSummary("test-app")
-	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary1)
+	err := newUtilityManager().MergeFolder(backupDir, targetDir, false, summary1)
 	if err != nil {
 		t.Fatalf("First MergeFolder() error = %v", err)
 	}
@@ -899,7 +898,7 @@ func TestMergeFolder_DuplicateConflicts(t *testing.T) {
 	}
 
 	summary2 := NewMergeSummary("test-app")
-	err = MergeFolder(context.Background(), backupDir, targetDir, false, summary2)
+	err = newUtilityManager().MergeFolder(backupDir, targetDir, false, summary2)
 	if err != nil {
 		t.Fatalf("Second MergeFolder() error = %v", err)
 	}
@@ -932,7 +931,7 @@ func TestMergeFolder_EmptyTargetDir(t *testing.T) {
 	summary := NewMergeSummary("test-app")
 
 	// Act: Merge empty folder
-	err := MergeFolder(context.Background(), backupDir, targetDir, false, summary)
+	err := newUtilityManager().MergeFolder(backupDir, targetDir, false, summary)
 
 	// Assert: No error
 	if err != nil {

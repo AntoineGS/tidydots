@@ -1,13 +1,13 @@
 package packages
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"os/exec"
 	"strings"
 
+	"github.com/AntoineGS/tidydots/internal/cmdexec"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
@@ -41,22 +41,23 @@ var managerCmds = map[PackageManager]managerCmd{
 // installed package IDs. This avoids N slow serial "winget list --id" calls and
 // the concurrency bugs (0x8a150001) that winget has with parallel queries.
 func wingetBulkList(ctx context.Context) map[string]bool {
+	return wingetBulkListWithRunner(ctx, cmdexec.OsRunner{})
+}
+
+// wingetBulkListWithRunner runs winget list using the given runner.
+func wingetBulkListWithRunner(ctx context.Context, r cmdexec.Runner) map[string]bool {
 	slog.Debug("running winget bulk list")
 
-	cmd := exec.CommandContext(ctx, "winget", "list", "--disable-interactivity", "--accept-source-agreements")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
+	result, err := r.Run(ctx, "winget", "list", "--disable-interactivity", "--accept-source-agreements")
 
 	if err != nil {
 		slog.Debug("winget bulk list failed",
 			slog.String("error", err.Error()),
-			slog.String("stderr", strings.TrimSpace(stderr.String())))
+			slog.String("stderr", strings.TrimSpace(string(result.Stderr))))
 		return make(map[string]bool)
 	}
 
-	return parseWingetListOutput(stdout.String())
+	return parseWingetListOutput(string(result.Stdout))
 }
 
 // parseWingetListOutput extracts package IDs from winget list output.

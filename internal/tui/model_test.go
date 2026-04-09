@@ -766,15 +766,15 @@ func TestEditWithSortedApplications(t *testing.T) {
 	appIdx, _ := model.getApplicationAtCursorFromTable()
 
 	// Initialize the application form for editing
-	model.initApplicationFormEdit(appIdx)
+	model.initApplicationForm(appIdx)
 
 	// Verify the form was initialized with the correct application data
 	if model.applicationForm == nil {
 		t.Fatal("Application form should be initialized")
 	}
 
-	if model.applicationForm.nameInput.Value() != "nvim" {
-		t.Errorf("Expected form to edit 'nvim', got %q", model.applicationForm.nameInput.Value())
+	if model.applicationForm.NameInput.Value() != "nvim" {
+		t.Errorf("Expected form to edit 'nvim', got %q", model.applicationForm.NameInput.Value())
 	}
 
 	// The table sorts sub-entries by Data[0] which includes tree characters.
@@ -785,28 +785,28 @@ func TestEditWithSortedApplications(t *testing.T) {
 	model.tableCursor = 2
 	appIdx, subIdx := model.getApplicationAtCursorFromTable()
 
-	model.initSubEntryFormEdit(appIdx, subIdx)
+	model.initSubEntryForm(appIdx, subIdx)
 
 	if model.subEntryForm == nil {
 		t.Fatal("Sub-entry form should be initialized")
 	}
 
-	if model.subEntryForm.nameInput.Value() != "plugins" {
-		t.Errorf("Expected form to edit 'plugins', got %q", model.subEntryForm.nameInput.Value())
+	if model.subEntryForm.NameInput.Value() != "plugins" {
+		t.Errorf("Expected form to edit 'plugins', got %q", model.subEntryForm.NameInput.Value())
 	}
 
 	// Test editing sub-entry at visual row 3 (init, due to sort order)
 	model.tableCursor = 3
 	appIdx, subIdx = model.getApplicationAtCursorFromTable()
 
-	model.initSubEntryFormEdit(appIdx, subIdx)
+	model.initSubEntryForm(appIdx, subIdx)
 
 	if model.subEntryForm == nil {
 		t.Fatal("Sub-entry form should be initialized")
 	}
 
-	if model.subEntryForm.nameInput.Value() != "init" {
-		t.Errorf("Expected form to edit 'init', got %q", model.subEntryForm.nameInput.Value())
+	if model.subEntryForm.NameInput.Value() != "init" {
+		t.Errorf("Expected form to edit 'init', got %q", model.subEntryForm.NameInput.Value())
 	}
 }
 

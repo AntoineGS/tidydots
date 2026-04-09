@@ -1,13 +1,10 @@
 package manager
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -95,27 +92,27 @@ func generateConflictNameWithDate(filename string) string {
 
 // sudoCopy copies a file using sudo cp. Used when the source file is in a
 // sudo-protected location (e.g., /etc/) and needs elevated privileges to read.
-func sudoCopy(ctx context.Context, src, dst string) error {
-	cmd := exec.CommandContext(ctx, "sudo", "cp", src, dst) //nolint:gosec // intentional sudo command
-	return cmd.Run()
+func (m *Manager) sudoCopy(src, dst string) error {
+	_, err := m.runner.RunWithSudo(m.ctx, "cp", src, dst)
+	return err
 }
 
 // sudoRemove removes a file using sudo rm. Used when the file is in a
 // sudo-protected location and needs elevated privileges to delete.
-func sudoRemove(ctx context.Context, path string) error {
-	cmd := exec.CommandContext(ctx, "sudo", "rm", path) //nolint:gosec // intentional sudo command
-	return cmd.Run()
+func (m *Manager) sudoRemove(path string) error {
+	_, err := m.runner.RunWithSudo(m.ctx, "rm", path)
+	return err
 }
 
 // moveFile moves a file from src to dst, using sudo if required.
 // It tries rename first (faster on same device), then falls back to copy+remove.
-func moveFile(ctx context.Context, src, dst string, useSudo bool) error {
+func (m *Manager) moveFile(src, dst string, useSudo bool) error {
 	if useSudo && runtime.GOOS != platform.OSWindows {
 		// sudo: copy from protected location, then remove original
-		if err := sudoCopy(ctx, src, dst); err != nil {
+		if err := m.sudoCopy(src, dst); err != nil {
 			return fmt.Errorf("sudo copying file: %w", err)
 		}
-		if err := sudoRemove(ctx, src); err != nil {
+		if err := m.sudoRemove(src); err != nil {
 			return fmt.Errorf("sudo removing original: %w", err)
 		}
 
@@ -123,12 +120,12 @@ func moveFile(ctx context.Context, src, dst string, useSudo bool) error {
 	}
 
 	// Try rename first (faster if same device)
-	if err := os.Rename(src, dst); err != nil {
+	if err := m.fs.Rename(src, dst); err != nil {
 		// If rename fails (cross-device), copy then remove
-		if copyErr := copyFile(src, dst); copyErr != nil {
+		if copyErr := m.copyFile(src, dst); copyErr != nil {
 			return fmt.Errorf("copying file: %w", copyErr)
 		}
-		if removeErr := os.Remove(src); removeErr != nil {
+		if removeErr := m.fs.Remove(src); removeErr != nil {
 			return fmt.Errorf("removing original: %w", removeErr)
 		}
 	}
@@ -141,7 +138,6 @@ func moveFile(ctx context.Context, src, dst string, useSudo bool) error {
 // If the file doesn't exist in backup, it's merged directly.
 //
 // Parameters:
-//   - ctx: Context for sudo command execution
 //   - targetFile: Path to the file in the target location
 //   - backupDir: Directory where backup files are stored
 //   - relativePath: Relative path of the file (used for the backup location)
@@ -149,11 +145,11 @@ func moveFile(ctx context.Context, src, dst string, useSudo bool) error {
 //   - summary: MergeSummary to record the operation
 //
 // Returns error if the operation fails.
-func mergeFile(ctx context.Context, targetFile, backupDir, relativePath string, useSudo bool, summary *MergeSummary) error {
+func (m *Manager) mergeFile(targetFile, backupDir, relativePath string, useSudo bool, summary *MergeSummary) error {
 	backupFile := filepath.Join(backupDir, relativePath)
 
 	// Check if file exists in backup (conflict)
-	if PathExists(backupFile) {
+	if m.pathExists(backupFile) {
 		// CONFLICT: Rename target file and move to backup
 		filename := filepath.Base(relativePath)
 		conflictName := generateConflictNameWithDate(filename)
@@ -163,7 +159,7 @@ func mergeFile(ctx context.Context, targetFile, backupDir, relativePath string, 
 			slog.String("file", relativePath),
 			slog.String("renamed_to", conflictName))
 
-		if err := moveFile(ctx, targetFile, conflictPath, useSudo); err != nil {
+		if err := m.moveFile(targetFile, conflictPath, useSudo); err != nil {
 			return fmt.Errorf("moving conflict file: %w", err)
 		}
 
@@ -174,11 +170,11 @@ func mergeFile(ctx context.Context, targetFile, backupDir, relativePath string, 
 	// NO CONFLICT: Move file to backup
 	// Create parent directory if needed (backup is user-owned, no sudo needed)
 	backupParent := filepath.Dir(backupFile)
-	if err := os.MkdirAll(backupParent, DirPerms); err != nil {
+	if err := m.fs.MkdirAll(backupParent, DirPerms); err != nil {
 		return fmt.Errorf("creating backup directory: %w", err)
 	}
 
-	if err := moveFile(ctx, targetFile, backupFile, useSudo); err != nil {
+	if err := m.moveFile(targetFile, backupFile, useSudo); err != nil {
 		return fmt.Errorf("moving file to backup: %w", err)
 	}
 
@@ -195,15 +191,14 @@ func mergeFile(ctx context.Context, targetFile, backupDir, relativePath string, 
 // Individual file errors are logged but don't stop the overall operation.
 //
 // Parameters:
-//   - ctx: Context for sudo command execution
 //   - backupDir: Directory where backup files are stored
 //   - targetDir: Directory to merge files from
 //   - useSudo: Whether to use sudo for file operations on the target
 //   - summary: MergeSummary to record all operations
 //
 // Returns error only if the directory walk itself fails.
-func MergeFolder(ctx context.Context, backupDir, targetDir string, useSudo bool, summary *MergeSummary) error {
-	return filepath.WalkDir(targetDir, func(path string, d fs.DirEntry, err error) error {
+func (m *Manager) MergeFolder(backupDir, targetDir string, useSudo bool, summary *MergeSummary) error {
+	return m.fs.WalkDir(targetDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -225,7 +220,7 @@ func MergeFolder(ctx context.Context, backupDir, targetDir string, useSudo bool,
 		}
 
 		// Merge the file
-		if err := mergeFile(ctx, path, backupDir, relativePath, useSudo, summary); err != nil {
+		if err := m.mergeFile(path, backupDir, relativePath, useSudo, summary); err != nil {
 			slog.Error("Failed to merge file",
 				slog.String("file", relativePath),
 				slog.Any("error", err))
@@ -240,18 +235,18 @@ func MergeFolder(ctx context.Context, backupDir, targetDir string, useSudo bool,
 // removeEmptyDirs removes empty directories in a bottom-up manner.
 // It walks the directory tree, collects all subdirectories (excluding the root),
 // and attempts to remove them in reverse order (deepest first).
-// Only truly empty directories will be removed; os.Remove will fail for non-empty dirs.
+// Only truly empty directories will be removed; fs.Remove will fail for non-empty dirs.
 //
 // Parameters:
 //   - rootDir: The root directory to clean up (will not be removed itself)
 //
 // Returns error only if the directory walk itself fails.
 // Errors from individual directory removals are logged but don't stop the operation.
-func removeEmptyDirs(rootDir string) error {
+func (m *Manager) removeEmptyDirs(rootDir string) error {
 	// Collect all subdirectories (not the root itself)
 	var dirs []string
 
-	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+	err := m.fs.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -277,7 +272,7 @@ func removeEmptyDirs(rootDir string) error {
 	for i := len(dirs) - 1; i >= 0; i-- {
 		dir := dirs[i]
 
-		if err := os.Remove(dir); err != nil {
+		if err := m.fs.Remove(dir); err != nil {
 			// Ignore "directory not empty" errors (expected for dirs with content)
 			// Log other errors at debug level
 			if !errors.Is(err, syscall.ENOTEMPTY) {

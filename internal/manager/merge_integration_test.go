@@ -94,7 +94,7 @@ func verifyMergeResults(t *testing.T, nvimBackup, targetNvim string,
 	t.Helper()
 
 	// Assert: Target is now a symlink pointing to backup
-	if !isSymlink(targetNvim) {
+	if !testIsSymlink(targetNvim) {
 		t.Error("Target nvim directory should be a symlink after restore")
 	}
 
@@ -126,7 +126,7 @@ func verifyTrackedFiles(t *testing.T, nvimBackup string, trackedFiles map[string
 	t.Helper()
 	for relPath, expectedContent := range trackedFiles {
 		fullPath := filepath.Join(nvimBackup, relPath)
-		if !PathExists(fullPath) {
+		if !testPathExists(fullPath) {
 			t.Errorf("Tracked file %q should still exist in backup", relPath)
 			continue
 		}
@@ -148,7 +148,7 @@ func verifyMergedFiles(t *testing.T, nvimBackup string, localFiles map[string]st
 	t.Helper()
 	for relPath, expectedContent := range localFiles {
 		fullPath := filepath.Join(nvimBackup, relPath)
-		if !PathExists(fullPath) {
+		if !testPathExists(fullPath) {
 			t.Errorf("Local file %q should be merged into backup", relPath)
 			continue
 		}
@@ -226,7 +226,7 @@ func verifyDirectoryStructure(t *testing.T, nvimBackup string) {
 
 	for _, dir := range expectedDirs {
 		fullPath := filepath.Join(nvimBackup, dir)
-		if !PathExists(fullPath) {
+		if !testPathExists(fullPath) {
 			t.Errorf("Directory %q should exist in backup", dir)
 		}
 	}
@@ -335,12 +335,12 @@ func TestMergeIntegration_WithNoMergeFlag(t *testing.T) {
 	}
 
 	// Assert: Target still has original content
-	if !PathExists(filepath.Join(targetNvim, "local.lua")) {
+	if !testPathExists(filepath.Join(targetNvim, "local.lua")) {
 		t.Error("Target content should be preserved when restore fails")
 	}
 
 	// Assert: Target is not a symlink
-	if isSymlink(targetNvim) {
+	if testIsSymlink(targetNvim) {
 		t.Error("Target should not become a symlink when restore fails")
 	}
 }
@@ -389,17 +389,17 @@ func TestMergeIntegration_DryRunMode(t *testing.T) {
 	}
 
 	// Assert: Target file still exists (not actually merged)
-	if !PathExists(targetFile) {
+	if !testPathExists(targetFile) {
 		t.Error("Target file should still exist in dry-run mode")
 	}
 
 	// Assert: Target is not a symlink (dry-run doesn't change anything)
-	if isSymlink(targetNvim) {
+	if testIsSymlink(targetNvim) {
 		t.Error("Target should not be a symlink in dry-run mode")
 	}
 
 	// Assert: Backup doesn't have merged file (dry-run doesn't merge)
-	if PathExists(filepath.Join(nvimBackup, "local.lua")) {
+	if testPathExists(filepath.Join(nvimBackup, "local.lua")) {
 		t.Error("Backup should not have merged file in dry-run mode")
 	}
 }

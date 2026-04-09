@@ -74,14 +74,14 @@ func TestApplicationForm_EditMode(t *testing.T) {
 
 	// Test new form (not editing)
 	newForm := NewApplicationForm(app, false)
-	if newForm.editAppIdx != -1 {
-		t.Errorf("NewApplicationForm(false) editAppIdx = %d, want -1", newForm.editAppIdx)
+	if newForm.EditAppIdx != -1 {
+		t.Errorf("NewApplicationForm(false) EditAppIdx = %d, want -1", newForm.EditAppIdx)
 	}
 
 	// Test edit form
 	editForm := NewApplicationForm(app, true)
-	if editForm.editAppIdx != 0 {
-		t.Errorf("NewApplicationForm(true) editAppIdx = %d, want 0", editForm.editAppIdx)
+	if editForm.EditAppIdx != 0 {
+		t.Errorf("NewApplicationForm(true) EditAppIdx = %d, want 0", editForm.EditAppIdx)
 	}
 }
 
@@ -195,28 +195,28 @@ func TestSubEntryForm_Construction(t *testing.T) {
 
 		form := NewSubEntryForm(entry)
 
-		if form.nameInput.Value() != "test" {
-			t.Errorf("nameInput = %q, want %q", form.nameInput.Value(), "test")
+		if form.NameInput.Value() != "test" {
+			t.Errorf("NameInput = %q, want %q", form.NameInput.Value(), "test")
 		}
 
-		if form.backupInput.Value() != "./test" {
-			t.Errorf("backupInput = %q, want %q", form.backupInput.Value(), "./test")
+		if form.BackupInput.Value() != "./test" {
+			t.Errorf("BackupInput = %q, want %q", form.BackupInput.Value(), "./test")
 		}
 
-		if !form.isSudo {
+		if !form.IsSudo {
 			t.Error("isSudo = false, want true")
 		}
 
-		if form.linuxTargetInput.Value() != "~/.config/test" {
-			t.Errorf("linuxTargetInput = %q, want %q", form.linuxTargetInput.Value(), "~/.config/test")
+		if form.LinuxTargetInput.Value() != "~/.config/test" {
+			t.Errorf("LinuxTargetInput = %q, want %q", form.LinuxTargetInput.Value(), "~/.config/test")
 		}
 
-		if form.windowsTargetInput.Value() != "~/AppData/Local/test" {
-			t.Errorf("windowsTargetInput = %q, want %q", form.windowsTargetInput.Value(), "~/AppData/Local/test")
+		if form.WindowsTargetInput.Value() != "~/AppData/Local/test" {
+			t.Errorf("WindowsTargetInput = %q, want %q", form.WindowsTargetInput.Value(), "~/AppData/Local/test")
 		}
 
-		if len(form.files) != 2 {
-			t.Errorf("files length = %d, want 2", len(form.files))
+		if len(form.Files) != 2 {
+			t.Errorf("files length = %d, want 2", len(form.Files))
 		}
 	})
 }
@@ -224,11 +224,11 @@ func TestSubEntryForm_Construction(t *testing.T) {
 func TestApplicationForm_GitPackageLoad(t *testing.T) {
 	t.Run("new_form_has_no_git_package", func(t *testing.T) {
 		form := NewApplicationForm(config.Application{Name: "test"}, false)
-		if form.hasGitPackage {
+		if form.HasGitPackage {
 			t.Error("new form should not have git package")
 		}
-		if form.gitFieldCursor != -1 {
-			t.Errorf("gitFieldCursor = %d, want -1", form.gitFieldCursor)
+		if form.GitFieldCursor != -1 {
+			t.Errorf("gitFieldCursor = %d, want -1", form.GitFieldCursor)
 		}
 	})
 
@@ -252,23 +252,23 @@ func TestApplicationForm_GitPackageLoad(t *testing.T) {
 		}
 		form := NewApplicationForm(app, true)
 
-		if !form.hasGitPackage {
+		if !form.HasGitPackage {
 			t.Error("form should have git package")
 		}
-		if form.gitURLInput.Value() != "https://github.com/user/repo.git" {
-			t.Errorf("gitURLInput = %q, want %q", form.gitURLInput.Value(), "https://github.com/user/repo.git")
+		if form.GitURLInput.Value() != "https://github.com/user/repo.git" {
+			t.Errorf("GitURLInput = %q, want %q", form.GitURLInput.Value(), "https://github.com/user/repo.git")
 		}
-		if form.gitBranchInput.Value() != "main" {
-			t.Errorf("gitBranchInput = %q, want %q", form.gitBranchInput.Value(), "main")
+		if form.GitBranchInput.Value() != "main" {
+			t.Errorf("GitBranchInput = %q, want %q", form.GitBranchInput.Value(), "main")
 		}
-		if form.gitLinuxInput.Value() != "~/.local/share/app" {
-			t.Errorf("gitLinuxInput = %q, want %q", form.gitLinuxInput.Value(), "~/.local/share/app")
+		if form.GitLinuxInput.Value() != "~/.local/share/app" {
+			t.Errorf("GitLinuxInput = %q, want %q", form.GitLinuxInput.Value(), "~/.local/share/app")
 		}
-		if form.gitWindowsInput.Value() != "~/AppData/Local/app" {
-			t.Errorf("gitWindowsInput = %q, want %q", form.gitWindowsInput.Value(), "~/AppData/Local/app")
+		if form.GitWindowsInput.Value() != "~/AppData/Local/app" {
+			t.Errorf("GitWindowsInput = %q, want %q", form.GitWindowsInput.Value(), "~/AppData/Local/app")
 		}
-		if !form.gitSudo {
-			t.Error("gitSudo should be true")
+		if !form.GitSudo {
+			t.Error("GitSudo should be true")
 		}
 	})
 
@@ -283,11 +283,11 @@ func TestApplicationForm_GitPackageLoad(t *testing.T) {
 		}
 		form := NewApplicationForm(app, true)
 
-		if form.hasGitPackage {
+		if form.HasGitPackage {
 			t.Error("form should not have git package")
 		}
-		if form.gitURLInput.Value() != "" {
-			t.Errorf("gitURLInput = %q, want empty", form.gitURLInput.Value())
+		if form.GitURLInput.Value() != "" {
+			t.Errorf("GitURLInput = %q, want empty", form.GitURLInput.Value())
 		}
 	})
 }
@@ -309,11 +309,11 @@ func TestSaveApplicationForm_GitPackageMerge(t *testing.T) {
 			},
 		}
 		form := NewApplicationForm(app, true)
-		if !form.hasGitPackage {
+		if !form.HasGitPackage {
 			t.Fatal("form should have git package loaded")
 		}
-		pkg := buildPackageSpec(form.packageManagers)
-		pkg = mergeGitPackage(pkg, form.hasGitPackage, form.gitURLInput, form.gitBranchInput, form.gitLinuxInput, form.gitWindowsInput, form.gitSudo)
+		pkg := buildPackageSpec(form.PackageManagers)
+		pkg = mergeGitPackage(pkg, form.HasGitPackage, form.GitURLInput, form.GitBranchInput, form.GitLinuxInput, form.GitWindowsInput, form.GitSudo)
 		if pkg == nil {
 			t.Fatal("package spec should not be nil")
 		}
@@ -338,8 +338,8 @@ func TestSaveApplicationForm_GitPackageMerge(t *testing.T) {
 	t.Run("save_without_git_package", func(t *testing.T) {
 		app := config.Application{Name: "test"}
 		form := NewApplicationForm(app, false)
-		pkg := buildPackageSpec(form.packageManagers)
-		pkg = mergeGitPackage(pkg, form.hasGitPackage, form.gitURLInput, form.gitBranchInput, form.gitLinuxInput, form.gitWindowsInput, form.gitSudo)
+		pkg := buildPackageSpec(form.PackageManagers)
+		pkg = mergeGitPackage(pkg, form.HasGitPackage, form.GitURLInput, form.GitBranchInput, form.GitLinuxInput, form.GitWindowsInput, form.GitSudo)
 		if pkg != nil {
 			t.Errorf("package spec should be nil, got %v", pkg)
 		}
@@ -358,8 +358,8 @@ func TestSaveApplicationForm_GitPackageMerge(t *testing.T) {
 			},
 		}
 		form := NewApplicationForm(app, true)
-		pkg := buildPackageSpec(form.packageManagers)
-		pkg = mergeGitPackage(pkg, form.hasGitPackage, form.gitURLInput, form.gitBranchInput, form.gitLinuxInput, form.gitWindowsInput, form.gitSudo)
+		pkg := buildPackageSpec(form.PackageManagers)
+		pkg = mergeGitPackage(pkg, form.HasGitPackage, form.GitURLInput, form.GitBranchInput, form.GitLinuxInput, form.GitWindowsInput, form.GitSudo)
 		if pkg == nil {
 			t.Fatal("package spec should not be nil")
 		}
@@ -375,11 +375,11 @@ func TestSaveApplicationForm_GitPackageMerge(t *testing.T) {
 func TestApplicationForm_InstallerPackageLoad(t *testing.T) {
 	t.Run("new_form_has_no_installer_package", func(t *testing.T) {
 		form := NewApplicationForm(config.Application{Name: "test"}, false)
-		if form.hasInstallerPackage {
+		if form.HasInstallerPackage {
 			t.Error("new form should not have installer package")
 		}
-		if form.installerFieldCursor != -1 {
-			t.Errorf("installerFieldCursor = %d, want -1", form.installerFieldCursor)
+		if form.InstallerFieldCursor != -1 {
+			t.Errorf("installerFieldCursor = %d, want -1", form.InstallerFieldCursor)
 		}
 	})
 
@@ -401,17 +401,17 @@ func TestApplicationForm_InstallerPackageLoad(t *testing.T) {
 		}
 		form := NewApplicationForm(app, true)
 
-		if !form.hasInstallerPackage {
+		if !form.HasInstallerPackage {
 			t.Error("form should have installer package")
 		}
-		if form.installerLinuxInput.Value() != "curl -fsSL https://example.com/install.sh | sh" {
-			t.Errorf("installerLinuxInput = %q, want %q", form.installerLinuxInput.Value(), "curl -fsSL https://example.com/install.sh | sh")
+		if form.InstallerLinuxInput.Value() != "curl -fsSL https://example.com/install.sh | sh" {
+			t.Errorf("InstallerLinuxInput = %q, want %q", form.InstallerLinuxInput.Value(), "curl -fsSL https://example.com/install.sh | sh")
 		}
-		if form.installerWindowsInput.Value() != "iwr https://example.com/install.ps1 | iex" {
-			t.Errorf("installerWindowsInput = %q, want %q", form.installerWindowsInput.Value(), "iwr https://example.com/install.ps1 | iex")
+		if form.InstallerWindowsInput.Value() != "iwr https://example.com/install.ps1 | iex" {
+			t.Errorf("InstallerWindowsInput = %q, want %q", form.InstallerWindowsInput.Value(), "iwr https://example.com/install.ps1 | iex")
 		}
-		if form.installerBinaryInput.Value() != "mytool" {
-			t.Errorf("installerBinaryInput = %q, want %q", form.installerBinaryInput.Value(), "mytool")
+		if form.InstallerBinaryInput.Value() != "mytool" {
+			t.Errorf("InstallerBinaryInput = %q, want %q", form.InstallerBinaryInput.Value(), "mytool")
 		}
 	})
 
@@ -426,11 +426,11 @@ func TestApplicationForm_InstallerPackageLoad(t *testing.T) {
 		}
 		form := NewApplicationForm(app, true)
 
-		if form.hasInstallerPackage {
+		if form.HasInstallerPackage {
 			t.Error("form should not have installer package")
 		}
-		if form.installerLinuxInput.Value() != "" {
-			t.Errorf("installerLinuxInput = %q, want empty", form.installerLinuxInput.Value())
+		if form.InstallerLinuxInput.Value() != "" {
+			t.Errorf("InstallerLinuxInput = %q, want empty", form.InstallerLinuxInput.Value())
 		}
 	})
 
@@ -449,14 +449,14 @@ func TestApplicationForm_InstallerPackageLoad(t *testing.T) {
 		}
 		form := NewApplicationForm(app, true)
 
-		if !form.hasInstallerPackage {
+		if !form.HasInstallerPackage {
 			t.Error("form should have installer package")
 		}
-		if form.installerLinuxInput.Value() != "make install" {
-			t.Errorf("installerLinuxInput = %q, want %q", form.installerLinuxInput.Value(), "make install")
+		if form.InstallerLinuxInput.Value() != "make install" {
+			t.Errorf("InstallerLinuxInput = %q, want %q", form.InstallerLinuxInput.Value(), "make install")
 		}
-		if form.installerBinaryInput.Value() != "" {
-			t.Errorf("installerBinaryInput = %q, want empty", form.installerBinaryInput.Value())
+		if form.InstallerBinaryInput.Value() != "" {
+			t.Errorf("InstallerBinaryInput = %q, want empty", form.InstallerBinaryInput.Value())
 		}
 	})
 }
@@ -476,12 +476,12 @@ func TestSaveApplicationForm_InstallerPackageMerge(t *testing.T) {
 			},
 		}
 		form := NewApplicationForm(app, true)
-		if !form.hasInstallerPackage {
+		if !form.HasInstallerPackage {
 			t.Fatal("form should have installer package loaded")
 		}
-		pkg := buildPackageSpec(form.packageManagers)
-		pkg = mergeGitPackage(pkg, form.hasGitPackage, form.gitURLInput, form.gitBranchInput, form.gitLinuxInput, form.gitWindowsInput, form.gitSudo)
-		pkg = mergeInstallerPackage(pkg, form.hasInstallerPackage, form.installerLinuxInput, form.installerWindowsInput, form.installerBinaryInput)
+		pkg := buildPackageSpec(form.PackageManagers)
+		pkg = mergeGitPackage(pkg, form.HasGitPackage, form.GitURLInput, form.GitBranchInput, form.GitLinuxInput, form.GitWindowsInput, form.GitSudo)
+		pkg = mergeInstallerPackage(pkg, form.HasInstallerPackage, form.InstallerLinuxInput, form.InstallerWindowsInput, form.InstallerBinaryInput)
 		if pkg == nil {
 			t.Fatal("package spec should not be nil")
 		}
@@ -503,8 +503,8 @@ func TestSaveApplicationForm_InstallerPackageMerge(t *testing.T) {
 	t.Run("save_without_installer_package", func(t *testing.T) {
 		app := config.Application{Name: "test"}
 		form := NewApplicationForm(app, false)
-		pkg := buildPackageSpec(form.packageManagers)
-		pkg = mergeInstallerPackage(pkg, form.hasInstallerPackage, form.installerLinuxInput, form.installerWindowsInput, form.installerBinaryInput)
+		pkg := buildPackageSpec(form.PackageManagers)
+		pkg = mergeInstallerPackage(pkg, form.HasInstallerPackage, form.InstallerLinuxInput, form.InstallerWindowsInput, form.InstallerBinaryInput)
 		if pkg != nil {
 			t.Errorf("package spec should be nil, got %v", pkg)
 		}
@@ -522,8 +522,8 @@ func TestSaveApplicationForm_InstallerPackageMerge(t *testing.T) {
 			},
 		}
 		form := NewApplicationForm(app, true)
-		pkg := buildPackageSpec(form.packageManagers)
-		pkg = mergeInstallerPackage(pkg, form.hasInstallerPackage, form.installerLinuxInput, form.installerWindowsInput, form.installerBinaryInput)
+		pkg := buildPackageSpec(form.PackageManagers)
+		pkg = mergeInstallerPackage(pkg, form.HasInstallerPackage, form.InstallerLinuxInput, form.InstallerWindowsInput, form.InstallerBinaryInput)
 		if pkg == nil {
 			t.Fatal("package spec should not be nil")
 		}
@@ -552,9 +552,9 @@ func TestSaveApplicationForm_InstallerPackageMerge(t *testing.T) {
 			},
 		}
 		form := NewApplicationForm(app, true)
-		pkg := buildPackageSpec(form.packageManagers)
-		pkg = mergeGitPackage(pkg, form.hasGitPackage, form.gitURLInput, form.gitBranchInput, form.gitLinuxInput, form.gitWindowsInput, form.gitSudo)
-		pkg = mergeInstallerPackage(pkg, form.hasInstallerPackage, form.installerLinuxInput, form.installerWindowsInput, form.installerBinaryInput)
+		pkg := buildPackageSpec(form.PackageManagers)
+		pkg = mergeGitPackage(pkg, form.HasGitPackage, form.GitURLInput, form.GitBranchInput, form.GitLinuxInput, form.GitWindowsInput, form.GitSudo)
+		pkg = mergeInstallerPackage(pkg, form.HasInstallerPackage, form.InstallerLinuxInput, form.InstallerWindowsInput, form.InstallerBinaryInput)
 		if pkg == nil {
 			t.Fatal("package spec should not be nil")
 		}

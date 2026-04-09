@@ -1,10 +1,8 @@
 package tui
 
 import (
-	"os"
 	"path/filepath"
 
-	"charm.land/bubbles/v2/filepicker"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/progress"
 	"charm.land/bubbles/v2/spinner"
@@ -14,6 +12,10 @@ import (
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
+	"github.com/AntoineGS/tidydots/internal/tui/detection"
+	"github.com/AntoineGS/tidydots/internal/tui/forms"
+	tuiops "github.com/AntoineGS/tidydots/internal/tui/operations"
+	tuitable "github.com/AntoineGS/tidydots/internal/tui/table"
 )
 
 // Screen represents the current screen being displayed in the TUI.
@@ -31,77 +33,47 @@ const (
 	ScreenSummary
 )
 
-// Operation represents the type of operation being performed in the TUI.
-type Operation int
+// Operation is an alias for tuiops.Operation so that all existing code in
+// this package continues to compile without modification.
+type Operation = tuiops.Operation
 
-// TUI operation types.
+// TUI operation type constants re-exported from the operations sub-package.
 const (
 	// OpRestore is the restore operation
-	OpRestore Operation = iota
+	OpRestore = tuiops.OpRestore
 	// OpList is the list entries operation
-	OpList
+	OpList = tuiops.OpList
 	// OpInstallPackages is the install packages operation
-	OpInstallPackages
+	OpInstallPackages = tuiops.OpInstallPackages
 	// OpDelete is the delete entries operation
-	OpDelete
+	OpDelete = tuiops.OpDelete
 )
 
-func (o Operation) String() string {
-	switch o {
-	case OpRestore:
-		return "Restore"
-	case OpList:
-		return "List"
-	case OpInstallPackages:
-		return "Install Packages"
-	case OpDelete:
-		return "Delete"
-	}
+// PathState is an alias for tuitable.PathState so that all existing code in
+// this package continues to compile without modification.
+type PathState = tuitable.PathState
 
-	return "Unknown"
-}
-
-// PathState represents the state of a path item for restore operations
-type PathState int
-
-// Path states for restore operations.
+// Path state constants re-exported from the table sub-package.
 const (
-	// StateLoading indicates state is still being detected
-	StateLoading PathState = iota
-	// StateReady indicates backup exists and is ready to restore
-	StateReady // Backup exists, ready to restore
-	// StateAdopt indicates no backup but target exists (will adopt)
-	StateAdopt // No backup but target exists (will adopt)
-	// StateMissing indicates neither backup nor target exists
-	StateMissing // Neither backup nor target exists
-	// StateLinked indicates already symlinked
-	StateLinked // Already symlinked
-	// StateOutdated indicates linked but template source changed since last render
-	StateOutdated
-	// StateModified indicates linked but rendered file has user edits
-	StateModified
+	// StateLoading indicates state is still being detected.
+	StateLoading = tuitable.StateLoading
+	// StateReady indicates backup exists and is ready to restore.
+	StateReady = tuitable.StateReady
+	// StateAdopt indicates no backup but target exists (will adopt).
+	StateAdopt = tuitable.StateAdopt
+	// StateMissing indicates neither backup nor target exists.
+	StateMissing = tuitable.StateMissing
+	// StateLinked indicates already symlinked.
+	StateLinked = tuitable.StateLinked
+	// StateOutdated indicates linked but template source changed since last render.
+	StateOutdated = tuitable.StateOutdated
+	// StateModified indicates linked but rendered file has user edits.
+	StateModified = tuitable.StateModified
 )
 
-func (s PathState) String() string {
-	switch s {
-	case StateLoading:
-		return "Loading..."
-	case StateReady:
-		return "Ready"
-	case StateAdopt:
-		return "Adopt"
-	case StateMissing:
-		return "Missing"
-	case StateLinked:
-		return "Linked"
-	case StateOutdated:
-		return "Outdated"
-	case StateModified:
-		return "Modified"
-	}
-
-	return "Unknown"
-}
+// TableRow is an alias for tuitable.Row so that all existing code in
+// this package continues to compile without modification.
+type TableRow = tuitable.Row
 
 // FormType distinguishes between different form types
 type FormType int
@@ -116,80 +88,14 @@ const (
 	FormSubEntry
 )
 
-// ApplicationForm holds state for editing Application metadata
-type ApplicationForm struct {
-	packageManagers  map[string]string
-	lastPackageName  string
-	err              string
-	originalValue    string
-	descriptionInput textinput.Model
-	packageNameInput textinput.Model
-	nameInput        textinput.Model
-	whenInput        textinput.Model
-	editAppIdx       int
-	packagesCursor   int
-	focusIndex       int
-	editingField     bool
-	editingPackage   bool
-	editingWhen      bool
+// ApplicationForm is an alias for forms.ApplicationForm.
+type ApplicationForm = forms.ApplicationForm
 
-	// Git package fields
-	gitURLInput     textinput.Model
-	gitBranchInput  textinput.Model
-	gitLinuxInput   textinput.Model
-	gitWindowsInput textinput.Model
-	gitFieldCursor  int  // -1 = on git label/button, 0-4 = on sub-fields
-	editingGitField bool // true when editing a git text field
-	hasGitPackage   bool // true when git package is configured/expanded
-	gitSudo         bool // sudo toggle for git package
+// SubEntryForm is an alias for forms.SubEntryForm.
+type SubEntryForm = forms.SubEntryForm
 
-	// Installer package fields
-	installerLinuxInput   textinput.Model
-	installerWindowsInput textinput.Model
-	installerBinaryInput  textinput.Model
-	installerFieldCursor  int  // -1 = on installer label/button, 0-2 = on sub-fields
-	editingInstallerField bool // true when editing an installer text field
-	hasInstallerPackage   bool // true when installer package is configured/expanded
-
-	// Package dependency fields
-	packageDeps    map[string][]string // manager -> deps list
-	depsCursor     int                 // cursor within deps list
-	editingDeps    bool                // true when in deps editing mode
-	editingDepItem bool                // true when editing a dep text input
-	depsManagerKey string              // which manager's deps we're editing
-	depInput       textinput.Model     // text input for adding/editing deps
-}
-
-// SubEntryForm holds state for editing SubEntry data
-type SubEntryForm struct {
-	err                string
-	successMessage     string
-	originalValue      string
-	suggestions        []string
-	files              []string
-	selectedFiles      map[string]bool
-	nameInput          textinput.Model
-	linuxTargetInput   textinput.Model
-	windowsTargetInput textinput.Model
-	backupInput        textinput.Model
-	newFileInput       textinput.Model
-	filePicker         filepicker.Model
-	editingFileIndex   int
-	targetAppIdx       int
-	editSubIdx         int
-	editAppIdx         int
-	focusIndex         int
-	filesCursor        int
-	suggestionCursor   int
-	modeMenuCursor     int
-	addFileMode        AddFileMode
-	isFolder           bool
-	showSuggestions    bool
-	editingField       bool
-	addingFile         bool
-	editingFile        bool
-	isSudo             bool
-}
+// AddFileMode is an alias for forms.AddFileMode.
+type AddFileMode = forms.AddFileMode
 
 // Model holds the state for the TUI application including configuration,
 // platform information, current screen, operation mode, and UI state.
@@ -291,13 +197,9 @@ type SubEntryItem struct {
 	Selected bool
 }
 
-// ResultItem represents the result of an operation, including whether it
-// succeeded and any associated message.
-type ResultItem struct {
-	Name    string
-	Message string
-	Success bool
-}
+// ResultItem is an alias for tuiops.ResultItem so that all existing code in
+// this package continues to compile without modification.
+type ResultItem = tuiops.ResultItem
 
 // NewModel creates and initializes a new TUI model with the given configuration,
 // platform information, and dry-run mode. It sets up the initial state including
@@ -663,12 +565,9 @@ func (m Model) View() tea.View {
 	return v
 }
 
-// OperationCompleteMsg is sent when an operation completes, containing any error
-// and results from the operation.
-type OperationCompleteMsg struct {
-	Err     error
-	Results []ResultItem
-}
+// OperationCompleteMsg is an alias for tuiops.OperationCompleteMsg so that
+// all existing code in this package continues to compile without modification.
+type OperationCompleteMsg = tuiops.OperationCompleteMsg
 
 // PackageInstallMsg is sent after each individual package installation completes
 type PackageInstallMsg struct {
@@ -680,68 +579,9 @@ type PackageInstallMsg struct {
 
 // detectConfigState determines the state of a config entry given its paths and file list.
 // This is the shared logic used by both detectPathState and detectSubEntryState.
+// It delegates to detection.DetectConfigState which is the canonical implementation.
 func detectConfigState(backupPath, targetPath string, isFolder bool, files []string) PathState {
-	if isFolder {
-		if info, err := os.Lstat(targetPath); err == nil {
-			if info.Mode()&os.ModeSymlink != 0 {
-				return StateLinked
-			}
-		}
-
-		backupExists := manager.PathExists(backupPath)
-		targetExists := manager.PathExists(targetPath)
-
-		if backupExists {
-			return StateReady
-		}
-
-		if targetExists {
-			return StateAdopt
-		}
-
-		return StateMissing
-	}
-
-	// File-based config
-	allLinked := true
-	anyBackup := false
-	anyTarget := false
-	checkedAnyFile := false
-
-	for _, file := range files {
-		srcFile := filepath.Join(backupPath, file)
-		dstFile := filepath.Join(targetPath, file)
-
-		if !manager.PathExists(srcFile) {
-			continue
-		}
-
-		checkedAnyFile = true
-		anyBackup = true
-
-		if info, err := os.Lstat(dstFile); err == nil {
-			anyTarget = true
-			if info.Mode()&os.ModeSymlink == 0 {
-				allLinked = false
-			}
-		} else {
-			allLinked = false
-		}
-	}
-
-	if allLinked && checkedAnyFile {
-		return StateLinked
-	}
-
-	if anyBackup {
-		return StateReady
-	}
-
-	if anyTarget {
-		return StateAdopt
-	}
-
-	return StateMissing
+	return detection.DetectConfigState(backupPath, targetPath, isFolder, files)
 }
 
 // handlePkgCheckResult processes the result of a single async package install check.

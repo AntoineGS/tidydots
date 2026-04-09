@@ -93,7 +93,7 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 
 	// Verify: nvim target is a symlink pointing to backup
 	nvimTarget := filepath.Join(homeDir, ".config", "nvim")
-	if !isSymlink(nvimTarget) {
+	if !testIsSymlink(nvimTarget) {
 		t.Errorf("nvim target should be a symlink, but is not")
 	}
 
@@ -126,7 +126,7 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 
 	// Verify: .bashrc is a symlink
 	bashrcTarget := filepath.Join(homeDir, ".bashrc")
-	if !isSymlink(bashrcTarget) {
+	if !testIsSymlink(bashrcTarget) {
 		t.Errorf(".bashrc should be a symlink, but is not")
 	}
 
@@ -142,7 +142,7 @@ func TestE2E_RestoreFromExistingBackup(t *testing.T) {
 
 	// Verify: .bash_profile is also a symlink
 	bashProfileTarget := filepath.Join(homeDir, ".bash_profile")
-	if !isSymlink(bashProfileTarget) {
+	if !testIsSymlink(bashProfileTarget) {
 		t.Errorf(".bash_profile should be a symlink, but is not")
 	}
 }
@@ -228,7 +228,7 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 	nvimBackup := filepath.Join(repoDir, "nvim")
 
 	backupInitLua := filepath.Join(nvimBackup, "init.lua")
-	if !PathExists(backupInitLua) {
+	if !testPathExists(backupInitLua) {
 		t.Errorf("nvim config should have been adopted to backup")
 	}
 
@@ -238,7 +238,7 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 	}
 
 	// Verify: original nvim dir is now a symlink
-	if !isSymlink(nvimDir) {
+	if !testIsSymlink(nvimDir) {
 		t.Errorf("nvim dir should be a symlink after adopt")
 	}
 
@@ -254,13 +254,13 @@ func TestE2E_AdoptExistingConfigs(t *testing.T) {
 
 	// Verify: .bashrc was adopted
 	bashBackup := filepath.Join(repoDir, "bash", ".bashrc")
-	if !PathExists(bashBackup) {
+	if !testPathExists(bashBackup) {
 		t.Errorf(".bashrc should have been adopted to backup")
 	}
 
 	// Verify: .bashrc is now a symlink
 	bashrcPath := filepath.Join(homeDir, ".bashrc")
-	if !isSymlink(bashrcPath) {
+	if !testIsSymlink(bashrcPath) {
 		t.Errorf(".bashrc should be a symlink after adopt")
 	}
 }
@@ -345,12 +345,12 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 
 	// Verify backup was created
 	backedUpInit := filepath.Join(repoDir, "nvim", "init.lua")
-	if !PathExists(backedUpInit) {
+	if !testPathExists(backedUpInit) {
 		t.Errorf("nvim backup should exist at %s", backedUpInit)
 	}
 
 	backedUpZshrc := filepath.Join(repoDir, "zsh", ".zshrc")
-	if !PathExists(backedUpZshrc) {
+	if !testPathExists(backedUpZshrc) {
 		t.Errorf("zsh backup should exist at %s", backedUpZshrc)
 	}
 
@@ -403,7 +403,7 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 	}
 
 	// Verify: configs are accessible through symlinks
-	if !isSymlink(nvimDir) {
+	if !testIsSymlink(nvimDir) {
 		t.Errorf("nvim should be a symlink after restore")
 	}
 
@@ -417,7 +417,7 @@ func TestE2E_BackupThenRestore(t *testing.T) {
 	}
 
 	zshrcPath := filepath.Join(homeDir, ".zshrc")
-	if !isSymlink(zshrcPath) {
+	if !testIsSymlink(zshrcPath) {
 		t.Errorf(".zshrc should be a symlink after restore")
 	}
 
@@ -483,7 +483,7 @@ func TestE2E_RestoreIdempotent(t *testing.T) {
 
 	// Verify symlink is correct
 	nvimTarget := filepath.Join(homeDir, ".config", "nvim")
-	if !isSymlink(nvimTarget) {
+	if !testIsSymlink(nvimTarget) {
 		t.Errorf("nvim should be a symlink")
 	}
 
@@ -572,7 +572,7 @@ func TestE2E_SymlinkModification(t *testing.T) {
 
 	// Verify: new file exists in backup
 	backupNewFile := filepath.Join(nvimBackup, "new.lua")
-	if !PathExists(backupNewFile) {
+	if !testPathExists(backupNewFile) {
 		t.Errorf("New file should exist in backup")
 	}
 
@@ -662,7 +662,7 @@ func TestE2E_MixedFolderAndFiles(t *testing.T) {
 
 	// Verify folder-based: nvim dir is a symlink
 	nvimTarget := filepath.Join(homeDir, ".config", "nvim")
-	if !isSymlink(nvimTarget) {
+	if !testIsSymlink(nvimTarget) {
 		t.Errorf("nvim should be a symlink (folder mode)")
 	}
 
@@ -682,7 +682,7 @@ func TestE2E_MixedFolderAndFiles(t *testing.T) {
 	shellFiles := []string{".bashrc", ".zshrc", ".profile"}
 	for _, f := range shellFiles {
 		fPath := filepath.Join(homeDir, f)
-		if !isSymlink(fPath) {
+		if !testIsSymlink(fPath) {
 			t.Errorf("%s should be a symlink (file mode)", f)
 		}
 
@@ -695,7 +695,7 @@ func TestE2E_MixedFolderAndFiles(t *testing.T) {
 	}
 
 	// Verify: home directory itself is NOT a symlink
-	if isSymlink(homeDir) {
+	if testIsSymlink(homeDir) {
 		t.Errorf("home directory should NOT be a symlink in file mode")
 	}
 }
@@ -748,12 +748,12 @@ func TestE2E_DryRunNoChanges(t *testing.T) {
 
 	// Verify: target directory should NOT exist
 	nvimTarget := filepath.Join(homeDir, ".config", "nvim")
-	if PathExists(nvimTarget) {
+	if testPathExists(nvimTarget) {
 		t.Errorf("Target should not exist in dry-run mode")
 	}
 
 	// Verify: home directory should NOT exist
-	if PathExists(homeDir) {
+	if testPathExists(homeDir) {
 		t.Errorf("Home directory should not be created in dry-run mode")
 	}
 }
@@ -820,13 +820,13 @@ func TestE2E_AdoptDryRunPreservesOriginal(t *testing.T) {
 	}
 
 	// Verify: NOT a symlink
-	if isSymlink(nvimDir) {
+	if testIsSymlink(nvimDir) {
 		t.Errorf("Should NOT be converted to symlink in dry-run")
 	}
 
 	// Verify: backup was NOT created
 	nvimBackup := filepath.Join(repoDir, "nvim")
-	if PathExists(nvimBackup) {
+	if testPathExists(nvimBackup) {
 		t.Errorf("Backup should NOT be created in dry-run")
 	}
 }
@@ -892,7 +892,7 @@ func TestE2E_SkipAlreadySymlinked(t *testing.T) {
 	}
 
 	// Verify: symlink still exists and points to same target
-	if !isSymlink(nvimTarget) {
+	if !testIsSymlink(nvimTarget) {
 		t.Errorf("Symlink should still exist")
 	}
 
@@ -954,12 +954,12 @@ func TestE2E_MultipleOSTargets(t *testing.T) {
 	_ = mgr.Restore()
 
 	linuxTarget := filepath.Join(linuxHome, ".config", "nvim")
-	if !isSymlink(linuxTarget) {
+	if !testIsSymlink(linuxTarget) {
 		t.Errorf("Linux target should be a symlink")
 	}
 
 	windowsTarget := filepath.Join(windowsHome, "AppData", "Local", "nvim")
-	if PathExists(windowsTarget) {
+	if testPathExists(windowsTarget) {
 		t.Errorf("Windows target should NOT exist when running on Linux")
 	}
 }
@@ -1155,7 +1155,7 @@ func TestE2E_V3RestoreFromBackup(t *testing.T) {
 
 	// Verify config symlink
 	configTarget := filepath.Join(homeDir, ".config", "nvim")
-	if !isSymlink(configTarget) {
+	if !testIsSymlink(configTarget) {
 		t.Error("config target should be a symlink")
 	}
 
@@ -1166,7 +1166,7 @@ func TestE2E_V3RestoreFromBackup(t *testing.T) {
 
 	// Verify data symlink
 	dataTarget := filepath.Join(homeDir, ".local", "share", "nvim")
-	if !isSymlink(dataTarget) {
+	if !testIsSymlink(dataTarget) {
 		t.Error("data target should be a symlink")
 	}
 
@@ -1236,7 +1236,7 @@ func TestE2E_V3BackupThenRestore(t *testing.T) {
 
 	// Verify backup was created
 	backedUpInit := filepath.Join(repoDir, "nvim", "init.lua")
-	if !PathExists(backedUpInit) {
+	if !testPathExists(backedUpInit) {
 		t.Error("backup should exist")
 	}
 
@@ -1271,7 +1271,7 @@ func TestE2E_V3BackupThenRestore(t *testing.T) {
 	}
 
 	// Verify restored symlink
-	if !isSymlink(nvimDir) {
+	if !testIsSymlink(nvimDir) {
 		t.Error("nvim should be a symlink after restore")
 	}
 
@@ -1331,7 +1331,7 @@ func TestE2E_RestoreCreatesNestedParentDirs(t *testing.T) {
 		t.Fatalf("Restore() failed: %v", err)
 	}
 
-	if !isSymlink(deepTarget) {
+	if !testIsSymlink(deepTarget) {
 		t.Errorf("Deep nested target should be a symlink")
 	}
 }

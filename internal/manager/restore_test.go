@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -43,7 +42,7 @@ func TestRestoreFolder(t *testing.T) {
 	}
 
 	// Check symlink was created
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("Target is not a symlink")
 	}
 
@@ -125,7 +124,7 @@ func TestRestoreFiles(t *testing.T) {
 	// Check symlinks were created
 	for _, file := range subEntry.Files {
 		targetFile := filepath.Join(targetDir, file)
-		if !isSymlink(targetFile) {
+		if !testIsSymlink(targetFile) {
 			t.Errorf("%s is not a symlink", file)
 		}
 
@@ -171,7 +170,7 @@ func TestRestoreFilesRemovesExisting(t *testing.T) {
 	}
 
 	targetFile := filepath.Join(targetDir, "config.txt")
-	if !isSymlink(targetFile) {
+	if !testIsSymlink(targetFile) {
 		t.Error("Target file is not a symlink after restore")
 	}
 }
@@ -204,7 +203,7 @@ func TestRestoreDryRun(t *testing.T) {
 	}
 
 	// Target should NOT be created in dry run mode
-	if PathExists(targetDir) {
+	if testPathExists(targetDir) {
 		t.Error("Target was created despite dry run mode")
 	}
 }
@@ -276,13 +275,13 @@ func TestRestoreIntegration(t *testing.T) {
 
 	// Check nvim folder symlink
 	nvimTarget := filepath.Join(tmpDir, "home", ".config", "nvim")
-	if !isSymlink(nvimTarget) {
+	if !testIsSymlink(nvimTarget) {
 		t.Error("nvim target is not a symlink")
 	}
 
 	// Check bashrc file symlink
 	bashrcTarget := filepath.Join(tmpDir, "home", ".bashrc")
-	if !isSymlink(bashrcTarget) {
+	if !testIsSymlink(bashrcTarget) {
 		t.Error(".bashrc target is not a symlink")
 	}
 }
@@ -333,7 +332,7 @@ func TestRestoreV3Application(t *testing.T) {
 
 	// Check nvim folder symlink was created
 	nvimTarget := filepath.Join(tmpDir, "home", ".config", "nvim")
-	if !isSymlink(nvimTarget) {
+	if !testIsSymlink(nvimTarget) {
 		t.Error("nvim target is not a symlink")
 	}
 
@@ -405,12 +404,12 @@ func TestRestoreV3MultipleSubEntries(t *testing.T) {
 
 	// Check both symlinks were created
 	configTarget := filepath.Join(tmpDir, "home", ".config", "nvim")
-	if !isSymlink(configTarget) {
+	if !testIsSymlink(configTarget) {
 		t.Error("config target is not a symlink")
 	}
 
 	dataTarget := filepath.Join(tmpDir, "home", ".local", "share", "nvim")
-	if !isSymlink(dataTarget) {
+	if !testIsSymlink(dataTarget) {
 		t.Error("data target is not a symlink")
 	}
 }
@@ -539,11 +538,11 @@ func TestRestoreV3_FilesSubEntry(t *testing.T) {
 	bashrcTarget := filepath.Join(homeDir, ".bashrc")
 	profileTarget := filepath.Join(homeDir, ".profile")
 
-	if !isSymlink(bashrcTarget) {
+	if !testIsSymlink(bashrcTarget) {
 		t.Error(".bashrc is not a symlink")
 	}
 
-	if !isSymlink(profileTarget) {
+	if !testIsSymlink(profileTarget) {
 		t.Error(".profile is not a symlink")
 	}
 
@@ -611,7 +610,7 @@ func TestRestore_ReplacesExistingFile(t *testing.T) {
 	}
 
 	// Should now be a symlink
-	if !isSymlink(existingFile) {
+	if !testIsSymlink(existingFile) {
 		t.Error("file.txt should be a symlink")
 	}
 
@@ -641,12 +640,12 @@ func TestCreateSymlink_Success(t *testing.T) {
 
 	target := filepath.Join(tmpDir, "target")
 
-	err := createSymlink(context.Background(), source, target, false)
+	err := newUtilityManager().createSymlink(source, target, false)
 	if err != nil {
 		t.Fatalf("createSymlink() error = %v", err)
 	}
 
-	if !isSymlink(target) {
+	if !testIsSymlink(target) {
 		t.Error("target is not a symlink")
 	}
 
@@ -664,7 +663,7 @@ func TestCreateSymlink_SourceNotExist(t *testing.T) {
 	source := filepath.Join(tmpDir, "nonexistent")
 	target := filepath.Join(tmpDir, "target")
 
-	err := createSymlink(context.Background(), source, target, false)
+	err := newUtilityManager().createSymlink(source, target, false)
 	if err == nil {
 		t.Fatal("createSymlink() should fail when source doesn't exist")
 	}
@@ -687,12 +686,12 @@ func TestCreateSymlink_FileSource(t *testing.T) {
 
 	target := filepath.Join(tmpDir, "target.txt")
 
-	err := createSymlink(context.Background(), source, target, false)
+	err := newUtilityManager().createSymlink(source, target, false)
 	if err != nil {
 		t.Fatalf("createSymlink() error = %v", err)
 	}
 
-	if !isSymlink(target) {
+	if !testIsSymlink(target) {
 		t.Error("target is not a symlink")
 	}
 
@@ -750,7 +749,7 @@ func TestRestoreV3_FolderSubEntry(t *testing.T) {
 	}
 
 	// Check symlink was created
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("target is not a symlink")
 	}
 
@@ -820,7 +819,7 @@ func TestRestoreV3_FilesSubEntry_MultipleFiles(t *testing.T) {
 	files := []string{".bashrc", ".profile", ".bash_aliases"}
 	for _, file := range files {
 		targetFile := filepath.Join(homeDir, file)
-		if !isSymlink(targetFile) {
+		if !testIsSymlink(targetFile) {
 			t.Errorf("%s is not a symlink", file)
 		}
 
@@ -880,12 +879,12 @@ func TestRestoreV3_FolderSubEntry_Adoption(t *testing.T) {
 
 	// Check target was adopted into backup
 	adoptedFile := filepath.Join(backupPath, "existing.txt")
-	if !PathExists(adoptedFile) {
+	if !testPathExists(adoptedFile) {
 		t.Error("existing.txt was not adopted into backup")
 	}
 
 	// Check symlink was created
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("target is not a symlink")
 	}
 }
@@ -938,7 +937,7 @@ func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
 
 	// Check file was adopted
 	adoptedFile := filepath.Join(backupPath, ".bashrc")
-	if !PathExists(adoptedFile) {
+	if !testPathExists(adoptedFile) {
 		t.Error(".bashrc was not adopted into backup")
 	}
 
@@ -949,7 +948,7 @@ func TestRestoreV3_FilesSubEntry_Adoption(t *testing.T) {
 
 	// Check symlink was created
 	targetFile := filepath.Join(homeDir, ".bashrc")
-	if !isSymlink(targetFile) {
+	if !testIsSymlink(targetFile) {
 		t.Error(".bashrc is not a symlink")
 	}
 }
@@ -1132,7 +1131,7 @@ func TestRestoreV3_FilesSubEntry_ReplacesExisting(t *testing.T) {
 	}
 
 	// Should now be a symlink
-	if !isSymlink(existingFile) {
+	if !testIsSymlink(existingFile) {
 		t.Error(".bashrc should be a symlink")
 	}
 
@@ -1196,13 +1195,13 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 	}
 
 	// Should now be a symlink
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("target should be a symlink")
 	}
 
 	// Old file should exist at backup (merged from target)
 	oldFileBackup := filepath.Join(backupPath, "old.lua")
-	if !PathExists(oldFileBackup) {
+	if !testPathExists(oldFileBackup) {
 		t.Error("old.lua should exist in backup (merged from target)")
 	}
 	content, _ := os.ReadFile(oldFileBackup) //nolint:gosec // test file
@@ -1212,7 +1211,7 @@ func TestRestoreV3_FolderSubEntry_ReplacesExisting(t *testing.T) {
 
 	// Old file should be accessible through symlink (points to backup)
 	oldFile := filepath.Join(targetDir, "old.lua")
-	if !PathExists(oldFile) {
+	if !testPathExists(oldFile) {
 		t.Error("old.lua should be accessible through symlink")
 	}
 
@@ -1266,7 +1265,7 @@ func TestRestoreV3_SkipsWrongOS(t *testing.T) {
 
 	// Target should not be created (wrong OS)
 	targetDir := filepath.Join(tmpDir, "target")
-	if PathExists(targetDir) {
+	if testPathExists(targetDir) {
 		t.Error("target should not exist for wrong OS")
 	}
 }
@@ -1302,7 +1301,7 @@ func TestRestoreFiles_SourceMissing(t *testing.T) {
 
 	// No symlink should be created (source doesn't exist)
 	targetFile := filepath.Join(targetDir, "missing.txt")
-	if PathExists(targetFile) {
+	if testPathExists(targetFile) {
 		t.Error("symlink should not be created for missing source")
 	}
 }
@@ -1334,7 +1333,7 @@ func TestRestoreFolder_SourceMissing(t *testing.T) {
 	}
 
 	// Target should not be created (source doesn't exist)
-	if PathExists(targetDir) {
+	if testPathExists(targetDir) {
 		t.Error("target should not be created when source is missing")
 	}
 }
@@ -1436,7 +1435,7 @@ func TestRestoreFilesSubEntry_SourceMissing(t *testing.T) {
 
 	// No symlink should be created
 	targetFile := filepath.Join(targetDir, "file.txt")
-	if PathExists(targetFile) {
+	if testPathExists(targetFile) {
 		t.Error("symlink should not be created for missing source")
 	}
 }
@@ -1488,7 +1487,7 @@ func TestRestoreFolderSubEntry_SourceMissing(t *testing.T) {
 	}
 
 	// Target should not be created
-	if PathExists(targetDir) {
+	if testPathExists(targetDir) {
 		t.Error("target should not be created when source is missing")
 	}
 }
@@ -1544,7 +1543,7 @@ func TestRestoreFolder_RecreatesChangedSymlink(t *testing.T) {
 	}
 
 	// Check symlink still exists
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("Target should still be a symlink")
 	}
 
@@ -1618,7 +1617,7 @@ func TestRestoreFiles_RecreatesChangedSymlink(t *testing.T) {
 	}
 
 	// Check symlink still exists
-	if !isSymlink(targetFile) {
+	if !testIsSymlink(targetFile) {
 		t.Error("Target file should still be a symlink")
 	}
 
@@ -1671,24 +1670,24 @@ func TestRestoreFolder_MergesExistingContent(t *testing.T) {
 	}
 
 	// Target should be a symlink now
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("target should be a symlink")
 	}
 
 	// Backup should contain merged files
 	mergedFile1 := filepath.Join(backupDir, "local.json")
-	if !PathExists(mergedFile1) {
+	if !testPathExists(mergedFile1) {
 		t.Error("local.json should be merged into backup")
 	}
 
 	mergedFile2 := filepath.Join(backupDir, "cache.json")
-	if !PathExists(mergedFile2) {
+	if !testPathExists(mergedFile2) {
 		t.Error("cache.json should be merged into backup")
 	}
 
 	// Original backup file should still exist
 	originalFile := filepath.Join(backupDir, "config.json")
-	if !PathExists(originalFile) {
+	if !testPathExists(originalFile) {
 		t.Error("original backup file should still exist")
 	}
 }
@@ -1729,13 +1728,13 @@ func TestRestoreFolder_ConflictsRenamed(t *testing.T) {
 	}
 
 	// Target should be a symlink now
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("target should be a symlink")
 	}
 
 	// Original backup file should still exist with original content
 	originalFile := filepath.Join(backupDir, "config.json")
-	if !PathExists(originalFile) {
+	if !testPathExists(originalFile) {
 		t.Error("original backup file should still exist")
 	}
 
@@ -1816,16 +1815,16 @@ func TestRestoreFiles_OnlyMergesListedFiles(t *testing.T) {
 
 	// Listed file should be a symlink
 	listedFile := filepath.Join(targetDir, "config.txt")
-	if !isSymlink(listedFile) {
+	if !testIsSymlink(listedFile) {
 		t.Error("config.txt should be a symlink")
 	}
 
 	// Unlisted file should still exist as regular file (not touched)
 	unlistedFile := filepath.Join(targetDir, "other.txt")
-	if isSymlink(unlistedFile) {
+	if testIsSymlink(unlistedFile) {
 		t.Error("other.txt should not be a symlink")
 	}
-	if !PathExists(unlistedFile) {
+	if !testPathExists(unlistedFile) {
 		t.Error("other.txt should still exist")
 	}
 	content, _ := os.ReadFile(unlistedFile) //nolint:gosec // test file

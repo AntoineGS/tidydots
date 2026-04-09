@@ -80,8 +80,21 @@ See [TESTING.md](TESTING.md) for comprehensive testing documentation including:
 - **internal/template/** - Template engine with sprout functions, 3-way merge algorithm
 - **internal/state/** - SQLite state store for template render history
 - **internal/platform/** - OS/distro detection (Linux/Windows), hostname/user detection
-- **internal/tui/** - Bubble Tea-based interactive terminal UI with Lipgloss styling
+- **internal/tui/** - Bubble Tea-based interactive terminal UI
+  - **tuishared/** - Shared constants, styles, keybindings, hints
+  - **forms/** - ApplicationForm, SubEntryForm structs; form validation, building, rendering
+  - **table/** - PathState type and Row struct for the manage-screen table
+  - **operations/** - Operation/ResultItem types and batch operation messages
+  - **detection/** - DetectConfigState and package detection functions
+  - **components/** - Reusable UI components (list field, text field)
 - **internal/packages/** - Multi-package-manager support (pacman, yay, paru, apt, dnf, brew, winget, scoop, choco, git)
+
+### Filesystem and Exec Abstractions
+
+- **internal/fsys/** - `FS` interface abstracting filesystem operations. `OsFS` is the real implementation; `MemFS` is an in-memory fake for testing.
+- **internal/cmdexec/** - `Runner` interface abstracting command execution. `OsRunner` is the real implementation; `StubRunner` is a test fake that records calls and returns queued results.
+
+Manager has optional `WithFS(fsys.FS)` and `WithRunner(cmdexec.Runner)` builder methods for dependency injection in tests.
 
 ### Key Patterns
 
@@ -91,6 +104,7 @@ See [TESTING.md](TESTING.md) for comprehensive testing documentation including:
 - **Symlink-based restoration**: Configs are symlinked from the dotfiles repo rather than copied
 - **Dry-run mode**: All operations support `-n` flag for safe preview
 - **Table-driven tests**: Tests use `t.TempDir()` for filesystem isolation
+- **File size targets**: Production files should be <400 LOC (hard max 800). If a file exceeds 400 LOC, consider whether it has multiple responsibilities that should be split.
 
 ### Configuration Format (tidydots.yaml)
 

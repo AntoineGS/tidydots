@@ -6,13 +6,15 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 
+	"github.com/AntoineGS/tidydots/internal/cmdexec"
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/fsys"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	"github.com/AntoineGS/tidydots/internal/state"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
@@ -38,6 +40,8 @@ type Manager struct {
 	logger         *slog.Logger
 	templateEngine *tmpl.Engine
 	stateStore     *state.Store
+	fs             fsys.FS
+	runner         cmdexec.Runner
 	DryRun         bool
 	Verbose        bool
 	NoMerge        bool
@@ -64,7 +68,25 @@ func New(cfg *config.Config, plat *platform.Platform) *Manager {
 		ctx:            context.Background(), // Default context
 		logger:         slog.New(handler),
 		templateEngine: engine,
+		fs:             fsys.OsFS{},
+		runner:         cmdexec.OsRunner{},
 	}
+}
+
+// WithFS returns a new Manager with the given filesystem implementation.
+// Used primarily for testing with an in-memory filesystem.
+func (m *Manager) WithFS(f fsys.FS) *Manager {
+	m2 := *m
+	m2.fs = f
+	return &m2
+}
+
+// WithRunner returns a new Manager with the given command runner.
+// Used primarily for testing with a stub command runner.
+func (m *Manager) WithRunner(r cmdexec.Runner) *Manager {
+	m2 := *m
+	m2.runner = r
+	return &m2
 }
 
 // InitStateStore initializes the SQLite state store for template render history.
@@ -178,7 +200,7 @@ func (m *Manager) HasOutdatedTemplates(backupDir string) bool {
 			return filepath.SkipAll
 		}
 
-		content, readErr := os.ReadFile(path) //nolint:gosec // path from config
+		content, readErr := m.fs.ReadFile(path)
 		if readErr != nil {
 			return nil
 		}
@@ -209,7 +231,7 @@ func (m *Manager) HasModifiedRenderedFiles(backupDir string) bool {
 		}
 
 		renderedPath := tmpl.RenderedPath(path)
-		renderedContent, readErr := os.ReadFile(renderedPath) //nolint:gosec // path from config
+		renderedContent, readErr := m.fs.ReadFile(renderedPath)
 		if readErr != nil {
 			return nil
 		}
@@ -227,11 +249,14 @@ func (m *Manager) HasModifiedRenderedFiles(backupDir string) bool {
 
 // HasTemplateFiles returns true if the directory contains any .tmpl files.
 func (m *Manager) HasTemplateFiles(dir string) bool {
-	return hasTemplateFiles(dir)
+	return m.hasTemplateFiles(dir)
 }
 
-func isSymlink(path string) bool {
-	info, err := os.Lstat(path)
+// isSymlink reports whether the path is a symbolic link, using the Manager's
+// filesystem abstraction. On Windows, directory junctions (mklink /J) that do
+// not carry the ModeSymlink bit are still detected via Readlink.
+func (m *Manager) isSymlink(path string) bool {
+	info, err := m.fs.Lstat(path)
 	if err != nil {
 		return false
 	}
@@ -243,79 +268,64 @@ func isSymlink(path string) bool {
 	// On Windows, directory junctions (mklink /J) are not reported as
 	// ModeSymlink in recent Go versions, but Readlink still resolves them.
 	if runtime.GOOS == platform.OSWindows {
-		_, err := os.Readlink(path)
+		_, err := m.fs.Readlink(path)
 		return err == nil
 	}
 
 	return false
 }
 
-// PathExists reports whether the path exists on the filesystem.
-// It uses os.Lstat so that broken symlinks are still reported as existing.
-func PathExists(path string) bool {
-	_, err := os.Lstat(path)
+// pathExists reports whether the path exists, using the Manager's filesystem
+// abstraction. It uses Lstat so that broken symlinks are still reported as
+// existing.
+func (m *Manager) pathExists(path string) bool {
+	_, err := m.fs.Lstat(path)
 	return err == nil
 }
 
-func copyFile(src, dst string) (err error) {
-	srcFile, openErr := os.Open(src) //nolint:gosec // file path from config
-	if openErr != nil {
-		return fmt.Errorf("opening source: %w", openErr)
+// PathExists is an exported alias of pathExists for callers that need to
+// check path existence against the Manager's filesystem.
+func (m *Manager) PathExists(path string) bool {
+	return m.pathExists(path)
+}
+
+// copyFile copies a file from src to dst using the Manager's filesystem
+// abstraction. Directories are created as needed and permissions are preserved.
+func (m *Manager) copyFile(src, dst string) error {
+	data, err := m.fs.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("opening source: %w", err)
 	}
 
-	defer func() {
-		if closeErr := srcFile.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("closing source file: %w", closeErr)
-		}
-	}()
-
-	srcInfo, statErr := srcFile.Stat()
-	if statErr != nil {
-		return fmt.Errorf("stating source: %w", statErr)
+	srcInfo, err := m.fs.Stat(src)
+	if err != nil {
+		return fmt.Errorf("stating source: %w", err)
 	}
 
-	if mkdirErr := os.MkdirAll(filepath.Dir(dst), DirPerms); mkdirErr != nil {
-		return fmt.Errorf("creating destination directory: %w", mkdirErr)
+	if err := m.fs.MkdirAll(filepath.Dir(dst), DirPerms); err != nil {
+		return fmt.Errorf("creating destination directory: %w", err)
 	}
 
-	dstFile, createErr := os.Create(dst) //nolint:gosec // path from config
-	if createErr != nil {
-		return fmt.Errorf("creating destination: %w", createErr)
-	}
-
-	defer func() {
-		if cerr := dstFile.Close(); cerr != nil && err == nil {
-			err = fmt.Errorf("closing destination: %w", cerr)
-		}
-	}()
-
-	if _, err = io.Copy(dstFile, srcFile); err != nil {
-		return fmt.Errorf("copying data: %w", err)
-	}
-
-	// Explicitly sync before setting permissions
-	if err = dstFile.Sync(); err != nil {
-		return fmt.Errorf("syncing destination: %w", err)
-	}
-
-	if err = os.Chmod(dst, srcInfo.Mode()); err != nil { //nolint:gosec // path from config
-		return fmt.Errorf("setting permissions: %w", err)
+	if err := m.fs.WriteFile(dst, data, srcInfo.Mode().Perm()); err != nil {
+		return fmt.Errorf("writing destination: %w", err)
 	}
 
 	return nil
 }
 
-func copyDir(src, dst string) error {
-	srcInfo, err := os.Stat(src)
+// copyDir recursively copies a directory tree from src to dst using the
+// Manager's filesystem abstraction.
+func (m *Manager) copyDir(src, dst string) error {
+	srcInfo, err := m.fs.Stat(src)
 	if err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+	if err := m.fs.MkdirAll(dst, srcInfo.Mode().Perm()); err != nil {
 		return err
 	}
 
-	entries, err := os.ReadDir(src)
+	entries, err := m.fs.ReadDir(src)
 	if err != nil {
 		return err
 	}
@@ -325,11 +335,11 @@ func copyDir(src, dst string) error {
 		dstPath := filepath.Join(dst, entry.Name())
 
 		if entry.IsDir() {
-			if err := copyDir(srcPath, dstPath); err != nil {
+			if err := m.copyDir(srcPath, dstPath); err != nil {
 				return err
 			}
 		} else {
-			if err := copyFile(srcPath, dstPath); err != nil {
+			if err := m.copyFile(srcPath, dstPath); err != nil {
 				return err
 			}
 		}
@@ -338,8 +348,10 @@ func copyDir(src, dst string) error {
 	return nil
 }
 
-func removeAll(path string) error {
-	info, err := os.Lstat(path)
+// removeAll removes the file or directory at path. Symlinks are left intact
+// so that only the underlying target is considered for removal.
+func (m *Manager) removeAll(path string) error {
+	info, err := m.fs.Lstat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
@@ -353,7 +365,29 @@ func removeAll(path string) error {
 		return nil
 	}
 
-	return os.RemoveAll(path)
+	return m.fs.RemoveAll(path)
+}
+
+// hasTemplateFiles reports whether the directory contains any .tmpl files.
+// It walks the directory tree and returns early on the first match.
+func (m *Manager) hasTemplateFiles(dir string) bool {
+	if !m.pathExists(dir) {
+		return false
+	}
+
+	found := false
+	_ = m.fs.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil || found {
+			return filepath.SkipDir
+		}
+		if !d.IsDir() && tmpl.IsTemplateFile(d.Name()) {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+
+	return found
 }
 
 // ModifiedTemplate contains the diff data for a single modified template file.
@@ -380,7 +414,7 @@ func (m *Manager) GetModifiedTemplateFiles(backupDir string) ([]ModifiedTemplate
 		}
 
 		renderedPath := tmpl.RenderedPath(path)
-		renderedContent, readErr := os.ReadFile(renderedPath) //nolint:gosec // path from config
+		renderedContent, readErr := m.fs.ReadFile(renderedPath)
 		if readErr != nil {
 			return nil
 		}

@@ -495,10 +495,10 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if appIdx >= 0 {
 				if subIdx >= 0 {
 					// Edit SubEntry
-					m.initSubEntryFormEdit(appIdx, subIdx)
+					m.initSubEntryForm(appIdx, subIdx)
 				} else {
 					// Edit Application
-					m.initApplicationFormEdit(appIdx)
+					m.initApplicationForm(appIdx)
 				}
 
 				return m, nil
@@ -507,7 +507,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, ListKeys.AddApp):
 		// Add new Application (only in List view)
 		if m.Operation == OpList {
-			m.initApplicationFormNew()
+			m.initApplicationForm(-1)
 			return m, nil
 		}
 	case key.Matches(msg, ListKeys.AddEntry):
@@ -515,7 +515,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.Operation == OpList {
 			appIdx, _ := m.getApplicationAtCursorFromTable()
 			if appIdx >= 0 {
-				m.initSubEntryFormNew(appIdx)
+				m.initSubEntryForm(appIdx, -1)
 				return m, nil
 			}
 		}

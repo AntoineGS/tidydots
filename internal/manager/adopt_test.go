@@ -40,7 +40,7 @@ func TestAdoptFolder(t *testing.T) {
 
 	// Check that backup now exists with the content
 	backupFile := filepath.Join(backupDir, "settings.json")
-	if !PathExists(backupFile) {
+	if !testPathExists(backupFile) {
 		t.Error("Backup file should exist after adopt")
 	}
 
@@ -50,7 +50,7 @@ func TestAdoptFolder(t *testing.T) {
 	}
 
 	// Check that target is now a symlink
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("Target should be a symlink after adopt")
 	}
 
@@ -95,13 +95,13 @@ func TestAdoptFiles(t *testing.T) {
 	// Check that backup files now exist
 	for _, file := range subEntry.Files {
 		backupFile := filepath.Join(backupDir, file)
-		if !PathExists(backupFile) {
+		if !testPathExists(backupFile) {
 			t.Errorf("Backup file %s should exist after adopt", file)
 		}
 
 		// Check target is now a symlink
 		targetFile := filepath.Join(targetDir, file)
-		if !isSymlink(targetFile) {
+		if !testIsSymlink(targetFile) {
 			t.Errorf("Target file %s should be a symlink after adopt", file)
 		}
 	}
@@ -153,7 +153,7 @@ func TestAdoptSkipsExistingBackup(t *testing.T) {
 	}
 
 	// Target should be a symlink
-	if !isSymlink(targetDir) {
+	if !testIsSymlink(targetDir) {
 		t.Error("Target should be a symlink")
 	}
 }
@@ -187,17 +187,17 @@ func TestAdoptDryRun(t *testing.T) {
 	}
 
 	// Backup should NOT be created in dry run
-	if PathExists(backupDir) {
+	if testPathExists(backupDir) {
 		t.Error("Backup should not be created in dry run mode")
 	}
 
 	// Target should NOT be a symlink in dry run
-	if isSymlink(targetDir) {
+	if testIsSymlink(targetDir) {
 		t.Error("Target should not be changed in dry run mode")
 	}
 
 	// Original target content should still exist
-	if !PathExists(filepath.Join(targetDir, "settings.json")) {
+	if !testPathExists(filepath.Join(targetDir, "settings.json")) {
 		t.Error("Original target content should still exist in dry run")
 	}
 }
@@ -273,17 +273,17 @@ func TestAdoptIntegration(t *testing.T) {
 
 	// Check nvim was adopted
 	nvimBackup := filepath.Join(backupRoot, "nvim")
-	if !PathExists(filepath.Join(nvimBackup, "init.lua")) {
+	if !testPathExists(filepath.Join(nvimBackup, "init.lua")) {
 		t.Error("nvim config should be adopted to backup")
 	}
 
-	if !isSymlink(nvimDir) {
+	if !testIsSymlink(nvimDir) {
 		t.Error("nvim dir should be a symlink after adopt")
 	}
 
 	// Check .bashrc was adopted
 	bashBackup := filepath.Join(backupRoot, "bash", ".bashrc")
-	if !PathExists(bashBackup) {
+	if !testPathExists(bashBackup) {
 		t.Error(".bashrc should be adopted to backup")
 	}
 
@@ -293,7 +293,7 @@ func TestAdoptIntegration(t *testing.T) {
 	}
 
 	bashrcTarget := filepath.Join(homeDir, ".bashrc")
-	if !isSymlink(bashrcTarget) {
+	if !testIsSymlink(bashrcTarget) {
 		t.Error(".bashrc should be a symlink after adopt")
 	}
 }
