@@ -11,6 +11,13 @@ import (
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
 )
 
+// normalizeStateKey converts an OS-native relative template path to a
+// forward-slash key so state store lookups are stable across platforms
+// for a shared dotfiles repo.
+func normalizeStateKey(relPath string) string {
+	return filepath.ToSlash(relPath)
+}
+
 // RestoreFolderWithTemplates handles folders that contain .tmpl files.
 // It delegates folder-level operations (adoption, merge, folder symlink) to RestoreFolder,
 // then renders templates and creates relative symlinks inside the backup directory.
@@ -78,7 +85,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 
 	// Quick check: if we have a state store, check if template is unchanged
 	if m.stateStore != nil && !m.ForceRender {
-		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath, m.Platform.OS, m.Platform.Hostname)
+		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, normalizeStateKey(relPath), m.Platform.OS, m.Platform.Hostname)
 		if lookupErr != nil {
 			m.logger.Warn("failed to query render history", slog.String("error", lookupErr.Error()))
 		} else if record != nil && record.TemplateHash == hash && m.pathExists(renderedAbsPath) {
@@ -107,7 +114,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 	finalContent := rendered
 
 	if m.stateStore != nil && !m.ForceRender {
-		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath, m.Platform.OS, m.Platform.Hostname)
+		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, normalizeStateKey(relPath), m.Platform.OS, m.Platform.Hostname)
 		if lookupErr != nil {
 			m.logger.Warn("failed to query render history", slog.String("error", lookupErr.Error()))
 		}
@@ -171,7 +178,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 
 	// Store pure render in DB (always store the unmerged template output)
 	if m.stateStore != nil {
-		if saveErr := m.stateStore.SaveRender(m.ctx, relPath, rendered, hash, m.Platform.OS, m.Platform.Hostname); saveErr != nil {
+		if saveErr := m.stateStore.SaveRender(m.ctx, normalizeStateKey(relPath), rendered, hash, m.Platform.OS, m.Platform.Hostname); saveErr != nil {
 			m.logger.Warn("failed to save render record",
 				slog.String("template", relPath),
 				slog.String("error", saveErr.Error()))

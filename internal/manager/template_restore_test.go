@@ -1134,3 +1134,14 @@ func TestHasModifiedRenderedFiles(t *testing.T) {
 		}
 	})
 }
+
+func TestStateStoreKey_IsForwardSlashNormalized(t *testing.T) {
+	// Simulate a Windows-style relative path and assert the state store key
+	// is normalized to forward slashes regardless of OS separator.
+	rel := filepath.FromSlash("nvim/init.tmpl") // uses OS separator
+	got := normalizeStateKey(rel)
+	want := "nvim/init.tmpl"
+	if got != want {
+		t.Errorf("normalizeStateKey(%q) = %q, want %q", rel, got, want)
+	}
+}
