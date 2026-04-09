@@ -148,3 +148,30 @@ func TestValidatePackageName(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateGitBranch(t *testing.T) {
+	cases := []struct {
+		name    string
+		branch  string
+		wantErr bool
+	}{
+		{"empty is allowed (default branch)", "", false},
+		{"simple name", "main", false},
+		{"slashed ref", "feature/x", false},
+		{"leading dash rejected", "-upload-pack=evil", true},
+		{"whitespace rejected", "main branch", true},
+		{"traversal rejected", "../other", true},
+		{"control char rejected", "main\x00", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateGitBranch(tc.branch)
+			if tc.wantErr && err == nil {
+				t.Errorf("ValidateGitBranch(%q) = nil, want error", tc.branch)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("ValidateGitBranch(%q) = %v, want nil", tc.branch, err)
+			}
+		})
+	}
+}

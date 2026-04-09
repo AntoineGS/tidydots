@@ -32,3 +32,24 @@ func ValidatePackageName(name string) error {
 
 	return nil
 }
+
+// ValidateGitBranch rejects branch names that git would misinterpret or that
+// could smuggle flags into `git clone -b`. An empty branch is allowed and
+// means "use the repository default".
+func ValidateGitBranch(branch string) error {
+	if branch == "" {
+		return nil
+	}
+	if strings.HasPrefix(branch, "-") {
+		return fmt.Errorf("git branch %q must not start with '-'", branch)
+	}
+	if strings.Contains(branch, "..") {
+		return fmt.Errorf("git branch %q must not contain '..'", branch)
+	}
+	for _, r := range branch {
+		if r == 0 || r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			return fmt.Errorf("git branch %q contains whitespace or control characters", branch)
+		}
+	}
+	return nil
+}

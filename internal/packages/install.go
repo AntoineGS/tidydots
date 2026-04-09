@@ -215,6 +215,9 @@ func (m *Manager) installGitPackage(gitCfg GitConfig) (bool, string) {
 }
 
 func (m *Manager) gitClone(repoURL, targetPath, branch string, sudo bool) (bool, string) {
+	if err := ValidateGitBranch(branch); err != nil {
+		return false, fmt.Sprintf("Invalid git branch: %v", err)
+	}
 	args := []string{"clone"}
 	if branch != "" {
 		args = append(args, "-b", branch)
