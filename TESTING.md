@@ -196,6 +196,41 @@ Golden files are plain text snapshots stored in `internal/tui/testdata/`:
 
 5. Review golden file content, then commit
 
+## Test Infrastructure
+
+### In-memory Filesystem (MemFS)
+
+The `internal/fsys` package provides a `MemFS` implementation for testing filesystem operations without touching the real disk:
+
+```go
+import "github.com/AntoineGS/tidydots/internal/fsys"
+
+func TestSomething(t *testing.T) {
+    mem := fsys.NewMemFS()
+    mem.WriteFile("/test.txt", []byte("hello"), 0600)
+    // ... use mem as an fsys.FS
+}
+```
+
+### Stub Command Runner
+
+The `internal/cmdexec` package provides a `StubRunner` for testing code that executes external commands:
+
+```go
+import "github.com/AntoineGS/tidydots/internal/cmdexec"
+
+func TestCommand(t *testing.T) {
+    stub := cmdexec.NewStubRunner()
+    stub.AddResult("git", cmdexec.Result{Stdout: []byte("v2.40.0"), ExitCode: 0})
+    // ... use stub as a cmdexec.Runner
+    // Verify stub.Calls to check what commands were executed
+}
+```
+
+### Coverage Threshold
+
+CI enforces a coverage floor via `coverage-threshold.txt`. To raise the floor after improving coverage, update the file to the new minimum and commit.
+
 ## Code Quality
 
 ### Linting
