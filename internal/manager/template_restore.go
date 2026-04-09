@@ -78,7 +78,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 
 	// Quick check: if we have a state store, check if template is unchanged
 	if m.stateStore != nil && !m.ForceRender {
-		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath)
+		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath, m.Platform.OS, m.Platform.Hostname)
 		if lookupErr != nil {
 			m.logger.Warn("failed to query render history", slog.String("error", lookupErr.Error()))
 		} else if record != nil && record.TemplateHash == hash && m.pathExists(renderedAbsPath) {
@@ -107,7 +107,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 	finalContent := rendered
 
 	if m.stateStore != nil && !m.ForceRender {
-		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath)
+		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath, m.Platform.OS, m.Platform.Hostname)
 		if lookupErr != nil {
 			m.logger.Warn("failed to query render history", slog.String("error", lookupErr.Error()))
 		}

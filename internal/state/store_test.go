@@ -76,7 +76,7 @@ func TestSaveAndGetLatestRender(t *testing.T) {
 		t.Fatalf("SaveRender failed: %v", err)
 	}
 
-	record, err := store.GetLatestRender(ctx, tmplPath)
+	record, err := store.GetLatestRender(ctx, tmplPath, "linux", "myhost")
 	if err != nil {
 		t.Fatalf("GetLatestRender failed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestGetLatestRender_NoRecord(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
 
-	record, err := store.GetLatestRender(ctx, "nonexistent.tmpl")
+	record, err := store.GetLatestRender(ctx, "nonexistent.tmpl", "linux", "host")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestGetLatestRender_ReturnsNewest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	record, err := store.GetLatestRender(ctx, tmplPath)
+	record, err := store.GetLatestRender(ctx, tmplPath, "linux", "host")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestGetRenderByID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	latest, err := store.GetLatestRender(ctx, testTemplate)
+	latest, err := store.GetLatestRender(ctx, testTemplate, "linux", "host")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestRemoveTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	record, err := store.GetLatestRender(ctx, tmplPath)
+	record, err := store.GetLatestRender(ctx, tmplPath, "linux", "host")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,12 +266,54 @@ func TestRemoveTemplate_DoesNotAffectOthers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	record, err := store.GetLatestRender(ctx, "b.tmpl")
+	record, err := store.GetLatestRender(ctx, "b.tmpl", "linux", "host")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if record == nil {
 		t.Error("b.tmpl should still exist")
+	}
+}
+
+func TestGetLatestRender_FiltersByPlatform(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "state.db")
+	store, err := Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer store.Close()
+
+	const tmplPath = "nvim/init.tmpl"
+
+	// Save a render from linux/host-a
+	if err := store.SaveRender(ctx, tmplPath, []byte("linux content"), "hash-linux", "linux", "host-a"); err != nil {
+		t.Fatalf("SaveRender linux: %v", err)
+	}
+	// Save a newer render from windows/host-b
+	if err := store.SaveRender(ctx, tmplPath, []byte("windows content"), "hash-win", "windows", "host-b"); err != nil {
+		t.Fatalf("SaveRender windows: %v", err)
+	}
+
+	// Querying as linux/host-a must return the linux render, not the newer windows one
+	rec, err := store.GetLatestRender(ctx, tmplPath, "linux", "host-a")
+	if err != nil {
+		t.Fatalf("GetLatestRender: %v", err)
+	}
+	if rec == nil {
+		t.Fatal("expected linux record, got nil")
+	}
+	if string(rec.PureRender) != "linux content" {
+		t.Errorf("wrong record: got %q, want %q", rec.PureRender, "linux content")
+	}
+
+	// A platform with no history must return nil, nil
+	rec, err = store.GetLatestRender(ctx, tmplPath, "darwin", "host-c")
+	if err != nil {
+		t.Fatalf("GetLatestRender darwin: %v", err)
+	}
+	if rec != nil {
+		t.Errorf("expected nil for unknown platform, got %+v", rec)
 	}
 }
 

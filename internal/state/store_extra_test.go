@@ -38,7 +38,7 @@ func TestOperations_AfterClose(t *testing.T) {
 		t.Error("SaveRender: expected error after close, got nil")
 	}
 
-	if _, err := store.GetLatestRender(ctx, "x.tmpl"); err == nil {
+	if _, err := store.GetLatestRender(ctx, "x.tmpl", "linux", "host"); err == nil {
 		t.Error("GetLatestRender: expected error after close, got nil")
 	}
 

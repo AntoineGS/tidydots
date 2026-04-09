@@ -83,16 +83,16 @@ func scanRenderRow(row *sql.Row, context string) (*RenderRecord, error) {
 	return &r, nil
 }
 
-// GetLatestRender returns the most recent render record for the given template path.
-// Returns nil if no render exists.
-func (s *Store) GetLatestRender(ctx context.Context, templatePath string) (*RenderRecord, error) {
+// GetLatestRender returns the most recent render record for the given template
+// path on the specified platform (OS + hostname). Returns nil if none exists.
+func (s *Store) GetLatestRender(ctx context.Context, templatePath, platformOS, platformHost string) (*RenderRecord, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, template_path, pure_render, template_hash, rendered_at, platform_os, platform_host
 		FROM template_renders
-		WHERE template_path = ?
+		WHERE template_path = ? AND platform_os = ? AND platform_host = ?
 		ORDER BY id DESC
 		LIMIT 1
-	`, templatePath)
+	`, templatePath, platformOS, platformHost)
 
 	return scanRenderRow(row, "querying latest render")
 }
