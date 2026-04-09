@@ -7,13 +7,19 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AntoineGS/tidydots/internal/manager"
 	tuitable "github.com/AntoineGS/tidydots/internal/tui/table"
 )
 
+// pathExists reports whether the path exists on the filesystem, using os.Lstat
+// so that broken symlinks are still reported as existing.
+func pathExists(path string) bool {
+	_, err := os.Lstat(path)
+	return err == nil
+}
+
 // DetectConfigState determines the state of a config entry given its paths and file list.
 // This is a pure function that takes paths and returns a PathState. It only uses
-// os.Lstat, manager.PathExists, and filepath.Join. It does NOT reference Model.
+// os.Lstat and filepath.Join. It does NOT reference Model.
 func DetectConfigState(backupPath, targetPath string, isFolder bool, files []string) tuitable.PathState {
 	if isFolder {
 		if info, err := os.Lstat(targetPath); err == nil {
@@ -22,8 +28,8 @@ func DetectConfigState(backupPath, targetPath string, isFolder bool, files []str
 			}
 		}
 
-		backupExists := manager.PathExists(backupPath)
-		targetExists := manager.PathExists(targetPath)
+		backupExists := pathExists(backupPath)
+		targetExists := pathExists(targetPath)
 
 		if backupExists {
 			return tuitable.StateReady
@@ -46,7 +52,7 @@ func DetectConfigState(backupPath, targetPath string, isFolder bool, files []str
 		srcFile := filepath.Join(backupPath, file)
 		dstFile := filepath.Join(targetPath, file)
 
-		if !manager.PathExists(srcFile) {
+		if !pathExists(srcFile) {
 			continue
 		}
 

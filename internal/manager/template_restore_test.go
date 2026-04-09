@@ -53,7 +53,7 @@ func setupTemplateTest(t *testing.T) (string, string, *Manager, *state.Store) {
 func verifyFolderSymlink(t *testing.T, target, source string) {
 	t.Helper()
 
-	if !isSymlink(target) {
+	if !testIsSymlink(target) {
 		t.Fatalf("expected %q to be a symlink", target)
 	}
 
@@ -71,7 +71,7 @@ func verifyFolderSymlink(t *testing.T, target, source string) {
 func verifyRelativeSymlink(t *testing.T, symlinkPath, expectedTarget string) {
 	t.Helper()
 
-	if !isSymlink(symlinkPath) {
+	if !testIsSymlink(symlinkPath) {
 		t.Fatalf("expected %q to be a symlink", symlinkPath)
 	}
 
@@ -124,7 +124,7 @@ func TestRestoreFolderWithTemplates_MixedFiles(t *testing.T) {
 
 	// Verify rendered file exists
 	renderedPath := filepath.Join(backupDir, ".zshrc.tmpl.rendered")
-	if !PathExists(renderedPath) {
+	if !testPathExists(renderedPath) {
 		t.Fatal("rendered file should exist")
 	}
 	renderedContent, _ := os.ReadFile(renderedPath) //nolint:gosec
@@ -387,7 +387,7 @@ func TestRestoreFolderWithTemplates_Conflict(t *testing.T) {
 	}
 
 	// Conflict file should exist
-	if !PathExists(conflictPath) {
+	if !testPathExists(conflictPath) {
 		t.Fatal("conflict file should exist")
 	}
 	conflictContent, _ := os.ReadFile(conflictPath) //nolint:gosec
@@ -470,13 +470,13 @@ func TestRestoreFolderWithTemplates_DryRun(t *testing.T) {
 	}
 
 	// No folder symlink should be created
-	if isSymlink(targetDir) {
+	if testIsSymlink(targetDir) {
 		t.Error("dry run should not create folder symlink")
 	}
 
 	// No rendered file should be created
 	renderedPath := filepath.Join(backupDir, "file.tmpl.rendered")
-	if PathExists(renderedPath) {
+	if testPathExists(renderedPath) {
 		t.Error("dry run should not create rendered file")
 	}
 
@@ -487,7 +487,7 @@ func TestRestoreFolderWithTemplates_DryRun(t *testing.T) {
 	}
 
 	// No relative symlink in backup
-	if isSymlink(filepath.Join(backupDir, "file")) {
+	if testIsSymlink(filepath.Join(backupDir, "file")) {
 		t.Error("dry run should not create relative symlink")
 	}
 }
@@ -637,7 +637,7 @@ func TestHasTemplateFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "regular.txt"), []byte("x"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if hasTemplateFiles(dir) {
+	if testHasTemplateFiles(dir) {
 		t.Error("should return false when no .tmpl files")
 	}
 
@@ -645,7 +645,7 @@ func TestHasTemplateFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "config.tmpl"), []byte("x"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if !hasTemplateFiles(dir) {
+	if !testHasTemplateFiles(dir) {
 		t.Error("should return true when .tmpl file exists")
 	}
 }
@@ -660,13 +660,13 @@ func TestHasTemplateFiles_Nested(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(subDir, "config.tmpl"), []byte("x"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if !hasTemplateFiles(dir) {
+	if !testHasTemplateFiles(dir) {
 		t.Error("should detect .tmpl files in subdirectories")
 	}
 }
 
 func TestHasTemplateFiles_NonExistent(t *testing.T) {
-	if hasTemplateFiles("/nonexistent/path") {
+	if testHasTemplateFiles("/nonexistent/path") {
 		t.Error("should return false for non-existent directory")
 	}
 }
@@ -724,7 +724,7 @@ func TestRestoreFolderWithTemplates_SubDirectories(t *testing.T) {
 
 	// Verify nested template was rendered
 	renderedPath := filepath.Join(subDir, "nested.tmpl.rendered")
-	if !PathExists(renderedPath) {
+	if !testPathExists(renderedPath) {
 		t.Fatal("nested rendered file should exist")
 	}
 

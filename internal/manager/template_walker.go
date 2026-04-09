@@ -22,11 +22,11 @@ func (m *Manager) walkTemplateFiles(backupDir string, fn templateWalkFunc) error
 		return nil
 	}
 
-	if !hasTemplateFiles(backupDir) {
+	if !m.hasTemplateFiles(backupDir) {
 		return nil
 	}
 
-	return filepath.WalkDir(backupDir, func(path string, d fs.DirEntry, err error) error {
+	return m.fs.WalkDir(backupDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return filepath.SkipDir
 		}

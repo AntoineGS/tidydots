@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -23,7 +22,7 @@ func (m *Manager) RestoreFolderWithTemplates(subEntry config.SubEntry, source, t
 	}
 
 	// Step 2: Render templates and create relative symlinks in backup dir
-	if !PathExists(source) {
+	if !m.pathExists(source) {
 		return nil
 	}
 
@@ -33,7 +32,7 @@ func (m *Manager) RestoreFolderWithTemplates(subEntry config.SubEntry, source, t
 // renderTemplatesInBackup walks the backup directory for .tmpl files and
 // renders each one, creating a relative symlink in the backup dir.
 func (m *Manager) renderTemplatesInBackup(backupDir string) error {
-	return filepath.WalkDir(backupDir, func(path string, d fs.DirEntry, err error) error {
+	return m.fs.WalkDir(backupDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -66,7 +65,7 @@ func (m *Manager) renderTemplatesInBackup(backupDir string) error {
 //nolint:gocyclo // complexity acceptable for template restore logic with merge paths
 func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 	// Read template source
-	tmplContent, err := os.ReadFile(tmplAbsPath) //nolint:gosec // path from config
+	tmplContent, err := m.fs.ReadFile(tmplAbsPath)
 	if err != nil {
 		return NewPathError("restore", tmplAbsPath, fmt.Errorf("reading template: %w", err))
 	}
@@ -82,7 +81,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 		record, lookupErr := m.stateStore.GetLatestRender(m.ctx, relPath)
 		if lookupErr != nil {
 			m.logger.Warn("failed to query render history", slog.String("error", lookupErr.Error()))
-		} else if record != nil && record.TemplateHash == hash && PathExists(renderedAbsPath) {
+		} else if record != nil && record.TemplateHash == hash && m.pathExists(renderedAbsPath) {
 			// Template unchanged and rendered file exists - just ensure relative symlink
 			m.logger.Debug("template unchanged, skipping re-render",
 				slog.String("template", relPath))
@@ -118,8 +117,8 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 			base := string(record.PureRender)
 
 			var theirs string
-			if PathExists(renderedAbsPath) {
-				theirsBytes, readErr := os.ReadFile(renderedAbsPath) //nolint:gosec // generated file
+			if m.pathExists(renderedAbsPath) {
+				theirsBytes, readErr := m.fs.ReadFile(renderedAbsPath)
 				if readErr != nil {
 					m.logger.Warn("could not read current rendered file",
 						slog.String("path", renderedAbsPath),
@@ -137,7 +136,7 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 
 			if mergeResult.HasConflict {
 				conflictPath := tmpl.ConflictPath(tmplAbsPath)
-				if writeErr := os.WriteFile(conflictPath, []byte(mergeResult.Content), FilePerms); writeErr != nil {
+				if writeErr := m.fs.WriteFile(conflictPath, []byte(mergeResult.Content), FilePerms); writeErr != nil {
 					m.logger.Warn("could not write conflict file",
 						slog.String("path", conflictPath),
 						slog.String("error", writeErr.Error()))
@@ -148,13 +147,13 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 			}
 
 			finalContent = []byte(mergeResult.Content)
-		} else if PathExists(renderedAbsPath) {
+		} else if m.pathExists(renderedAbsPath) {
 			// First render but rendered file exists (orphaned) - back it up
 			bakPath := renderedAbsPath + ".bak"
 			m.logger.Warn("backing up orphaned rendered file",
 				slog.String("from", renderedAbsPath),
 				slog.String("to", bakPath))
-			if copyErr := copyFile(renderedAbsPath, bakPath); copyErr != nil {
+			if copyErr := m.copyFile(renderedAbsPath, bakPath); copyErr != nil {
 				m.logger.Warn("could not backup rendered file",
 					slog.String("error", copyErr.Error()))
 			}
@@ -162,11 +161,11 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 	}
 
 	// Write the rendered content
-	if mkdirErr := os.MkdirAll(filepath.Dir(renderedAbsPath), DirPerms); mkdirErr != nil {
+	if mkdirErr := m.fs.MkdirAll(filepath.Dir(renderedAbsPath), DirPerms); mkdirErr != nil {
 		return NewPathError("restore", renderedAbsPath, fmt.Errorf("creating rendered dir: %w", mkdirErr))
 	}
 
-	if writeErr := os.WriteFile(filepath.Clean(renderedAbsPath), finalContent, FilePerms); writeErr != nil { //nolint:gosec // path is from user config
+	if writeErr := m.fs.WriteFile(filepath.Clean(renderedAbsPath), finalContent, FilePerms); writeErr != nil {
 		return NewPathError("restore", renderedAbsPath, fmt.Errorf("writing rendered file: %w", writeErr))
 	}
 
@@ -196,22 +195,22 @@ func (m *Manager) ensureRelativeSymlinkForTemplate(tmplAbsPath string) error {
 // ensureRelativeSymlink is an idempotent helper that creates a relative symlink.
 // It checks if the symlink already points to the correct target, removes any
 // existing file/symlink if not, and creates a new relative symlink.
-// Uses os.Symlink directly (no sudo needed for same-directory relative links).
+// Uses fs.Symlink directly (no sudo needed for same-directory relative links).
 func (m *Manager) ensureRelativeSymlink(symlinkPath, target string) error {
 	// Check if already a correct relative symlink
-	if isSymlink(symlinkPath) {
-		existing, err := os.Readlink(symlinkPath)
+	if m.isSymlink(symlinkPath) {
+		existing, err := m.fs.Readlink(symlinkPath)
 		if err == nil && existing == target {
 			return nil
 		}
 	}
 
 	// Remove existing file or incorrect symlink
-	if PathExists(symlinkPath) || isSymlink(symlinkPath) {
+	if m.pathExists(symlinkPath) || m.isSymlink(symlinkPath) {
 		m.logger.Info("removing existing file/symlink for relative symlink",
 			slog.String("path", symlinkPath))
 		if !m.DryRun {
-			if err := os.Remove(symlinkPath); err != nil {
+			if err := m.fs.Remove(symlinkPath); err != nil {
 				return NewPathError("restore", symlinkPath, fmt.Errorf("removing existing: %w", err))
 			}
 		}
@@ -222,7 +221,7 @@ func (m *Manager) ensureRelativeSymlink(symlinkPath, target string) error {
 		slog.String("target", target))
 
 	if !m.DryRun {
-		return os.Symlink(target, symlinkPath)
+		return m.fs.Symlink(target, symlinkPath)
 	}
 
 	return nil
