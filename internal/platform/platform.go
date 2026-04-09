@@ -13,6 +13,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/AntoineGS/tidydots/internal/cmdexec"
+	"github.com/AntoineGS/tidydots/internal/fsys"
 )
 
 // Supported operating system identifiers.
@@ -65,7 +68,12 @@ func Detect() *Platform {
 // detectDistro returns the Linux distribution ID from /etc/os-release
 // Returns values like "arch", "ubuntu", "fedora", "debian", etc.
 func detectDistro() string {
-	data, err := os.ReadFile("/etc/os-release")
+	return detectDistroWithFS(fsys.OsFS{})
+}
+
+// detectDistroWithFS returns the Linux distribution ID using the given filesystem.
+func detectDistroWithFS(f fsys.FS) string {
+	data, err := f.ReadFile("/etc/os-release")
 	if err != nil {
 		slog.Debug("unable to detect linux distribution",
 			slog.String("file", "/etc/os-release"),
@@ -192,14 +200,16 @@ func hasX11Socket() bool {
 }
 
 func (p *Platform) detectPowerShellProfile() {
-	cmd := exec.CommandContext(context.Background(), "pwsh", "-NoProfile", "-Command", "echo $PROFILE")
+	p.detectPowerShellProfileWithRunner(cmdexec.OsRunner{})
+}
 
-	output, err := cmd.Output()
+func (p *Platform) detectPowerShellProfileWithRunner(r cmdexec.Runner) {
+	result, err := r.Run(context.Background(), "pwsh", "-NoProfile", "-Command", "echo $PROFILE")
 	if err != nil {
 		return
 	}
 
-	profile := strings.TrimSpace(string(output))
+	profile := strings.TrimSpace(string(result.Stdout))
 	if profile != "" {
 		p.EnvVars["PWSH_PROFILE"] = profile
 		p.EnvVars["PWSH_PROFILE_FILE"] = filepath.Base(profile)
@@ -262,6 +272,12 @@ func (p *Platform) WithDistro(distro string) *Platform {
 // IsCommandAvailable checks if a command is available in PATH
 func IsCommandAvailable(cmd string) bool {
 	_, err := exec.LookPath(cmd)
+	return err == nil
+}
+
+// isCommandAvailableWithRunner checks if a command is available using the given runner.
+func isCommandAvailableWithRunner(cmd string, r cmdexec.Runner) bool {
+	_, err := r.LookPath(cmd)
 	return err == nil
 }
 
@@ -396,6 +412,12 @@ func SetDetectionHints(osType string, isWSL bool) {
 // On WSL, it skips slow Windows drive mount PATH entries (e.g. /mnt/c/).
 // Results are cached after the first call since PATH rarely changes during execution.
 func DetectAvailableManagers() []string {
+	return DetectAvailableManagersWithRunner(cmdexec.OsRunner{})
+}
+
+// DetectAvailableManagersWithRunner returns a list of package managers available on the
+// system using the given runner for PATH lookups. Results are cached after the first call.
+func DetectAvailableManagersWithRunner(r cmdexec.Runner) []string {
 	availableManagersOnce.Do(func() {
 		available := make([]string, 0, len(KnownPackageManagers))
 
@@ -409,7 +431,7 @@ func DetectAvailableManagers() []string {
 					available = append(available, mgr)
 				}
 			} else {
-				if IsCommandAvailable(mgr) {
+				if isCommandAvailableWithRunner(mgr, r) {
 					available = append(available, mgr)
 				}
 			}

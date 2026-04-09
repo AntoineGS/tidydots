@@ -3,7 +3,6 @@ package packages
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -178,17 +177,13 @@ func (m *Manager) installWithManager(mgr PackageManager, pkgName string) (bool, 
 	}
 
 	args := expandArgs(mc.install, pkgName)
-	cmd := exec.CommandContext(m.ctx, args[0], args[1:]...) //nolint:gosec // args from trusted lookup table
 
 	if m.DryRun {
-		return true, fmt.Sprintf("Would run: %s", strings.Join(cmd.Args, " "))
+		return true, fmt.Sprintf("Would run: %s", strings.Join(args, " "))
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if err := cmd.Run(); err != nil {
+	_, err := m.runner.Run(m.ctx, args[0], args[1:]...) //nolint:gosec // args from trusted lookup table
+	if err != nil {
 		return false, fmt.Sprintf("Installation failed: %v", err)
 	}
 
@@ -226,23 +221,21 @@ func (m *Manager) gitClone(repoURL, targetPath, branch string, sudo bool) (bool,
 	}
 	args = append(args, repoURL, targetPath)
 
-	var cmd *exec.Cmd
-	if sudo {
-		// Prepend sudo to the command
-		args = append([]string{"git"}, args...)
-		cmd = exec.CommandContext(m.ctx, "sudo", args...)
-	} else {
-		cmd = exec.CommandContext(m.ctx, "git", args...)
-	}
-
 	if m.DryRun {
-		return true, fmt.Sprintf("Would run: %s", strings.Join(cmd.Args, " "))
+		if sudo {
+			return true, fmt.Sprintf("Would run: sudo git %s", strings.Join(args, " "))
+		}
+		return true, fmt.Sprintf("Would run: git %s", strings.Join(args, " "))
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var err error
+	if sudo {
+		_, err = m.runner.RunWithSudo(m.ctx, "git", args...)
+	} else {
+		_, err = m.runner.Run(m.ctx, "git", args...)
+	}
 
-	if err := cmd.Run(); err != nil {
+	if err != nil {
 		return false, fmt.Sprintf("Git clone failed: %v", err)
 	}
 
@@ -250,21 +243,21 @@ func (m *Manager) gitClone(repoURL, targetPath, branch string, sudo bool) (bool,
 }
 
 func (m *Manager) gitPull(repoPath string, sudo bool) (bool, string) {
-	var cmd *exec.Cmd
-	if sudo {
-		cmd = exec.CommandContext(m.ctx, "sudo", "git", "-C", repoPath, "pull")
-	} else {
-		cmd = exec.CommandContext(m.ctx, "git", "-C", repoPath, "pull")
-	}
-
 	if m.DryRun {
-		return true, fmt.Sprintf("Would run: %s", strings.Join(cmd.Args, " "))
+		if sudo {
+			return true, fmt.Sprintf("Would run: sudo git -C %s pull", repoPath)
+		}
+		return true, fmt.Sprintf("Would run: git -C %s pull", repoPath)
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var err error
+	if sudo {
+		_, err = m.runner.RunWithSudo(m.ctx, "git", "-C", repoPath, "pull")
+	} else {
+		_, err = m.runner.Run(m.ctx, "git", "-C", repoPath, "pull")
+	}
 
-	if err := cmd.Run(); err != nil {
+	if err != nil {
 		return false, fmt.Sprintf("Git pull failed: %v", err)
 	}
 
@@ -285,18 +278,14 @@ func (m *Manager) installInstallerPackage(cfg InstallerConfig) (bool, string) {
 		return true, fmt.Sprintf("Would run: %s", command)
 	}
 
-	var cmd *exec.Cmd
+	var err error
 	if m.OS == platform.OSWindows {
-		cmd = exec.CommandContext(m.ctx, "powershell", "-Command", command) //nolint:gosec // intentional install command from user config
+		_, err = m.runner.Run(m.ctx, "powershell", "-Command", command) //nolint:gosec // intentional install command from user config
 	} else {
-		cmd = exec.CommandContext(m.ctx, "sh", "-c", command) //nolint:gosec // intentional install command from user config
+		_, err = m.runner.Run(m.ctx, "sh", "-c", command) //nolint:gosec // intentional install command from user config
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if err := cmd.Run(); err != nil {
+	if err != nil {
 		return false, fmt.Sprintf("Installer command failed: %v", err)
 	}
 
@@ -312,18 +301,14 @@ func (m *Manager) runCustomCommand(command string) (bool, string) {
 		return true, fmt.Sprintf("Would run: %s", command)
 	}
 
-	var cmd *exec.Cmd
+	var err error
 	if m.OS == platform.OSWindows {
-		cmd = exec.CommandContext(m.ctx, "powershell", "-Command", command)
+		_, err = m.runner.Run(m.ctx, "powershell", "-Command", command) //nolint:gosec // intentional command from user config
 	} else {
-		cmd = exec.CommandContext(m.ctx, "sh", "-c", command)
+		_, err = m.runner.Run(m.ctx, "sh", "-c", command) //nolint:gosec // intentional command from user config
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if err := cmd.Run(); err != nil {
+	if err != nil {
 		return false, fmt.Sprintf("Custom command failed: %v", err)
 	}
 
@@ -359,19 +344,17 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 	tmpPath := filepath.Join(tmpDir, "installer")
 
 	// Download file
-	var downloadCmd *exec.Cmd
-
 	if m.OS == platform.OSWindows {
 		// Escape single quotes in URL and path for PowerShell
 		escapedURL := escapePowerShellSingleQuote(urlInstall.URL)
 		escapedPath := escapePowerShellSingleQuote(tmpPath)
-		downloadCmd = exec.CommandContext(m.ctx, "powershell", "-Command", //nolint:gosec // intentional download command
+		_, err = m.runner.Run(m.ctx, "powershell", "-Command", //nolint:gosec // intentional download command
 			fmt.Sprintf("Invoke-WebRequest -Uri '%s' -OutFile '%s'", escapedURL, escapedPath))
 	} else {
-		downloadCmd = exec.CommandContext(m.ctx, "curl", "-fsSL", "-o", tmpPath, urlInstall.URL) //nolint:gosec // intentional download command
+		_, err = m.runner.Run(m.ctx, "curl", "-fsSL", "-o", tmpPath, urlInstall.URL) //nolint:gosec // intentional download command
 	}
 
-	if err := downloadCmd.Run(); err != nil {
+	if err != nil {
 		return false, fmt.Sprintf("Download failed: %v", err)
 	}
 
@@ -385,18 +368,13 @@ func (m *Manager) installFromURL(urlInstall URLInstall) (bool, string) {
 	// Run install command
 	command := strings.ReplaceAll(urlInstall.Command, "{file}", tmpPath)
 
-	var installCmd *exec.Cmd
 	if m.OS == platform.OSWindows {
-		installCmd = exec.CommandContext(m.ctx, "powershell", "-Command", command) //nolint:gosec // intentional install command
+		_, err = m.runner.Run(m.ctx, "powershell", "-Command", command) //nolint:gosec // intentional install command
 	} else {
-		installCmd = exec.CommandContext(m.ctx, "sh", "-c", command) //nolint:gosec // intentional install command
+		_, err = m.runner.Run(m.ctx, "sh", "-c", command) //nolint:gosec // intentional install command
 	}
 
-	installCmd.Stdout = os.Stdout
-	installCmd.Stderr = os.Stderr
-	installCmd.Stdin = os.Stdin
-
-	if err := installCmd.Run(); err != nil {
+	if err != nil {
 		return false, fmt.Sprintf("Install command failed: %v", err)
 	}
 
