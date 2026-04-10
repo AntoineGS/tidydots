@@ -124,5 +124,5 @@ func (m Model) performRestoreSubEntry(subEntry config.SubEntry, target string) (
 		return false, fmt.Sprintf("Failed: %v", err)
 	}
 
-	return true, fmt.Sprintf("Restored: %s → %s", target, backupPath)
+	return true, fmt.Sprintf("Restored: %s -> %s", target, backupPath)
 }

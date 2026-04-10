@@ -100,12 +100,16 @@ func (m Model) renderResultsPopup() string {
 		b.WriteString(scrollInfo)
 	}
 
-	// Help line at bottom
+	// Help line at bottom.
+	// Use ASCII-only keys ("k"/"j"/"enter/esc") and pass the inner content width
+	// so the help text wraps within the popup's padding. Avoid ambiguous-width
+	// glyphs (↑, ↓) that some terminals render as 2 cells, which would push the
+	// right border out of alignment on the help row.
 	b.WriteString("\n")
-	b.WriteString(RenderHelpFromBindings(popupWidth,
-		ResultsPopupKeys.Up,
-		ResultsPopupKeys.Down,
-		ResultsPopupKeys.Close,
+	b.WriteString(RenderHelpWithWidth(contentWidth,
+		"k", "scroll up",
+		"j", "scroll down",
+		"enter/esc", "close",
 	))
 
 	// Box with rounded border, primaryColor border, padding 1,2

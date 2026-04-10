@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestResultsPopupRendering(t *testing.T) {
@@ -78,6 +80,53 @@ func TestResultsPopupScrolling(t *testing.T) {
 	// Last result should be visible when scrolled to bottom
 	if !strings.Contains(plain, "item-xx") {
 		t.Error("expected last results visible when scrolled to bottom")
+	}
+}
+
+// TestResultsPopupBorderAlignment verifies that every rendered line of the
+// popup has the same visual width, which is the condition for the border to
+// render as a solid rectangle. Regression test for a bug where result messages
+// containing ambiguous-width characters (e.g. "→") caused the right border to
+// zigzag across rows.
+func TestResultsPopupBorderAlignment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("platform-specific")
+	}
+	t.Setenv("NO_COLOR", "1")
+
+	// Exercise a range of terminal widths and both plain and ambiguous-width
+	// content to make sure no combination produces uneven rows.
+	widths := []int{60, 80, 100, 120}
+	messages := []string{
+		"Restored successfully",
+		"Restored: /home/user/.config/app -> /home/user/dotfiles/app",
+		"Restored: /home/user/.config/app → /home/user/dotfiles/app",
+	}
+
+	for _, w := range widths {
+		for _, msg := range messages {
+			m := createLayoutTestModel()
+			m.width = w
+			m.results = []ResultItem{{Name: "app/config", Message: msg, Success: true}}
+			m.showingResults = true
+
+			output := m.renderResultsPopup()
+			plain := stripAnsiCodes(output)
+			lines := strings.Split(plain, "\n")
+			if len(lines) == 0 {
+				t.Fatalf("width=%d: popup produced no output", w)
+			}
+
+			base := ansi.StringWidth(lines[0])
+			for i, line := range lines {
+				got := ansi.StringWidth(line)
+				if got != base {
+					t.Errorf("width=%d msg=%q line %d has visual width %d, want %d\n%s",
+						w, msg, i, got, base, plain)
+					break
+				}
+			}
+		}
 	}
 }
 
