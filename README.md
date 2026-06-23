@@ -23,7 +23,7 @@ packages, and clone git repositories --- all from a single YAML file.
 ## Installation
 
 ```bash
-go install github.com/antoinegs/tidydots/cmd/tidydots@latest
+go install github.com/AntoineGS/tidydots/cmd/tidydots@latest
 ```
 
 Or build from source:
