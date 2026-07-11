@@ -46,7 +46,7 @@ func TestDetectConfigState_Folder_Linked(t *testing.T) {
 	mkDir(t, backupPath)
 	mkSymlink(t, backupPath, targetPath)
 
-	got := DetectConfigState(backupPath, targetPath, true, nil)
+	got := DetectConfigState(backupPath, targetPath, true, nil, false)
 	if got != tuitable.StateLinked {
 		t.Errorf("folder symlink → want StateLinked, got %v", got)
 	}
@@ -60,7 +60,7 @@ func TestDetectConfigState_Folder_Ready(t *testing.T) {
 
 	mkDir(t, backupPath)
 	// target does not exist — backup exists → Ready
-	got := DetectConfigState(backupPath, targetPath, true, nil)
+	got := DetectConfigState(backupPath, targetPath, true, nil, false)
 	if got != tuitable.StateReady {
 		t.Errorf("folder backup-only → want StateReady, got %v", got)
 	}
@@ -75,7 +75,7 @@ func TestDetectConfigState_Folder_ReadyWithExistingTarget(t *testing.T) {
 	mkDir(t, backupPath)
 	mkDir(t, targetPath)
 
-	got := DetectConfigState(backupPath, targetPath, true, nil)
+	got := DetectConfigState(backupPath, targetPath, true, nil, false)
 	if got != tuitable.StateReady {
 		t.Errorf("folder backup+target → want StateReady, got %v", got)
 	}
@@ -89,7 +89,7 @@ func TestDetectConfigState_Folder_Adopt(t *testing.T) {
 
 	mkDir(t, targetPath)
 
-	got := DetectConfigState(backupPath, targetPath, true, nil)
+	got := DetectConfigState(backupPath, targetPath, true, nil, false)
 	if got != tuitable.StateAdopt {
 		t.Errorf("folder target-only → want StateAdopt, got %v", got)
 	}
@@ -101,7 +101,7 @@ func TestDetectConfigState_Folder_Missing(t *testing.T) {
 	backupPath := filepath.Join(tmp, "backup_missing")
 	targetPath := filepath.Join(tmp, "target_missing")
 
-	got := DetectConfigState(backupPath, targetPath, true, nil)
+	got := DetectConfigState(backupPath, targetPath, true, nil, false)
 	if got != tuitable.StateMissing {
 		t.Errorf("folder nothing → want StateMissing, got %v", got)
 	}
@@ -126,7 +126,7 @@ func TestDetectConfigState_Files_Linked(t *testing.T) {
 		mkSymlink(t, src, dst)
 	}
 
-	got := DetectConfigState(backupPath, targetPath, false, files)
+	got := DetectConfigState(backupPath, targetPath, false, files, false)
 	if got != tuitable.StateLinked {
 		t.Errorf("files all-symlinked → want StateLinked, got %v", got)
 	}
@@ -145,7 +145,7 @@ func TestDetectConfigState_Files_Ready(t *testing.T) {
 	mkFile(t, filepath.Join(backupPath, files[0]))
 	// targetPath/.bashrc intentionally absent
 
-	got := DetectConfigState(backupPath, targetPath, false, files)
+	got := DetectConfigState(backupPath, targetPath, false, files, false)
 	if got != tuitable.StateReady {
 		t.Errorf("files backup-only → want StateReady, got %v", got)
 	}
@@ -166,7 +166,7 @@ func TestDetectConfigState_Files_NoBackupTargetOnly(t *testing.T) {
 	// backup file is absent; only target file exists
 	mkFile(t, filepath.Join(targetPath, files[0]))
 
-	got := DetectConfigState(backupPath, targetPath, false, files)
+	got := DetectConfigState(backupPath, targetPath, false, files, false)
 	if got != tuitable.StateMissing {
 		t.Errorf("files target-only (no backup) → want StateMissing, got %v", got)
 	}
@@ -184,7 +184,7 @@ func TestDetectConfigState_Files_Missing(t *testing.T) {
 	files := []string{".bashrc"}
 	// no files created at all
 
-	got := DetectConfigState(backupPath, targetPath, false, files)
+	got := DetectConfigState(backupPath, targetPath, false, files, false)
 	if got != tuitable.StateMissing {
 		t.Errorf("files nothing → want StateMissing, got %v", got)
 	}
@@ -198,7 +198,7 @@ func TestDetectConfigState_Files_EmptyFileList(t *testing.T) {
 
 	mkDir(t, backupPath)
 
-	got := DetectConfigState(backupPath, targetPath, false, []string{})
+	got := DetectConfigState(backupPath, targetPath, false, []string{}, false)
 	if got != tuitable.StateMissing {
 		t.Errorf("files empty list → want StateMissing, got %v", got)
 	}
@@ -224,7 +224,7 @@ func TestDetectConfigState_Files_PartialSymlinks(t *testing.T) {
 	mkFile(t, src)
 	mkSymlink(t, src, dst)
 
-	got := DetectConfigState(backupPath, targetPath, false, files)
+	got := DetectConfigState(backupPath, targetPath, false, files, false)
 	if got != tuitable.StateReady {
 		t.Errorf("files partial-symlinks → want StateReady, got %v", got)
 	}
@@ -244,8 +244,56 @@ func TestDetectConfigState_Files_NonSymlinkTarget(t *testing.T) {
 	mkFile(t, filepath.Join(backupPath, files[0]))
 	mkFile(t, filepath.Join(targetPath, files[0])) // real file, not symlink
 
-	got := DetectConfigState(backupPath, targetPath, false, files)
+	got := DetectConfigState(backupPath, targetPath, false, files, false)
 	if got != tuitable.StateReady {
 		t.Errorf("files real-file-target with backup → want StateReady, got %v", got)
+	}
+}
+
+// ── Copy-mode tests ─────────────────────────────────────────────────────────
+
+func TestDetectConfigState_Copy_InSync(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	backup := filepath.Join(dir, "backup")
+	target := filepath.Join(dir, "target")
+	_ = os.MkdirAll(backup, 0755)
+	_ = os.MkdirAll(target, 0755)
+	_ = os.WriteFile(filepath.Join(backup, "f"), []byte("x"), 0644)
+	_ = os.WriteFile(filepath.Join(target, "f"), []byte("x"), 0644)
+
+	got := DetectConfigState(backup, target, false, []string{"f"}, true)
+	if got != tuitable.StateLinked {
+		t.Errorf("state = %v, want StateLinked (in sync)", got)
+	}
+}
+
+func TestDetectConfigState_Copy_Drift(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	backup := filepath.Join(dir, "backup")
+	target := filepath.Join(dir, "target")
+	_ = os.MkdirAll(backup, 0755)
+	_ = os.MkdirAll(target, 0755)
+	_ = os.WriteFile(filepath.Join(backup, "f"), []byte("new"), 0644)
+	_ = os.WriteFile(filepath.Join(target, "f"), []byte("old"), 0644)
+
+	got := DetectConfigState(backup, target, false, []string{"f"}, true)
+	if got != tuitable.StateReady {
+		t.Errorf("state = %v, want StateReady (drift)", got)
+	}
+}
+
+func TestDetectConfigState_Copy_TargetMissing(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	backup := filepath.Join(dir, "backup")
+	target := filepath.Join(dir, "target")
+	_ = os.MkdirAll(backup, 0755)
+	_ = os.WriteFile(filepath.Join(backup, "f"), []byte("x"), 0644)
+
+	got := DetectConfigState(backup, target, false, []string{"f"}, true)
+	if got != tuitable.StateReady {
+		t.Errorf("state = %v, want StateReady (backup present, target absent)", got)
 	}
 }

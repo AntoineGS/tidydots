@@ -580,8 +580,8 @@ type PackageInstallMsg struct {
 // detectConfigState determines the state of a config entry given its paths and file list.
 // This is the shared logic used by both detectPathState and detectSubEntryState.
 // It delegates to detection.DetectConfigState which is the canonical implementation.
-func detectConfigState(backupPath, targetPath string, isFolder bool, files []string) PathState {
-	return detection.DetectConfigState(backupPath, targetPath, isFolder, files)
+func detectConfigState(backupPath, targetPath string, isFolder bool, files []string, isCopy bool) PathState {
+	return detection.DetectConfigState(backupPath, targetPath, isFolder, files, isCopy)
 }
 
 // handlePkgCheckResult processes the result of a single async package install check.

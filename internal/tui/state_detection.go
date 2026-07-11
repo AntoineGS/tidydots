@@ -14,7 +14,7 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 	targetPath := config.ExpandPath(item.Target, m.Platform.EnvVars)
 	backupPath := m.resolvePath(item.SubEntry.Backup)
 
-	st := detectConfigState(backupPath, targetPath, item.SubEntry.IsFolder(), item.SubEntry.Files)
+	st := detectConfigState(backupPath, targetPath, item.SubEntry.IsFolder(), item.SubEntry.Files, item.SubEntry.IsCopy())
 
 	if st == StateLinked && item.SubEntry.IsConfig() && item.SubEntry.IsFolder() && m.Manager != nil {
 		if m.Manager.HasOutdatedTemplates(backupPath) {
@@ -181,7 +181,7 @@ func detectSubEntryStateStatic(item SubEntryItem, plat *platform.Platform, cfg *
 	targetPath := config.ExpandPath(item.Target, plat.EnvVars)
 	backupPath := resolvePathStatic(item.SubEntry.Backup, cfg, plat.EnvVars)
 
-	st := detectConfigState(backupPath, targetPath, item.SubEntry.IsFolder(), item.SubEntry.Files)
+	st := detectConfigState(backupPath, targetPath, item.SubEntry.IsFolder(), item.SubEntry.Files, item.SubEntry.IsCopy())
 
 	if st == StateLinked && item.SubEntry.IsConfig() && item.SubEntry.IsFolder() && mgr != nil {
 		if mgr.HasOutdatedTemplates(backupPath) {

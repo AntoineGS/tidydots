@@ -4,6 +4,7 @@
 package detection
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 
@@ -20,7 +21,7 @@ func pathExists(path string) bool {
 // DetectConfigState determines the state of a config entry given its paths and file list.
 // This is a pure function that takes paths and returns a PathState. It only uses
 // os.Lstat and filepath.Join. It does NOT reference Model.
-func DetectConfigState(backupPath, targetPath string, isFolder bool, files []string) tuitable.PathState {
+func DetectConfigState(backupPath, targetPath string, isFolder bool, files []string, isCopy bool) tuitable.PathState {
 	if isFolder {
 		if info, err := os.Lstat(targetPath); err == nil {
 			if info.Mode()&os.ModeSymlink != 0 {
@@ -61,7 +62,11 @@ func DetectConfigState(backupPath, targetPath string, isFolder bool, files []str
 
 		if info, err := os.Lstat(dstFile); err == nil {
 			anyTarget = true
-			if info.Mode()&os.ModeSymlink == 0 {
+			if isCopy {
+				if !filesContentEqual(srcFile, dstFile) {
+					allLinked = false
+				}
+			} else if info.Mode()&os.ModeSymlink == 0 {
 				allLinked = false
 			}
 		} else {
@@ -82,4 +87,18 @@ func DetectConfigState(backupPath, targetPath string, isFolder bool, files []str
 	}
 
 	return tuitable.StateMissing
+}
+
+// filesContentEqual reports whether two files have identical contents. Any read
+// error (missing or unreadable file) counts as not equal.
+func filesContentEqual(a, b string) bool {
+	da, err := os.ReadFile(a)
+	if err != nil {
+		return false
+	}
+	db, err := os.ReadFile(b)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(da, db)
 }
