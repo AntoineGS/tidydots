@@ -6,6 +6,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Deployment methods for a config SubEntry.
+const (
+	// MethodSymlink symlinks each file from the repo to its target (default).
+	MethodSymlink = "symlink"
+	// MethodCopy writes a real copy of each file at its target.
+	MethodCopy = "copy"
+)
+
 // ManagerValue represents a typed value for a package manager entry.
 // It holds either a package name string (for traditional managers like pacman, apt),
 // a GitPackage configuration (for git repositories), or an InstallerPackage
@@ -254,6 +262,7 @@ type Application struct {
 type SubEntry struct {
 	Targets map[string]string `yaml:"targets,omitempty"`
 	Name    string            `yaml:"name"`
+	Method  string            `yaml:"method,omitempty"` // "" | "symlink" (default) | "copy"
 	Backup  string            `yaml:"backup,omitempty"`
 	Files   []string          `yaml:"files,omitempty"`
 	Sudo    bool              `yaml:"sudo,omitempty"`
@@ -277,6 +286,17 @@ func (s *SubEntry) GetTarget(osType string) string {
 
 	return ""
 }
+
+// EffectiveMethod returns the deployment method, defaulting to symlink.
+func (s *SubEntry) EffectiveMethod() string {
+	if s.Method == "" {
+		return MethodSymlink
+	}
+	return s.Method
+}
+
+// IsCopy reports whether the entry deploys by copying rather than symlinking.
+func (s *SubEntry) IsCopy() bool { return s.EffectiveMethod() == MethodCopy }
 
 // HasPackage returns true if the application has package installation configuration
 func (a *Application) HasPackage() bool {

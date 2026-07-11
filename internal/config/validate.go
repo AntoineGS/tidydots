@@ -64,6 +64,26 @@ func validateEntryPaths(appName string, entry SubEntry) []error {
 		}
 	}
 
+	// Validate deployment method.
+	switch entry.Method {
+	case "", MethodSymlink, MethodCopy:
+	default:
+		errs = append(errs, NewFieldError(
+			fmt.Sprintf("%s/%s", appName, entry.Name),
+			"method", entry.Method,
+			fmt.Errorf("must be %q or %q", MethodSymlink, MethodCopy),
+		))
+	}
+
+	// Copy mode requires an explicit, non-empty files list (v1: files-only).
+	if entry.Method == MethodCopy && len(entry.Files) == 0 {
+		errs = append(errs, NewFieldError(
+			fmt.Sprintf("%s/%s", appName, entry.Name),
+			"files", "",
+			fmt.Errorf("copy mode requires an explicit files list"),
+		))
+	}
+
 	return errs
 }
 

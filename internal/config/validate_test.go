@@ -491,3 +491,45 @@ func TestValidateConfig_RejectsConfigEntryWithoutTargets(t *testing.T) {
 		t.Errorf("no error mentioned targets for nvim-config; errors = %v", errs)
 	}
 }
+
+func TestValidateConfig_RejectsBadMethod(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{Version: 3, Applications: []Application{{
+		Name: "app",
+		Entries: []SubEntry{{
+			Name: "e", Backup: "./b", Method: "hardlink",
+			Files: []string{"f"}, Targets: map[string]string{"linux": "/etc"},
+		}},
+	}}}
+	if errs := ValidateConfig(cfg); len(errs) == 0 {
+		t.Error("expected error for invalid method, got none")
+	}
+}
+
+func TestValidateConfig_RejectsCopyWithoutFiles(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{Version: 3, Applications: []Application{{
+		Name: "app",
+		Entries: []SubEntry{{
+			Name: "e", Backup: "./b", Method: MethodCopy,
+			Files: nil, Targets: map[string]string{"linux": "/etc"},
+		}},
+	}}}
+	if errs := ValidateConfig(cfg); len(errs) == 0 {
+		t.Error("expected error for copy mode without files, got none")
+	}
+}
+
+func TestValidateConfig_AcceptsCopyWithFiles(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{Version: 3, Applications: []Application{{
+		Name: "app",
+		Entries: []SubEntry{{
+			Name: "e", Backup: "./b", Method: MethodCopy, Sudo: true,
+			Files: []string{"f"}, Targets: map[string]string{"linux": "/etc"},
+		}},
+	}}}
+	if errs := ValidateConfig(cfg); len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+}
