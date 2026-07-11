@@ -12,7 +12,8 @@ import (
 
 // copyFileTo copies src to dst. When useSudo is true (and not Windows) it shells
 // out to `cp`; otherwise it copies via the filesystem abstraction (copyFile),
-// which preserves the source file's permission bits.
+// which preserves the source file's permission bits. The sudo `cp` path is
+// subject to the process umask and does not bit-for-bit preserve unusual modes.
 func (m *Manager) copyFileTo(src, dst string, useSudo bool) error {
 	if useSudo && runtime.GOOS != platform.OSWindows {
 		if _, err := m.runner.RunWithSudo(m.ctx, "cp", src, dst); err != nil {

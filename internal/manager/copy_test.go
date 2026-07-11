@@ -87,3 +87,30 @@ func TestCopyFileTo_NoSudo_WritesViaFS(t *testing.T) {
 		t.Errorf("dst = (%q, %v), want (\"hello\", nil)", got, err)
 	}
 }
+
+func TestRemovePath_NoSudo_RemovesViaFS(t *testing.T) {
+	t.Parallel()
+	mgr, mem := newMemManager(t)
+	_ = mem.WriteFile("/f", []byte("x"), 0644)
+
+	if err := mgr.removePath("/f", false); err != nil {
+		t.Fatalf("removePath: %v", err)
+	}
+	if _, err := mem.Lstat("/f"); err == nil {
+		t.Error("file still exists after removePath, want removed")
+	}
+}
+
+func TestRemovePath_Sudo_RecordsRmForce(t *testing.T) {
+	t.Parallel()
+	mgr, _, stub := newSudoManager(t)
+
+	if err := mgr.removePath("/etc/f", true); err != nil {
+		t.Fatalf("removePath sudo: %v", err)
+	}
+	if len(stub.Calls) != 1 || stub.Calls[0].Name != "rm" ||
+		len(stub.Calls[0].Args) != 2 || stub.Calls[0].Args[0] != "-f" ||
+		stub.Calls[0].Args[1] != "/etc/f" || !stub.Calls[0].Sudo {
+		t.Errorf("expected one sudo `rm -f /etc/f`, got %+v", stub.Calls)
+	}
+}
