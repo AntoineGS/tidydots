@@ -336,6 +336,13 @@ func (m *Manager) RestoreFiles(subEntry config.SubEntry, source, target string) 
 		srcFile := filepath.Join(source, file)
 		dstFile := filepath.Join(target, file)
 
+		if subEntry.IsCopy() {
+			if err := m.restoreFileCopy(subEntry, srcFile, dstFile); err != nil {
+				return err
+			}
+			continue
+		}
+
 		// Check if already a symlink pointing to correct source
 		if m.symlinkPointsTo(dstFile, srcFile) {
 			m.logger.Debug("already a symlink", slog.String("path", dstFile))

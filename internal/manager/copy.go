@@ -27,8 +27,6 @@ func (m *Manager) copyFileTo(src, dst string, useSudo bool) error {
 // removePath removes a single file or symlink at path. When useSudo is true (and
 // not Windows) it shells out to `rm -f`; otherwise it uses the filesystem
 // abstraction.
-//
-//nolint:unused // consumed by restoreFileCopy below, wired into restore.go in Task 3
 func (m *Manager) removePath(path string, useSudo bool) error {
 	if useSudo && runtime.GOOS != platform.OSWindows {
 		if _, err := m.runner.RunWithSudo(m.ctx, "rm", "-f", path); err != nil {
@@ -74,8 +72,6 @@ func (m *Manager) filesEqual(src, dst string, useSudo bool) (bool, error) {
 // symlink at dstFile (migration from a prior symlink-mode deployment) and is
 // idempotent: when dstFile already exists as a real file whose contents match
 // srcFile, it performs no write. All actions respect DryRun.
-//
-//nolint:unused // wired into restore.go's dispatch logic in Task 3
 func (m *Manager) restoreFileCopy(subEntry config.SubEntry, srcFile, dstFile string) error {
 	if !m.pathExists(srcFile) {
 		if m.DryRun {
