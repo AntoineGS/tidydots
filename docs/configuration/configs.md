@@ -1,6 +1,6 @@
 # Configs (SubEntry)
 
-A **SubEntry** (config entry) represents a single configuration that tidydots manages through symlinks. Config entries live inside an [Application's](applications.md) `entries` array and define where files are backed up in your dotfiles repo and where they should be symlinked on the target system.
+A **SubEntry** (config entry) represents a single configuration that tidydots manages, by default through symlinks. Config entries live inside an [Application's](applications.md) `entries` array and define where files are backed up in your dotfiles repo and where they should be deployed on the target system.
 
 ## Schema Reference
 
@@ -8,9 +8,10 @@ A **SubEntry** (config entry) represents a single configuration that tidydots ma
 |-------|------|----------|-------------|
 | `name` | string | yes | Entry identifier, unique within its application |
 | `backup` | string | yes | Path in the dotfiles repo where config files are stored |
-| `targets` | map[string]string | yes | OS-specific target paths where symlinks are created |
+| `targets` | map[string]string | yes | OS-specific target paths where files are deployed |
 | `files` | []string | no | Specific files to manage. Empty = entire folder |
-| `sudo` | bool | no | Use elevated privileges for symlink operations |
+| `method` | string | no | Deployment method: `symlink` (default) or `copy`. See [Deployment method](#deployment-method) |
+| `sudo` | bool | no | Use elevated privileges for deployment operations |
 
 ## How It Works
 
@@ -18,8 +19,8 @@ When you run `tidydots restore`, for each config entry tidydots:
 
 1. Reads the `backup` path (relative to the config directory)
 2. Looks up the `targets` map for the current OS
-3. Creates a symlink from the target path pointing to the backup path
-4. If `files` is specified, only those specific files are symlinked
+3. Creates a symlink from the target path pointing to the backup path (or writes a real file copy, if `method: copy` is set — see [Deployment method](#deployment-method))
+4. If `files` is specified, only those specific files are symlinked (or copied)
 
 The result is that your system reads configuration from the target path, but the actual files live in your dotfiles repository.
 
@@ -86,6 +87,19 @@ files: []
 !!! tip
     Use `files` when you want to manage individual dotfiles from a backup directory that may contain other files you do not want symlinked. Leave `files` empty when you want the entire directory structure managed as a unit.
 
+### method
+
+The `method` field selects how tidydots deploys this entry's files to the target path:
+
+- `symlink` (default, or when `method` is omitted) — creates a symlink at the target pointing back into the dotfiles repo.
+- `copy` — writes a real, independent file at the target instead. The repo file remains the source of truth.
+
+```yaml
+method: copy
+```
+
+See [Deployment method](#deployment-method) below for the full behavior, migration notes, and v1 limitations.
+
 ### sudo
 
 When `sudo: true` is set, tidydots uses elevated privileges for all symlink operations on this entry. This is required for targets outside your home directory, such as system configuration files.
@@ -96,6 +110,50 @@ sudo: true
 
 !!! warning
     Only set `sudo: true` when the target path genuinely requires elevated privileges (e.g., `/etc/` paths). Using sudo unnecessarily may create files owned by root in unexpected locations.
+
+## Deployment method
+
+By default, config entries are deployed as symlinks: the target path becomes a symlink pointing back into your dotfiles repo, and the repo file is what you actually edit. Setting `method: copy` on an entry switches to writing a real, independent file at the target instead.
+
+```yaml
+entries:
+  - name: "blacklist"
+    method: copy
+    files: ["blacklist-raydium.conf"]
+    backup: "./Linux/modprobe"
+    targets:
+      linux: "/etc/modprobe.d"
+    sudo: true
+```
+
+### symlink vs. copy
+
+| Method | Target becomes | How updates propagate |
+|--------|-----------------|------------------------|
+| `symlink` (default) | A symlink into the dotfiles repo | Immediate — the target always reflects the repo file |
+| `copy` | A real, independent file | Only on the next `tidydots restore` |
+
+### Refresh and idempotency
+
+With `method: copy`, every `tidydots restore` compares the target file's content against the corresponding repo (backup) file:
+
+- If the contents differ, the target is overwritten with the current repo content.
+- If the contents already match, tidydots makes no changes (a no-op).
+
+Because the target is a real file rather than a live link, editing the file in the dotfiles repo and re-running `tidydots restore` is how changes reach a copy-mode target.
+
+### Migrating from symlink to copy
+
+If the target currently exists as a symlink (for example, the entry was previously deployed with `method: symlink`, or adopted), switching the entry to `method: copy` and re-running `tidydots restore` removes the existing symlink and replaces it with a real file copied from the repo. This makes symlink-to-copy migration safe without any manual cleanup.
+
+### v1 limitations
+
+- **Files only** — `method: copy` requires an explicit, non-empty `files:` list. Whole-folder copying (`files: []`) is not supported and is rejected during config validation.
+- **No template rendering** — `.tmpl` files are not rendered in copy mode; files are copied as-is from the repo. Use `method: symlink` (the default) if the entry needs template rendering.
+
+### When to use it
+
+Use `method: copy` for files that must be readable very early in boot, before `$HOME` (or an encrypted subvolume containing your dotfiles repo) is mounted — for example `/etc/modprobe.d` or `/etc/udev/rules.d`. At that point in boot, a symlink into the dotfiles repo would be a dangling link, since its target isn't available yet; a real copied file has no such dependency and is readable immediately.
 
 ## Examples
 

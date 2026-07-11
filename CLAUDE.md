@@ -99,9 +99,9 @@ Manager has optional `WithFS(fsys.FS)` and `WithRunner(cmdexec.Runner)` builder 
 ### Key Patterns
 
 - **Unified entries**: Single `entries` array with `sudo: true` flag for entries requiring elevated privileges
-- **Entry types**: Config entries (have `backup`) manage symlinks
+- **Entry types**: Config entries (have `backup`) manage symlinks. `SubEntry.Method` selects the deployment mode: `symlink` (default, or empty) or `copy`. Copy mode performs content-based drift detection (re-copies only when the repo file's contents differ from the target, no-op when in sync) and replaces any pre-existing symlink at the target (safe migration from symlink mode). Copy mode requires a non-empty `files:` list and does not render `.tmpl` files (see `internal/config/entry.go`, `internal/manager/copy.go`)
 - **When-based selection**: Applications conditionally included via Go template `when` expressions (e.g., `{{ eq .OS "linux" }}`)
-- **Symlink-based restoration**: Configs are symlinked from the dotfiles repo rather than copied
+- **Symlink-based restoration**: Configs are symlinked from the dotfiles repo rather than copied by default; set `method: copy` on an entry to deploy a real file copy instead (see [configs.md](docs/configuration/configs.md#deployment-method))
 - **Dry-run mode**: All operations support `-n` flag for safe preview
 - **Table-driven tests**: Tests use `t.TempDir()` for filesystem isolation
 - **File size targets**: Production files should be <400 LOC (hard max 800). If a file exceeds 400 LOC, consider whether it has multiple responsibilities that should be split.

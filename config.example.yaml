@@ -104,6 +104,22 @@ applications:
           linux: "/usr/share/libalpm/hooks"
         sudo: true
 
+  # ── Copy mode (real file on the root fs; needed for early-boot configs) ─
+  # Symlinks into $HOME are unreadable before /home is mounted at boot, so
+  # early-boot config (modprobe, udev, ...) must be copied as real files.
+  - name: "modprobe"
+    description: "Kernel module options"
+    when: '{{ eq .Distro "arch" }}'
+
+    entries:
+      - name: "blacklist"
+        method: copy          # write a real file instead of a symlink
+        files: ["blacklist-raydium.conf"]
+        backup: "./Linux/modprobe"
+        targets:
+          linux: "/etc/modprobe.d"
+        sudo: true
+
   # ── Template path example (host-specific config) ───────────────────
   - name: "hyprland"
     description: "Hyprland window manager (per-host)"
