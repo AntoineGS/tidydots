@@ -78,7 +78,8 @@ func (m *Manager) restoreFileCopy(subEntry config.SubEntry, srcFile, dstFile str
 			m.logger.Info("source file does not exist (dry-run, skipping)", slog.String("path", srcFile))
 			return nil
 		}
-		return NewPathError("restore", srcFile, fmt.Errorf("source file does not exist"))
+		return NewPathError("restore", srcFile, fmt.Errorf(
+			"source file does not exist; copy mode does not adopt an existing target — run `tidydots backup` first to pull it into your repo"))
 	}
 
 	switch {

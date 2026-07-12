@@ -520,6 +520,20 @@ func TestValidateConfig_RejectsCopyWithoutFiles(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_RejectsCopyWithoutBackup(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{Version: 3, Applications: []Application{{
+		Name: "app",
+		Entries: []SubEntry{{
+			Name: "e", Backup: "", Method: MethodCopy,
+			Files: []string{"f"}, Targets: map[string]string{"linux": "/etc"},
+		}},
+	}}}
+	if errs := ValidateConfig(cfg); len(errs) == 0 {
+		t.Error("expected error for copy mode without backup, got none")
+	}
+}
+
 func TestValidateConfig_AcceptsCopyWithFiles(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{Version: 3, Applications: []Application{{

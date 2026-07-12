@@ -297,3 +297,23 @@ func TestDetectConfigState_Copy_TargetMissing(t *testing.T) {
 		t.Errorf("state = %v, want StateReady (backup present, target absent)", got)
 	}
 }
+
+func TestDetectConfigState_Copy_TargetStillSymlink(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	backup := filepath.Join(dir, "backup")
+	target := filepath.Join(dir, "target")
+	_ = os.MkdirAll(backup, 0755)
+	_ = os.MkdirAll(target, 0755)
+	src := filepath.Join(backup, "f")
+	_ = os.WriteFile(src, []byte("x"), 0644)
+	// Stale symlink left by a previous symlink-mode deployment.
+	if err := os.Symlink(src, filepath.Join(target, "f")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	got := DetectConfigState(backup, target, false, []string{"f"}, true)
+	if got != tuitable.StateReady {
+		t.Errorf("state = %v, want StateReady (a symlinked target must not report in sync)", got)
+	}
+}

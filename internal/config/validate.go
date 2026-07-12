@@ -84,6 +84,15 @@ func validateEntryPaths(appName string, entry SubEntry) []error {
 		))
 	}
 
+	// Copy mode is only meaningful for config entries, which declare a backup.
+	if entry.Method == MethodCopy && entry.Backup == "" {
+		errs = append(errs, NewFieldError(
+			fmt.Sprintf("%s/%s", appName, entry.Name),
+			"backup", "",
+			fmt.Errorf("copy mode requires a backup path"),
+		))
+	}
+
 	return errs
 }
 

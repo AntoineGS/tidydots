@@ -63,7 +63,10 @@ func DetectConfigState(backupPath, targetPath string, isFolder bool, files []str
 		if info, err := os.Lstat(dstFile); err == nil {
 			anyTarget = true
 			if isCopy {
-				if !filesContentEqual(srcFile, dstFile) {
+				// os.ReadFile follows symlinks, so a stale symlink pointing back
+				// into the backup would compare equal to its own source and be
+				// misreported as in sync. A copy target must be a real file.
+				if info.Mode()&os.ModeSymlink != 0 || !filesContentEqual(srcFile, dstFile) {
 					allLinked = false
 				}
 			} else if info.Mode()&os.ModeSymlink == 0 {

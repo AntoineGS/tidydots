@@ -10,7 +10,7 @@ A **SubEntry** (config entry) represents a single configuration that tidydots ma
 | `backup` | string | yes | Path in the dotfiles repo where config files are stored |
 | `targets` | map[string]string | yes | OS-specific target paths where files are deployed |
 | `files` | []string | no | Specific files to manage. Empty = entire folder |
-| `method` | string | no | Deployment method: `symlink` (default) or `copy`. See [Deployment method](#deployment-method) |
+| `method` | string | no | Deployment method: `symlink` (default) or `copy`. See [Deployment Method](#deployment-method) |
 | `sudo` | bool | no | Use elevated privileges for deployment operations |
 
 ## How It Works
@@ -19,7 +19,7 @@ When you run `tidydots restore`, for each config entry tidydots:
 
 1. Reads the `backup` path (relative to the config directory)
 2. Looks up the `targets` map for the current OS
-3. Creates a symlink from the target path pointing to the backup path (or writes a real file copy, if `method: copy` is set — see [Deployment method](#deployment-method))
+3. Creates a symlink from the target path pointing to the backup path (or writes a real file copy, if `method: copy` is set — see [Deployment Method](#deployment-method))
 4. If `files` is specified, only those specific files are symlinked (or copied)
 
 The result is that your system reads configuration from the target path, but the actual files live in your dotfiles repository.
@@ -98,7 +98,7 @@ The `method` field selects how tidydots deploys this entry's files to the target
 method: copy
 ```
 
-See [Deployment method](#deployment-method) below for the full behavior, migration notes, and v1 limitations.
+See [Deployment Method](#deployment-method) below for the full behavior, migration notes, and v1 limitations.
 
 ### sudo
 
@@ -111,7 +111,7 @@ sudo: true
 !!! warning
     Only set `sudo: true` when the target path genuinely requires elevated privileges (e.g., `/etc/` paths). Using sudo unnecessarily may create files owned by root in unexpected locations.
 
-## Deployment method
+## Deployment Method
 
 By default, config entries are deployed as symlinks: the target path becomes a symlink pointing back into your dotfiles repo, and the repo file is what you actually edit. Setting `method: copy` on an entry switches to writing a real, independent file at the target instead.
 
@@ -126,14 +126,14 @@ entries:
     sudo: true
 ```
 
-### symlink vs. copy
+### Symlink vs. Copy
 
 | Method | Target becomes | How updates propagate |
 |--------|-----------------|------------------------|
 | `symlink` (default) | A symlink into the dotfiles repo | Immediate — the target always reflects the repo file |
 | `copy` | A real, independent file | Only on the next `tidydots restore` |
 
-### Refresh and idempotency
+### Refresh and Idempotency
 
 With `method: copy`, every `tidydots restore` compares the target file's content against the corresponding repo (backup) file:
 
@@ -142,16 +142,19 @@ With `method: copy`, every `tidydots restore` compares the target file's content
 
 Because the target is a real file rather than a live link, editing the file in the dotfiles repo and re-running `tidydots restore` is how changes reach a copy-mode target.
 
-### Migrating from symlink to copy
+!!! warning
+    If the target already exists as a real file and its contents differ from the repo's, `tidydots restore` **overwrites it with the repo content**. Unlike `symlink` mode, copy mode does **not** merge the existing target's content into your backup first — whatever was at the target is lost. The `--no-merge` and `--force` flags that control this behavior for symlink entries do not apply to `copy` entries; copy mode always overwrites on drift, unconditionally. Back up any pre-existing target file yourself before pointing a new `method: copy` entry at it.
+
+### Migrating from Symlink to Copy
 
 If the target currently exists as a symlink (for example, the entry was previously deployed with `method: symlink`, or adopted), switching the entry to `method: copy` and re-running `tidydots restore` removes the existing symlink and replaces it with a real file copied from the repo. This makes symlink-to-copy migration safe without any manual cleanup.
 
-### v1 limitations
+### v1 Limitations
 
 - **Files only** — `method: copy` requires an explicit, non-empty `files:` list. Whole-folder copying (`files: []`) is not supported and is rejected during config validation.
-- **No template rendering** — `.tmpl` files are not rendered in copy mode; files are copied as-is from the repo. Use `method: symlink` (the default) if the entry needs template rendering.
+- **No template rendering** — Template (`.tmpl`) rendering only ever applies to folder entries (an entry with an empty `files:` list); see [Template Files in Config Entries](#template-files-in-config-entries). Since `method: copy` requires an explicit, non-empty `files:` list, template rendering never applies to copy entries — this is a consequence of copy mode being files-only, not an additional restriction.
 
-### When to use it
+### When to Use It
 
 Use `method: copy` for files that must be readable very early in boot, before `$HOME` (or an encrypted subvolume containing your dotfiles repo) is mounted — for example `/etc/modprobe.d` or `/etc/udev/rules.d`. At that point in boot, a symlink into the dotfiles repo would be a dangling link, since its target isn't available yet; a real copied file has no such dependency and is readable immediately.
 
