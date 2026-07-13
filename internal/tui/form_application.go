@@ -297,7 +297,7 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
-		return m, m.dispatchUncheckedPackageStates()
+		return m, tea.Batch(m.dispatchUncheckedPackageStates(), m.dispatchLoadingSubEntryStates())
 	}
 
 	// Clear error when navigating
@@ -449,7 +449,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
-		return m, m.dispatchUncheckedPackageStates()
+		return m, tea.Batch(m.dispatchUncheckedPackageStates(), m.dispatchLoadingSubEntryStates())
 	}
 
 	return m, nil
@@ -594,7 +594,7 @@ func (m Model) updateDepsList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.activeForm = FormNone
 		m.applicationForm = nil
 		m.Screen = ScreenResults
-		return m, m.dispatchUncheckedPackageStates()
+		return m, tea.Batch(m.dispatchUncheckedPackageStates(), m.dispatchLoadingSubEntryStates())
 	}
 
 	return m, nil

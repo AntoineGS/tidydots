@@ -324,7 +324,7 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.subEntryForm = nil
 		m.Screen = ScreenResults
 
-		return m, nil
+		return m, m.dispatchLoadingSubEntryStates()
 	}
 
 	// Clear error when navigating
@@ -448,7 +448,7 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 		m.subEntryForm = nil
 		m.Screen = ScreenResults
 
-		return m, nil
+		return m, m.dispatchLoadingSubEntryStates()
 	}
 
 	return m, nil

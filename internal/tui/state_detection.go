@@ -19,10 +19,20 @@ func detectSetupPathState(sub config.SubEntry, mgr *manager.Manager) PathState {
 	return StateSetupNeeded
 }
 
-// detectSubEntryState determines the state of a sub-entry item
+// detectSubEntryState determines the state of a sub-entry item.
+//
+// This method runs synchronously on the bubbletea UI goroutine (called from
+// refreshApplicationStates and reinitPreservingState), so it must never shell
+// out. A setup entry's state can only be determined by running its check
+// command (see detectSetupPathState), which is real subprocess execution —
+// doing that here would visibly stall the UI. Instead, setup entries are left
+// at StateLoading and resolved asynchronously; see
+// checkLoadingSubEntryStatesCmd, which is dispatched by the callers above and
+// by detectSubEntryStateStatic (the goroutine-safe variant used by the async
+// detection pipeline).
 func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 	if item.SubEntry.IsSetup() {
-		return detectSetupPathState(item.SubEntry, m.Manager)
+		return StateLoading
 	}
 
 	targetPath := config.ExpandPath(item.Target, m.Platform.EnvVars)
@@ -172,6 +182,43 @@ func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 		}
 
 		// Sub-entry state checks (only if still at StateLoading)
+		for j, sub := range app.SubItems {
+			if sub.State != StateLoading {
+				continue
+			}
+			appIndex := i
+			subIndex := j
+			subItem := sub
+			cmds = append(cmds, func() tea.Msg {
+				state := detectSubEntryStateStatic(subItem, plat, cfg, mgr)
+				return stateCheckResultMsg{appIndex: appIndex, subIndex: subIndex, state: state}
+			})
+		}
+	}
+
+	return tea.Batch(cmds...), len(cmds)
+}
+
+// checkLoadingSubEntryStatesCmd returns a tea.Cmd that resolves sub-entry
+// states still stuck at StateLoading after a synchronous rebuild — chiefly
+// setup entries, whose state can only be determined by running their check
+// command (detectSubEntryState refuses to do that on the UI goroutine and
+// leaves them at StateLoading instead). Each check gets its own concurrent
+// command so results stream in individually, matching checkSubEntryStatesCmd
+// and checkFilteredStatesCmd.
+//
+// Unlike checkFilteredStatesCmd, this walks every application regardless of
+// filter state: callers such as refreshApplicationStates and
+// reinitPreservingState synchronously touch all apps, filtered or not, so a
+// filtered app's setup entries can just as easily end up at StateLoading.
+// It also returns the number of checks dispatched so the caller can track pending work.
+func (m Model) checkLoadingSubEntryStatesCmd() (tea.Cmd, int) {
+	var cmds []tea.Cmd
+	plat := m.Platform
+	cfg := m.Config
+	mgr := m.Manager
+
+	for i, app := range m.Applications {
 		for j, sub := range app.SubItems {
 			if sub.State != StateLoading {
 				continue

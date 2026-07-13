@@ -297,7 +297,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleMouseWheelEvent(msg)
 
 	case editorLaunchCompleteMsg:
-		// Editor exited - refresh application states since template may have changed
+		// Editor exited - refresh application states since template may have changed.
+		// refreshApplicationStates never shells out; setup entries land at
+		// StateLoading and are resolved by the dispatched cmd below.
 		m.refreshApplicationStates()
 		m.rebuildTable()
 		if msg.err != nil {
@@ -307,7 +309,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Message: msg.err.Error(),
 			}}
 		}
-		return m, nil
+		return m, m.dispatchLoadingSubEntryStates()
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -636,6 +638,16 @@ func (m *Model) dispatchUncheckedPackageStates() tea.Cmd {
 // apps and tracks the pending count on the model.
 func (m *Model) dispatchFilteredStates() tea.Cmd {
 	cmd, count := m.checkFilteredStatesCmd()
+	m.pendingStateChecks += count
+	return cmd
+}
+
+// dispatchLoadingSubEntryStates dispatches async state checks for sub-entries
+// left at StateLoading by a synchronous rebuild (e.g. setup entries after
+// refreshApplicationStates or reinitPreservingState) and tracks the pending
+// count on the model.
+func (m *Model) dispatchLoadingSubEntryStates() tea.Cmd {
+	cmd, count := m.checkLoadingSubEntryStatesCmd()
 	m.pendingStateChecks += count
 	return cmd
 }
