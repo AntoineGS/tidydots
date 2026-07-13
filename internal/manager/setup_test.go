@@ -377,3 +377,49 @@ func TestRunSetupEntry_RunFailsSilently_OmitsDanglingSeparator(t *testing.T) {
 		t.Errorf("error = %q, want %q", err.Error(), want)
 	}
 }
+
+// TestRunSetup_DelegatesToRunSetupEntry proves the exported wrapper used by the
+// TUI keeps runSetupEntry's semantics: check, then run, then re-check.
+func TestRunSetup_DelegatesToRunSetupEntry(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	stub.AddResult("sh", cmdexec.Result{ExitCode: 1}) // check fails
+	stub.AddResult("sh", cmdexec.Result{ExitCode: 0}) // run succeeds
+	stub.AddResult("sh", cmdexec.Result{ExitCode: 0}) // re-check passes
+
+	m := newSetupManager(stub, false)
+
+	if err := m.RunSetup("vicinae", setupEntry()); err != nil {
+		t.Fatalf("RunSetup returned error: %v", err)
+	}
+
+	calls := shellCalls(stub)
+	if len(calls) != 3 {
+		t.Fatalf("expected 3 shell calls (check, run, re-check), got %d", len(calls))
+	}
+
+	if !strings.Contains(calls[1].Args[1], "enable --now") {
+		t.Errorf("second call should be the run command, got %q", calls[1].Args[1])
+	}
+}
+
+// TestRunSetup_DryRun_RunsCheckButNeverRun proves the exported wrapper does not
+// lose runSetupEntry's dry-run guarantee.
+func TestRunSetup_DryRun_RunsCheckButNeverRun(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	stub.AddResult("sh", cmdexec.Result{ExitCode: 1}) // check fails
+
+	m := newSetupManager(stub, true)
+
+	if err := m.RunSetup("vicinae", setupEntry()); err != nil {
+		t.Fatalf("RunSetup dry run returned error: %v", err)
+	}
+
+	calls := shellCalls(stub)
+	if len(calls) != 1 {
+		t.Fatalf("dry run should make exactly 1 shell call (the check), got %d", len(calls))
+	}
+
+	if strings.Contains(calls[0].Args[1], "enable --now") {
+		t.Error("dry run executed the run command; it must never do that")
+	}
+}

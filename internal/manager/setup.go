@@ -116,6 +116,22 @@ func (m *Manager) IsSetupApplied(e config.SubEntry) bool {
 	return m.runCheck(check)
 }
 
+// RunSetup executes a single setup sub-entry: it runs the entry's check and,
+// if the check fails, the setup command, then re-runs the check to confirm the
+// effect landed. It is the exported entry point for callers outside this
+// package (the TUI's restore action); Restore drives runSetupEntry directly.
+//
+// The semantics are exactly runSetupEntry's — dry run still executes the check
+// and never the run command, and a passing check is a no-op.
+//
+// The check and the run are real subprocesses, and an entry with sudo: true may
+// prompt for a password on the terminal. A caller that owns the terminal (the
+// bubbletea TUI) must therefore release it for the duration of this call; see
+// internal/tui/setup_run.go.
+func (m *Manager) RunSetup(appName string, e config.SubEntry) error {
+	return m.runSetupEntry(appName, e)
+}
+
 // runSetupEntry executes a single setup sub-entry:
 //
 //  1. no run command for this OS  -> skip
