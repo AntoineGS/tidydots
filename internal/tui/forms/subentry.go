@@ -2,6 +2,7 @@ package forms
 
 import (
 	"errors"
+	"maps"
 	"strings"
 
 	"charm.land/bubbles/v2/filepicker"
@@ -40,12 +41,17 @@ const (
 
 // SubEntryForm holds state for editing SubEntry data
 type SubEntryForm struct {
-	Err                string
-	SuccessMessage     string
-	OriginalValue      string
-	Suggestions        []string
-	Files              []string
-	SelectedFiles      map[string]bool
+	Err            string
+	SuccessMessage string
+	OriginalValue  string
+	Suggestions    []string
+	Files          []string
+	SelectedFiles  map[string]bool
+	// Check and Run belong to setup entries, which this form does not edit (they
+	// are edited in tidydots.yaml). They are carried through anyway so that a
+	// form built from an entry cannot silently delete them on the way back out.
+	Check              map[string]string
+	Run                map[string]string
 	NameInput          textinput.Model
 	LinuxTargetInput   textinput.Model
 	WindowsTargetInput textinput.Model
@@ -289,12 +295,16 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 		return config.SubEntry{}, errors.New("backup path is required")
 	}
 
-	// Build SubEntry from form
+	// Build SubEntry from form. Check and Run have no fields in this form, so they
+	// are written back exactly as they came in: whatever the form does not carry
+	// through is deleted from the config file when the caller saves.
 	subEntry := config.SubEntry{
 		Name:    name,
 		Targets: targets,
 		Sudo:    f.IsSudo,
 		Backup:  backup,
+		Check:   maps.Clone(f.Check),
+		Run:     maps.Clone(f.Run),
 	}
 
 	// Add files if in files mode
@@ -335,5 +345,7 @@ func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 		IsSudo:             entry.Sudo,
 		IsFolder:           entry.IsFolder(),
 		Files:              entry.Files,
+		Check:              maps.Clone(entry.Check),
+		Run:                maps.Clone(entry.Run),
 	}
 }

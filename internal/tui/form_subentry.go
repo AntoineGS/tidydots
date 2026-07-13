@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -32,6 +33,10 @@ const (
 	ModePicker    = forms.ModePicker
 	ModeTextInput = forms.ModeTextInput
 )
+
+// setupEntryNotEditable is shown when the user presses `e` on a setup entry: the
+// form cannot represent check/run, so editing happens in the config file.
+const setupEntryNotEditable = "Setup entries are not editable here — edit their check/run commands in tidydots.yaml"
 
 // initSubEntryForm initializes the sub-entry form.
 // appIdx is the index in m.Applications (sorted).
@@ -78,6 +83,24 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 
 		sub = app.Entries[configSubIdx]
 		hasSub = true
+
+		// A setup entry *is* its check/run commands, and this form has no fields
+		// for them: it edits a target/backup/files config entry. Opening it on a
+		// setup entry lets the user save the entry back without its commands —
+		// the entry stops being a setup entry, re-validates clean, and the setup
+		// step silently disappears from tidydots.yaml. Refuse, and say where they
+		// are edited instead.
+		if sub.IsSetup() {
+			m.results = []ResultItem{{
+				Name:    sub.Name,
+				Success: false,
+				Message: setupEntryNotEditable,
+			}}
+			m.showingResults = true
+			m.resultsScrollOffset = 0
+
+			return
+		}
 	}
 
 	nameInput := newFormInput("e.g., nvim-config", CharLimitName, InputWidthNarrow)
@@ -130,26 +153,31 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 		WindowsTargetInput: windowsTargetInput,
 		IsSudo:             isSudo,
 		BackupInput:        backupInput,
-		IsFolder:           isFolder,
-		Files:              files,
-		FilesCursor:        0,
-		NewFileInput:       newFileInput,
-		AddingFile:         false,
-		EditingFile:        false,
-		EditingFileIndex:   -1,
-		FocusIndex:         0,
-		EditingField:       false,
-		OriginalValue:      "",
-		Suggestions:        nil,
-		SuggestionCursor:   -1,
-		ShowSuggestions:    false,
-		TargetAppIdx:       targetAppIdx,
-		EditAppIdx:         editAppIdx,
-		EditSubIdx:         editSubEntryIdx,
-		Err:                "",
-		AddFileMode:        ModeNone,
-		ModeMenuCursor:     0,
-		SelectedFiles:      make(map[string]bool),
+		// Carried, not edited: this form has no fields for them, and BuildSubEntry
+		// writes back whatever it holds. The guard above means a setup entry never
+		// gets here — this keeps any other path from dropping them.
+		Check:            maps.Clone(sub.Check),
+		Run:              maps.Clone(sub.Run),
+		IsFolder:         isFolder,
+		Files:            files,
+		FilesCursor:      0,
+		NewFileInput:     newFileInput,
+		AddingFile:       false,
+		EditingFile:      false,
+		EditingFileIndex: -1,
+		FocusIndex:       0,
+		EditingField:     false,
+		OriginalValue:    "",
+		Suggestions:      nil,
+		SuggestionCursor: -1,
+		ShowSuggestions:  false,
+		TargetAppIdx:     targetAppIdx,
+		EditAppIdx:       editAppIdx,
+		EditSubIdx:       editSubEntryIdx,
+		Err:              "",
+		AddFileMode:      ModeNone,
+		ModeMenuCursor:   0,
+		SelectedFiles:    make(map[string]bool),
 	}
 
 	m.activeForm = FormSubEntry

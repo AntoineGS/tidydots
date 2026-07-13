@@ -550,3 +550,39 @@ func TestSubEntryForm_IsToggleField(t *testing.T) {
 		})
 	}
 }
+
+// TestSubEntryForm_RoundTripsCheckAndRun is belt-and-braces against a data-loss
+// bug: the form has no UI for check/run (setup entries are edited in
+// tidydots.yaml), but anything the form does not carry through NewSubEntryForm →
+// BuildSubEntry is silently dropped when the caller saves the entry back to the
+// config file. The form must preserve the fields it does not display.
+//
+// The entry below is deliberately hybrid (targets + backup + check + run):
+// config validation rejects that shape, and the form is the last place that
+// should be quietly "fixing" it by deleting half of it.
+func TestSubEntryForm_RoundTripsCheckAndRun(t *testing.T) {
+	entry := config.SubEntry{
+		Name:    "enable-service",
+		Targets: map[string]string{"linux": "~/.config/vicinae"},
+		Backup:  "./vicinae",
+		Check:   map[string]string{"linux": "systemctl --user is-enabled --quiet vicinae.service"},
+		Run:     map[string]string{"linux": "systemctl --user enable --now vicinae.service"},
+	}
+
+	form := forms.NewSubEntryForm(entry)
+
+	got, err := form.BuildSubEntry()
+	if err != nil {
+		t.Fatalf("BuildSubEntry() = %v, want no error", err)
+	}
+
+	if got.Check["linux"] != entry.Check["linux"] {
+		t.Errorf("check survived as %v, want %v — the form dropped it, which deletes the setup step on save",
+			got.Check, entry.Check)
+	}
+
+	if got.Run["linux"] != entry.Run["linux"] {
+		t.Errorf("run survived as %v, want %v — the form dropped it, which deletes the setup step on save",
+			got.Run, entry.Run)
+	}
+}

@@ -55,7 +55,7 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | `↓` / `j` | Move down |
 | `←` / `h` | Collapse application row |
 | `→` / `l` / `enter` | Expand application row (show sub-entries) |
-| `e` | Edit selected application or entry |
+| `e` | Edit selected application or config entry ([setup entries](../configuration/setup.md) are edited in `tidydots.yaml`) |
 | `esc` | Go back or cancel (see [priority](#clearing-selections)) |
 | `tab` / `space` | Toggle selection |
 | `/` | Search and filter |
@@ -232,6 +232,9 @@ Navigate to a config entry and press `e` to edit. Editable fields include:
 - **Targets** -- OS-specific target paths (linux, windows)
 - **Files** -- specific file list (empty means entire folder)
 - **Sudo** -- toggle for elevated privileges
+
+!!! note "Setup entries are not editable in the TUI"
+    A [setup entry](../configuration/setup.md) is defined by its `check` and `run` commands, and the entry form has no fields for them. Pressing `e` on a setup entry therefore does nothing but tell you so: edit its commands in `tidydots.yaml` directly. (You can still run a setup entry from the TUI with `r`, and delete it with `d`.)
 
 ### File picker
 
