@@ -28,6 +28,23 @@ type stateCheckResultMsg struct {
 	state    PathState
 }
 
+// subEntryAppliesToOS reports whether a sub-entry has anything to do on this OS.
+//
+// A setup entry qualifies when it declares a run command for the OS — the same
+// condition manager.runSetupEntry uses to decide whether to act. Listing an
+// entry that does not apply here would report it as "Set up" (its check is
+// absent, so IsSetupApplied has nothing outstanding to report), which is a
+// claim about a machine the entry never targeted.
+//
+// A config entry qualifies when it declares a target path for the OS.
+func subEntryAppliesToOS(subEntry config.SubEntry, osType string) bool {
+	if subEntry.IsSetup() {
+		return subEntry.GetRun(osType) != ""
+	}
+
+	return subEntry.GetTarget(osType) != ""
+}
+
 // initApplicationItems creates ApplicationItem list from v3 config
 func (m *Model) initApplicationItems() {
 	// Get ALL applications, not just filtered ones
@@ -42,13 +59,16 @@ func (m *Model) initApplicationItems() {
 		subItems := make([]SubEntryItem, 0, len(app.Entries))
 
 		for _, subEntry := range app.Entries {
-			target := subEntry.GetTarget(m.Platform.OS)
-			if target == "" {
+			if !subEntryAppliesToOS(subEntry, m.Platform.OS) {
 				continue
 			}
 
-			// Expand ~ and env vars in target path for file operations
-			expandedTarget := config.ExpandPath(target, m.Platform.EnvVars)
+			// Setup entries deploy no files, so they have no target. Config
+			// entries do; expand ~ and env vars for the file operations.
+			expandedTarget := ""
+			if target := subEntry.GetTarget(m.Platform.OS); target != "" {
+				expandedTarget = config.ExpandPath(target, m.Platform.EnvVars)
+			}
 
 			subItem := SubEntryItem{
 				SubEntry: subEntry,

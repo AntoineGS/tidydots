@@ -38,6 +38,9 @@ const (
 	TypeInstaller = "installer"
 	TypeFolder    = "folder"
 	TypeNone      = "none"
+	// TypeSetup labels a setup sub-entry, which runs a command rather than
+	// deploying files: it has neither a backup folder nor a file list.
+	TypeSetup = "setup"
 )
 
 // Application status constants for level 1 rows

@@ -40,6 +40,7 @@ const (
 	TypeInstaller = tuishared.TypeInstaller
 	TypeFolder    = tuishared.TypeFolder
 	TypeNone      = tuishared.TypeNone
+	TypeSetup     = tuishared.TypeSetup
 )
 
 // Application status constants — re-exported from tuishared.

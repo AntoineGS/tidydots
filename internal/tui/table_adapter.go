@@ -121,6 +121,12 @@ func getApplicationStatus(app ApplicationItem) string {
 
 // getTypeInfo returns type information for a sub-entry
 func getTypeInfo(subItem SubEntryItem) string {
+	// A setup entry deploys no files; reporting a file count would describe it
+	// as an empty config entry ("0 files").
+	if subItem.SubEntry.IsSetup() {
+		return TypeSetup
+	}
+
 	if subItem.SubEntry.IsFolder() {
 		return TypeFolder
 	}
