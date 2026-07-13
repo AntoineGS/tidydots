@@ -2,6 +2,7 @@ package tui
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -674,5 +675,46 @@ func TestSetupRun_EndToEnd_RealSubprocess(t *testing.T) {
 	if string(after) != "touched" {
 		t.Errorf("the setup command ran again even though its check passed (marker content %q, size before %d)",
 			string(after), before.Size())
+	}
+}
+
+// TestSetupRunResult_SurfacesATerminalHandoverFailure guards the blank-message
+// bug. If bubbletea fails to release the terminal, Run() never executes: the
+// exec carries no outcome (success = false, message = ""), and the results popup
+// would show a failed row saying nothing while the real error was discarded.
+func TestSetupRunResult_SurfacesATerminalHandoverFailure(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	m := newSetupModel(t, stub, false)
+
+	// Nothing ran: this is the state of the exec when the handover itself failed.
+	ex := &setupExec{model: *m, item: setupItemOf(m)}
+
+	msg := setupRunResult(ex, errors.New("release terminal: inappropriate ioctl for device"))
+
+	if msg.success {
+		t.Error("a failed terminal handover was reported as a success")
+	}
+
+	if msg.message == "" {
+		t.Fatal("the results popup would show a failed row with a blank message; the real error was discarded")
+	}
+
+	if !strings.Contains(msg.message, "inappropriate ioctl for device") {
+		t.Errorf("message = %q, want it to carry the underlying error", msg.message)
+	}
+}
+
+// TestSetupRunResult_KeepsTheRecordedFailure proves the handover error never
+// overwrites the more specific message the setup itself produced.
+func TestSetupRunResult_KeepsTheRecordedFailure(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	m := newSetupModel(t, stub, false)
+
+	ex := &setupExec{model: *m, item: setupItemOf(m), success: false, message: "Failed: check command not found"}
+
+	msg := setupRunResult(ex, errors.New("release terminal: broken pipe"))
+
+	if msg.message != "Failed: check command not found" {
+		t.Errorf("message = %q, want the recorded failure to survive (it is the more specific one)", msg.message)
 	}
 }

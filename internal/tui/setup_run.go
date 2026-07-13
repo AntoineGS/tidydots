@@ -134,18 +134,33 @@ func (m Model) runNextSetup() tea.Cmd {
 	ex := &setupExec{model: m, item: item}
 
 	return tea.Exec(ex, func(err error) tea.Msg {
-		success, message := ex.success, ex.message
+		return setupRunResult(ex, err)
+	})
+}
 
-		// tea.Exec also reports a failure to hand the terminal back. Run has
-		// already recorded what the setup itself did, so only downgrade a
-		// success here — never overwrite a recorded failure with a vaguer one.
-		if err != nil && success {
-			success = false
+// setupRunResult turns what tea.Exec reports into the message the results popup
+// shows.
+//
+// err covers two very different failures: the setup itself failing (Run already
+// recorded the details on ex) and bubbletea failing to hand the terminal over
+// (in which case Run never ran, so ex holds nothing at all). Prefer the recorded
+// message, but never report a failure with nothing to say — an empty row in the
+// results popup discards the only account of what went wrong.
+func setupRunResult(ex *setupExec, err error) setupRunMsg {
+	success, message := ex.success, ex.message
+
+	if err != nil {
+		success = false
+
+		// Run recorded nothing, so the handover itself failed: err is the only
+		// account of what happened. Anything Run did record is more specific than
+		// "the terminal could not be released", so keep it.
+		if message == "" {
 			message = fmt.Sprintf("Failed: %v", err)
 		}
+	}
 
-		return setupRunMsg{item: item, success: success, message: message}
-	})
+	return setupRunMsg{item: ex.item, success: success, message: message}
 }
 
 // handleSetupRunResult records the outcome of one setup entry, refreshes its
