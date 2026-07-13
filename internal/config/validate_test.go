@@ -547,3 +547,103 @@ func TestValidateConfig_AcceptsCopyWithFiles(t *testing.T) {
 		t.Errorf("expected no errors, got %v", errs)
 	}
 }
+
+func TestValidateSetupEntry(t *testing.T) {
+	tests := []struct {
+		name    string
+		entry   SubEntry
+		wantErr bool
+	}{
+		{
+			name: "valid setup entry",
+			entry: SubEntry{
+				Name:  "enable-service",
+				Check: map[string]string{"linux": "systemctl --user is-enabled --quiet x.service"},
+				Run:   map[string]string{"linux": "systemctl --user enable --now x.service"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "run without matching check for the same OS",
+			entry: SubEntry{
+				Name: "enable-service",
+				Run:  map[string]string{"linux": "systemctl --user enable --now x.service"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "run and check declared for different OSes",
+			entry: SubEntry{
+				Name:  "enable-service",
+				Check: map[string]string{"windows": "check"},
+				Run:   map[string]string{"linux": "run"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "check for an OS that run does not cover",
+			entry: SubEntry{
+				Name:  "enable-service",
+				Check: map[string]string{"linux": "check", "windows": "check"},
+				Run:   map[string]string{"linux": "run"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "setup entry with a backup is neither one thing nor the other",
+			entry: SubEntry{
+				Name:   "enable-service",
+				Backup: "./Linux/vicinae",
+				Check:  map[string]string{"linux": "check"},
+				Run:    map[string]string{"linux": "run"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "setup entry with targets",
+			entry: SubEntry{
+				Name:    "enable-service",
+				Targets: map[string]string{"linux": "~/.config/vicinae"},
+				Check:   map[string]string{"linux": "check"},
+				Run:     map[string]string{"linux": "run"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty run command",
+			entry: SubEntry{
+				Name:  "enable-service",
+				Check: map[string]string{"linux": "check"},
+				Run:   map[string]string{"linux": "   "},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty check command",
+			entry: SubEntry{
+				Name:  "enable-service",
+				Check: map[string]string{"linux": ""},
+				Run:   map[string]string{"linux": "run"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "plain config entry is unaffected",
+			entry: SubEntry{
+				Name:    "config",
+				Targets: map[string]string{"linux": "~/.config/vicinae"},
+				Backup:  "./Linux/vicinae",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateSetupEntry("vicinae", tt.entry)
+			if gotErr := len(errs) > 0; gotErr != tt.wantErr {
+				t.Errorf("validateSetupEntry() errors = %v, wantErr = %v", errs, tt.wantErr)
+			}
+		})
+	}
+}

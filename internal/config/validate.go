@@ -27,6 +27,61 @@ func isTemplatePath(path string) bool {
 	return strings.Contains(path, "{{")
 }
 
+// validateSetupEntry validates a setup sub-entry: one declaring a `run` command.
+// A sub-entry is either a config entry (it has a backup and targets) or a setup
+// entry (it has run/check commands) — never both.
+//
+// The run/check OS-key pairing is what makes `check` genuinely required. Without
+// it, a run command with no check would execute on every single restore.
+func validateSetupEntry(appName string, entry SubEntry) []error {
+	var errs []error
+
+	entryPath := fmt.Sprintf("%s/%s", appName, entry.Name)
+
+	if !entry.IsSetup() {
+		// Not a setup entry. A stray `check` with no `run` is dead config.
+		if len(entry.Check) > 0 {
+			errs = append(errs, NewFieldError(entryPath, "check", "",
+				fmt.Errorf("check requires a matching run command")))
+		}
+
+		return errs
+	}
+
+	// A setup entry deploys nothing, so backup and targets are meaningless on it.
+	if entry.Backup != "" {
+		errs = append(errs, NewFieldError(entryPath, "backup", entry.Backup,
+			fmt.Errorf("a setup entry (one with run) cannot also declare a backup")))
+	}
+
+	if len(entry.Targets) > 0 {
+		errs = append(errs, NewFieldError(entryPath, "targets", "",
+			fmt.Errorf("a setup entry (one with run) cannot declare targets")))
+	}
+
+	// Every OS with a run command needs a check command, and vice versa.
+	for os, cmd := range entry.Run {
+		if strings.TrimSpace(cmd) == "" {
+			errs = append(errs, NewFieldError(entryPath, fmt.Sprintf("run[%s]", os), cmd,
+				fmt.Errorf("command cannot be empty")))
+		}
+
+		if strings.TrimSpace(entry.Check[os]) == "" {
+			errs = append(errs, NewFieldError(entryPath, fmt.Sprintf("check[%s]", os), "",
+				fmt.Errorf("run[%s] requires a non-empty check command for the same OS", os)))
+		}
+	}
+
+	for os := range entry.Check {
+		if _, ok := entry.Run[os]; !ok {
+			errs = append(errs, NewFieldError(entryPath, fmt.Sprintf("check[%s]", os), "",
+				fmt.Errorf("check for %q has no matching run command", os)))
+		}
+	}
+
+	return errs
+}
+
 // validateEntryPaths validates all path fields on a sub-entry, skipping
 // paths that contain template expressions (they will be rendered later).
 func validateEntryPaths(appName string, entry SubEntry) []error {
@@ -92,6 +147,8 @@ func validateEntryPaths(appName string, entry SubEntry) []error {
 			fmt.Errorf("copy mode requires a backup path"),
 		))
 	}
+
+	errs = append(errs, validateSetupEntry(appName, entry)...)
 
 	return errs
 }
