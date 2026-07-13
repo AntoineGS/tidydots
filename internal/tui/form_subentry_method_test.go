@@ -100,6 +100,48 @@ func TestSaveSubEntryForm_PreservesCopyMethod(t *testing.T) {
 	}
 }
 
+// TestSaveSubEntryForm_CopyWithNoFilesIsRefused walks the sequence a real user can
+// perform: open a copy entry, delete every file from its list, save. Copy mode is
+// files-only, and config.Save does not validate — so if the save went through, it
+// would write a tidydots.yaml that no longer loads. It must be refused, and the
+// file on disk must be untouched.
+func TestSaveSubEntryForm_CopyWithNoFilesIsRefused(t *testing.T) {
+	cfg := setupOnlyConfig(copySubEntry())
+	m, path := modelOnDisk(t, cfg)
+
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading seeded config: %v", err)
+	}
+
+	subIdx := subItemIndexByName(t, m, 0, "modprobe")
+
+	m.initSubEntryForm(0, subIdx)
+	if m.subEntryForm == nil {
+		t.Fatal("the form did not open on a config entry")
+	}
+
+	m.subEntryForm.Files = nil // the user deleted the last file in the list
+
+	if err := m.saveSubEntryForm(); err == nil {
+		t.Fatal("saveSubEntryForm() succeeded with copy mode and no files; it must refuse")
+	}
+
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading config after the refused save: %v", err)
+	}
+
+	if string(after) != string(before) {
+		t.Errorf("the refused save rewrote tidydots.yaml:\n--- before ---\n%s\n--- after ---\n%s", before, after)
+	}
+
+	// The file must still load: a written-but-invalid config is the failure mode.
+	if _, err := config.Load(path); err != nil {
+		t.Errorf("config no longer loads after the refused save: %v", err)
+	}
+}
+
 // TestSaveSubEntryForm_ToggleCopyOnWritesMethod proves the toggle is wired to the
 // saved file, not just to the form struct.
 func TestSaveSubEntryForm_ToggleCopyOnWritesMethod(t *testing.T) {

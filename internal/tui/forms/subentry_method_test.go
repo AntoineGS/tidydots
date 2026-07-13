@@ -170,16 +170,43 @@ func TestSubEntryForm_ToggleFolderModeClearsCopy(t *testing.T) {
 	}
 }
 
-// TestSubEntryForm_BuildRejectsCopyInFolderMode is the last line of defense. The
-// UI keeps the toggle out of folder mode; if any other path sets both, the build
-// must fail loudly rather than emit a config that cannot be loaded back.
-func TestSubEntryForm_BuildRejectsCopyInFolderMode(t *testing.T) {
-	form := forms.NewSubEntryForm(copyEntry())
-	form.IsFolder = true
-	form.IsCopy = true
+// TestSubEntryForm_BuildRejectsCopyWithoutFiles is the last line of defense.
+// ValidateConfig rejects a copy entry with no files list and config.Save does not
+// validate, so emitting one would write a tidydots.yaml that no longer loads. The
+// form can reach that state two ways, and both must be refused.
+func TestSubEntryForm_BuildRejectsCopyWithoutFiles(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*forms.SubEntryForm)
+	}{
+		{
+			// The UI keeps the toggle out of folder mode; this covers any other path
+			// that sets both flags directly.
+			name: "folder_mode",
+			mutate: func(f *forms.SubEntryForm) {
+				f.IsFolder = true
+				f.IsCopy = true
+			},
+		},
+		{
+			// Reachable today: the files list has a delete key, so a user can remove
+			// the entries one at a time until none are left, with copy still on.
+			name: "files_list_emptied",
+			mutate: func(f *forms.SubEntryForm) {
+				f.Files = nil
+			},
+		},
+	}
 
-	_, err := form.BuildSubEntry()
-	if err == nil {
-		t.Fatal("BuildSubEntry() succeeded with copy + folder mode; it must reject an unloadable entry")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			form := forms.NewSubEntryForm(copyEntry())
+			tt.mutate(form)
+
+			got, err := form.BuildSubEntry()
+			if err == nil {
+				t.Fatalf("BuildSubEntry() = %+v, want an error: copy with no files cannot be loaded back", got)
+			}
+		})
 	}
 }

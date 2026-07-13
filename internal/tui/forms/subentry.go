@@ -337,13 +337,6 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 		return config.SubEntry{}, errors.New("backup path is required")
 	}
 
-	// Config validation rejects copy mode without a files list, and config.Save
-	// does not validate — so refuse here rather than write a file that will not
-	// load. The UI keeps the toggle out of folder mode; this covers the rest.
-	if f.IsCopy && f.IsFolder {
-		return config.SubEntry{}, errors.New("copy mode requires a files list; turn off folder mode")
-	}
-
 	// Build SubEntry from form. Check and Run have no fields in this form, so they
 	// are written back exactly as they came in: whatever the form does not carry
 	// through is deleted from the config file when the caller saves.
@@ -364,6 +357,15 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 		}
 		subEntry.Files = make([]string, len(f.Files))
 		copy(subEntry.Files, f.Files)
+	}
+
+	// Copy mode is files-only: ValidateConfig rejects a copy entry with no files
+	// list, and config.Save does not validate. Emitting one would write a
+	// tidydots.yaml that no longer loads, so refuse instead. This asserts the rule
+	// itself rather than the two ways the UI can reach it (folder mode, or a files
+	// list emptied one entry at a time), so it still holds if either changes.
+	if subEntry.Method == config.MethodCopy && len(subEntry.Files) == 0 {
+		return config.SubEntry{}, errors.New("copy mode requires a files list")
 	}
 
 	return subEntry, nil
