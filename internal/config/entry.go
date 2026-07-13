@@ -258,9 +258,13 @@ type Application struct {
 	Entries     []SubEntry    `yaml:"entries"`
 }
 
-// SubEntry represents an individual configuration entry within an application
+// SubEntry represents an individual configuration entry within an application.
+// A sub-entry is either a config entry (it has a Backup) or a setup entry (it
+// has a Run command). Never both — see validateSetupEntry.
 type SubEntry struct {
 	Targets map[string]string `yaml:"targets,omitempty"`
+	Check   map[string]string `yaml:"check,omitempty"` // os -> command; exit 0 means already set up
+	Run     map[string]string `yaml:"run,omitempty"`   // os -> command; runs only when check fails
 	Name    string            `yaml:"name"`
 	Method  string            `yaml:"method,omitempty"` // "" | "symlink" (default) | "copy"
 	Backup  string            `yaml:"backup,omitempty"`
@@ -271,6 +275,24 @@ type SubEntry struct {
 // IsConfig returns true if this is a config type sub-entry
 func (s *SubEntry) IsConfig() bool {
 	return s.Backup != ""
+}
+
+// IsSetup returns true if this is a setup sub-entry: one that runs a command to
+// bring the system into a desired state, rather than deploying config files.
+func (s *SubEntry) IsSetup() bool {
+	return len(s.Run) > 0
+}
+
+// GetCheck returns the check command for the specified OS, or "" if the entry
+// declares none. An empty result means the setup step does not apply to this OS.
+func (s *SubEntry) GetCheck(osType string) string {
+	return s.Check[osType]
+}
+
+// GetRun returns the setup command for the specified OS, or "" if the entry
+// declares none. An empty result means the setup step does not apply to this OS.
+func (s *SubEntry) GetRun(osType string) string {
+	return s.Run[osType]
 }
 
 // IsFolder returns true if this config sub-entry manages an entire folder (no specific files)
