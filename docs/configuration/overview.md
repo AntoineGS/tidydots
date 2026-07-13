@@ -102,7 +102,7 @@ applications:
           linux: "~/.config/zsh"
 ```
 
-An array of [Application](applications.md) objects. Each application groups related config entries and an optional package definition under a single name.
+An array of [Application](applications.md) objects. Each application groups related config entries and an optional package definition under a single name. An entry can also be a [setup entry](setup.md) that runs a command instead of deploying a file, for system changes config files alone can't make.
 
 ## Complete Example
 

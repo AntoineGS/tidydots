@@ -36,6 +36,12 @@ The main screen displays a table view of all your applications and their entries
 | Missing | Neither backup nor target exist |
 | Outdated | Symlink exists but template source has changed since last render |
 | Modified | Symlink exists but the rendered file has been manually edited since last render |
+| Loading... | State not yet resolved -- shown briefly for [setup entries](../configuration/setup.md) while their check command runs |
+| Set up | Setup entry: the check command passed -- nothing to do |
+| Needs setup | Setup entry: the check command failed -- restore will run the setup command |
+
+!!! info
+    Setup entries can't be resolved by inspecting the filesystem the way config entries can -- their state comes from actually running the entry's `check` command. tidydots runs that check in a background goroutine rather than on the UI thread, so a setup entry's row may briefly show **Loading...** before settling on **Set up** or **Needs setup**.
 
 ## Navigation
 
