@@ -151,6 +151,14 @@ applications:
           linux: "/etc/hosts"
 ```
 
+**Setup entries:** A sub-entry with `check` and `run` (both OS→command maps) is a *setup
+entry* rather than a config entry — it runs a command instead of deploying files. On
+restore, `check` runs; if it exits non-zero, `run` executes and `check` runs again to
+confirm the effect landed. Stateless and self-healing: there is no database, so a step
+undone by hand is repaired on the next restore. Check commands must be read-only and
+fast — they run on every restore, during `--dry-run`, and on every TUI refresh. See
+`docs/configuration/setup.md`.
+
 ### Git as a Package Manager
 
 Git repositories can be installed as packages by adding git to the managers map:

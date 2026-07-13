@@ -124,7 +124,7 @@ when: '{{ and (eq .Distro "arch") (eq .Hostname "desktop") }}'
 
 ## Entries
 
-The `entries` field is an array of [SubEntry](configs.md) objects. Each entry defines a config symlink managed by tidydots. Applications that only install packages can omit `entries` entirely.
+The `entries` field is an array of [SubEntry](configs.md) objects. Each entry either defines a config symlink managed by tidydots, or is a [setup entry](setup.md) that runs a command to bring the system into a desired state. Applications that only install packages can omit `entries` entirely.
 
 ```yaml
 entries:
@@ -142,7 +142,7 @@ entries:
       linux: "~/.config/nvim/snippets"
 ```
 
-See the [Configs](configs.md) reference for the full SubEntry schema.
+See the [Configs](configs.md) reference for the full SubEntry schema, and [Setup](setup.md) for entries that run commands instead of deploying files.
 
 ## Package
 

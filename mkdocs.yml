@@ -73,6 +73,7 @@ nav:
       - Configs: configuration/configs.md
       - Packages: configuration/packages.md
       - Templates: configuration/templates.md
+      - Setup: configuration/setup.md
   - Guides:
       - Multi-Machine Setups: guides/multi-machine-setups.md
       - Package Management: guides/package-management.md
