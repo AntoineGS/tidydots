@@ -211,6 +211,12 @@ func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 // filter state: callers such as refreshApplicationStates and
 // reinitPreservingState synchronously touch all apps, filtered or not, so a
 // filtered app's setup entries can just as easily end up at StateLoading.
+//
+// Only setup entries are considered. StateLoading is also the zero value of
+// PathState, so a config entry whose initial async check from Init() has not
+// landed yet still reads as StateLoading; re-dispatching those would duplicate
+// subprocess work that is already in flight (and unbalance pendingStateChecks
+// against the messages Init() will still deliver).
 // It also returns the number of checks dispatched so the caller can track pending work.
 func (m Model) checkLoadingSubEntryStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
@@ -220,7 +226,7 @@ func (m Model) checkLoadingSubEntryStatesCmd() (tea.Cmd, int) {
 
 	for i, app := range m.Applications {
 		for j, sub := range app.SubItems {
-			if sub.State != StateLoading {
+			if !sub.SubEntry.IsSetup() || sub.State != StateLoading {
 				continue
 			}
 			appIndex := i

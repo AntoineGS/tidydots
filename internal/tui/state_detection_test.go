@@ -231,6 +231,62 @@ func TestCheckLoadingSubEntryStatesCmd_ResolvesOnlyLoadingEntries(t *testing.T) 
 	}
 }
 
+// TestCheckLoadingSubEntryStatesCmd_IgnoresUnresolvedConfigEntries guards the
+// resolver's scope. StateLoading is also the zero value of PathState, so a
+// config entry whose initial async check from Init() has not landed yet still
+// reads as StateLoading. If a form is saved while that batch is in flight, a
+// resolver keyed purely off StateLoading would re-dispatch those config
+// entries and duplicate subprocess work already in flight. Only setup entries
+// are genuinely parked at StateLoading by the synchronous rebuild
+// (detectSubEntryState refuses to run their check on the UI goroutine), so
+// only they belong here.
+func TestCheckLoadingSubEntryStatesCmd_IgnoresUnresolvedConfigEntries(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	stub.AddResult("sh", cmdexec.Result{ExitCode: 0}) // vicinae/enable-service check passes
+
+	m := Model{
+		Config:   &config.Config{Version: 3, BackupRoot: "/repo"},
+		Platform: &platform.Platform{OS: platform.OSLinux, EnvVars: map[string]string{}},
+		Manager:  newStubManager(stub),
+		Applications: []ApplicationItem{
+			{
+				Application: config.Application{Name: "vicinae"},
+				SubItems: []SubEntryItem{
+					{AppName: "vicinae", SubEntry: setupSubEntry(), State: StateLoading},
+					// A config entry whose Init() check has not resolved yet.
+					{AppName: "vicinae", SubEntry: config.SubEntry{Name: "config-file", Backup: "cfg"}, State: StateLoading},
+				},
+			},
+		},
+	}
+
+	cmd, count := m.checkLoadingSubEntryStatesCmd()
+	if count != 1 {
+		t.Fatalf("checkLoadingSubEntryStatesCmd() count = %d, want 1 (the setup entry only; the unresolved "+
+			"config entry already has a check in flight from Init())", count)
+	}
+
+	msgs := collectMsgs(cmd)
+	if len(msgs) != 1 {
+		t.Fatalf("dispatched %d message(s), want 1", len(msgs))
+	}
+
+	res, ok := msgs[0].(stateCheckResultMsg)
+	if !ok {
+		t.Fatalf("unexpected message type %T", msgs[0])
+	}
+
+	if res.subIndex != 0 {
+		t.Errorf("resolved subIndex = %d, want 0 (the setup entry, not the config entry)", res.subIndex)
+	}
+
+	// Exactly one dispatch means exactly one stateCheckResultMsg, keeping the
+	// pendingStateChecks counter balanced.
+	if count != len(msgs) {
+		t.Errorf("dispatched count (%d) != messages produced (%d); pendingStateChecks would drift", count, len(msgs))
+	}
+}
+
 // TestCheckLoadingSubEntryStatesCmd_NoLoadingEntries_DispatchesNothing
 // confirms the resolver is a no-op (and does not touch the runner) once every
 // sub-entry has already been resolved.
