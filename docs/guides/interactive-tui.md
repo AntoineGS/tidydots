@@ -156,9 +156,12 @@ With items selected, you can perform operations on all of them at once. Each bat
 
 | Key | Operation | Description |
 |-----|-----------|-------------|
-| `r` | Restore | Create symlinks for all selected config entries |
+| `r` | Restore | Create symlinks for selected config entries, and run selected [setup entries](../configuration/setup.md) |
 | `i` | Install | Install packages for all selected applications |
 | `d` | Delete | Remove configs and packages for all selected items |
+
+!!! info "Setup entries during restore"
+    Restore runs [setup entries](../configuration/setup.md) the same way `tidydots restore` does on the command line: the entry's `check` command runs first, the setup command runs only if that check fails, and the check then runs again to confirm the change actually landed. An entry marked `sudo: true` may prompt for a password, so tidydots hands the terminal over to the command while it runs -- exactly as it does for package installation -- and returns to the TUI once it finishes. This applies whether you restore a single row, a whole application, or a batch selection.
 
 ### Three-screen flow
 
