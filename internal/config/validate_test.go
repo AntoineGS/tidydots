@@ -550,9 +550,16 @@ func TestValidateConfig_AcceptsCopyWithFiles(t *testing.T) {
 
 func TestValidateSetupEntry(t *testing.T) {
 	tests := []struct {
-		name    string
-		entry   SubEntry
-		wantErr bool
+		name  string
+		entry SubEntry
+		// wantFields lists the expected FieldError.Field value for each error,
+		// in the order validateSetupEntry produces them. Nil/empty means the
+		// entry must validate cleanly.
+		wantFields []string
+		// wantMsgContains is a parallel slice to wantFields: a substring that
+		// must appear in the corresponding error's message. An empty element
+		// skips the message check for that error.
+		wantMsgContains []string
 	}{
 		{
 			name: "valid setup entry",
@@ -561,7 +568,7 @@ func TestValidateSetupEntry(t *testing.T) {
 				Check: map[string]string{"linux": "systemctl --user is-enabled --quiet x.service"},
 				Run:   map[string]string{"linux": "systemctl --user enable --now x.service"},
 			},
-			wantErr: false,
+			wantFields: nil,
 		},
 		{
 			name: "run without matching check for the same OS",
@@ -569,7 +576,8 @@ func TestValidateSetupEntry(t *testing.T) {
 				Name: "enable-service",
 				Run:  map[string]string{"linux": "systemctl --user enable --now x.service"},
 			},
-			wantErr: true,
+			wantFields:      []string{"check[linux]"},
+			wantMsgContains: []string{"requires a non-empty check command"},
 		},
 		{
 			name: "run and check declared for different OSes",
@@ -578,7 +586,11 @@ func TestValidateSetupEntry(t *testing.T) {
 				Check: map[string]string{"windows": "check"},
 				Run:   map[string]string{"linux": "run"},
 			},
-			wantErr: true,
+			wantFields: []string{"check[linux]", "check[windows]"},
+			wantMsgContains: []string{
+				"requires a non-empty check command",
+				"has no matching run command",
+			},
 		},
 		{
 			name: "check for an OS that run does not cover",
@@ -587,7 +599,8 @@ func TestValidateSetupEntry(t *testing.T) {
 				Check: map[string]string{"linux": "check", "windows": "check"},
 				Run:   map[string]string{"linux": "run"},
 			},
-			wantErr: true,
+			wantFields:      []string{"check[windows]"},
+			wantMsgContains: []string{"has no matching run command"},
 		},
 		{
 			name: "setup entry with a backup is neither one thing nor the other",
@@ -597,7 +610,8 @@ func TestValidateSetupEntry(t *testing.T) {
 				Check:  map[string]string{"linux": "check"},
 				Run:    map[string]string{"linux": "run"},
 			},
-			wantErr: true,
+			wantFields:      []string{"backup"},
+			wantMsgContains: []string{"cannot also declare a backup"},
 		},
 		{
 			name: "setup entry with targets",
@@ -607,7 +621,8 @@ func TestValidateSetupEntry(t *testing.T) {
 				Check:   map[string]string{"linux": "check"},
 				Run:     map[string]string{"linux": "run"},
 			},
-			wantErr: true,
+			wantFields:      []string{"targets"},
+			wantMsgContains: []string{"cannot declare targets"},
 		},
 		{
 			name: "empty run command",
@@ -616,7 +631,8 @@ func TestValidateSetupEntry(t *testing.T) {
 				Check: map[string]string{"linux": "check"},
 				Run:   map[string]string{"linux": "   "},
 			},
-			wantErr: true,
+			wantFields:      []string{"run[linux]"},
+			wantMsgContains: []string{"command cannot be empty"},
 		},
 		{
 			name: "empty check command",
@@ -625,7 +641,20 @@ func TestValidateSetupEntry(t *testing.T) {
 				Check: map[string]string{"linux": ""},
 				Run:   map[string]string{"linux": "run"},
 			},
-			wantErr: true,
+			wantFields:      []string{"check[linux]"},
+			wantMsgContains: []string{"requires a non-empty check command"},
+		},
+		{
+			// Rule 2: a check with no run at all is dead config and must be
+			// rejected, even though it never reaches the OS-pairing loops
+			// (IsSetup() is false when Run is empty).
+			name: "check with no run at all is rejected",
+			entry: SubEntry{
+				Name:  "enable-service",
+				Check: map[string]string{"linux": "systemctl --user is-enabled --quiet x.service"},
+			},
+			wantFields:      []string{"check"},
+			wantMsgContains: []string{"requires a matching run command"},
 		},
 		{
 			name: "plain config entry is unaffected",
@@ -634,15 +663,48 @@ func TestValidateSetupEntry(t *testing.T) {
 				Targets: map[string]string{"linux": "~/.config/vicinae"},
 				Backup:  "./Linux/vicinae",
 			},
-			wantErr: false,
+			wantFields: nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := validateSetupEntry("vicinae", tt.entry)
-			if gotErr := len(errs) > 0; gotErr != tt.wantErr {
-				t.Errorf("validateSetupEntry() errors = %v, wantErr = %v", errs, tt.wantErr)
+
+			if len(tt.wantFields) == 0 {
+				if len(errs) != 0 {
+					t.Fatalf("validateSetupEntry() = %v, want no errors", errs)
+				}
+
+				return
+			}
+
+			if len(errs) != len(tt.wantFields) {
+				t.Fatalf("validateSetupEntry() returned %d errors %v, want %d errors for fields %v",
+					len(errs), errs, len(tt.wantFields), tt.wantFields)
+			}
+
+			wantEntry := "vicinae/" + tt.entry.Name
+
+			for i, err := range errs {
+				var fieldErr *FieldError
+				if !errors.As(err, &fieldErr) {
+					t.Fatalf("error %d = %v (%T), want a *FieldError", i, err, err)
+				}
+
+				if fieldErr.Field != tt.wantFields[i] {
+					t.Errorf("error %d field = %q, want %q", i, fieldErr.Field, tt.wantFields[i])
+				}
+
+				if fieldErr.Entry != wantEntry {
+					t.Errorf("error %d entry = %q, want %q", i, fieldErr.Entry, wantEntry)
+				}
+
+				if i < len(tt.wantMsgContains) && tt.wantMsgContains[i] != "" {
+					if !strings.Contains(err.Error(), tt.wantMsgContains[i]) {
+						t.Errorf("error %d message = %q, want substring %q", i, err.Error(), tt.wantMsgContains[i])
+					}
+				}
 			}
 		})
 	}
