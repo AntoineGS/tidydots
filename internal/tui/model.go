@@ -205,6 +205,12 @@ type SubEntryItem struct {
 	Target   string
 	SubEntry config.SubEntry
 	State    PathState
+	// Index is this entry's position in its application's SubItems. It is carried
+	// on the item because the search filter (getSearchedApplications) hands the
+	// table a compacted copy of SubItems holding only the matching entries: a
+	// row's position in that copy is not its position in the real slice, and every
+	// cursor action indexes the real slice.
+	Index    int
 	Selected bool
 }
 

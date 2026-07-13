@@ -75,6 +75,7 @@ func (m *Model) initApplicationItems() {
 				Target:   expandedTarget,
 				Selected: true,
 				AppName:  app.Name,
+				Index:    len(subItems),
 			}
 
 			subItems = append(subItems, subItem)
