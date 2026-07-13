@@ -18,26 +18,38 @@ type BatchOperationMsg = tuiops.BatchOperationMsg
 // existing code in this package continues to compile without modification.
 type BatchCompleteMsg = tuiops.BatchCompleteMsg
 
-// executeBatchRestore executes restore operations for all selected items.
-// Returns a command that processes items sequentially and sends progress updates.
-func (m Model) executeBatchRestore() tea.Cmd {
-	// Collect all selected items to restore
-	var items []struct {
-		appIdx int
-		subIdx int
-		name   string
-	}
+// batchRestoreItem identifies one selected sub-entry in a batch restore.
+type batchRestoreItem struct {
+	name   string
+	appIdx int
+	subIdx int
+}
+
+// batchRestoreConfigsDoneMsg carries the results of the config half of a batch
+// restore, plus the setup entries that still have to run.
+//
+// The two halves cannot share one command: a setup entry is a subprocess that
+// may prompt for a sudo password, so it has to be dispatched through tea.Exec
+// (which releases the terminal), one at a time. Config entries are plain file
+// operations and stay in this single background command, exactly as before.
+type batchRestoreConfigsDoneMsg struct {
+	results      []ResultItem
+	setups       []setupRunItem
+	successCount int
+	failCount    int
+}
+
+// collectBatchRestoreItems returns every selected sub-entry, de-duplicated
+// against apps that are selected as a whole.
+func (m Model) collectBatchRestoreItems() []batchRestoreItem {
+	var items []batchRestoreItem
 
 	// Add selected apps (all sub-entries)
 	for appIdx := range m.selectedApps {
 		if appIdx >= 0 && appIdx < len(m.Applications) {
 			app := m.Applications[appIdx]
 			for subIdx := range app.SubItems {
-				items = append(items, struct {
-					appIdx int
-					subIdx int
-					name   string
-				}{
+				items = append(items, batchRestoreItem{
 					appIdx: appIdx,
 					subIdx: subIdx,
 					name:   app.Application.Name + "/" + app.SubItems[subIdx].SubEntry.Name,
@@ -61,11 +73,7 @@ func (m Model) executeBatchRestore() tea.Cmd {
 		if appIdx >= 0 && appIdx < len(m.Applications) &&
 			subIdx >= 0 && subIdx < len(m.Applications[appIdx].SubItems) {
 			app := m.Applications[appIdx]
-			items = append(items, struct {
-				appIdx int
-				subIdx int
-				name   string
-			}{
+			items = append(items, batchRestoreItem{
 				appIdx: appIdx,
 				subIdx: subIdx,
 				name:   app.Application.Name + "/" + app.SubItems[subIdx].SubEntry.Name,
@@ -73,20 +81,49 @@ func (m Model) executeBatchRestore() tea.Cmd {
 		}
 	}
 
-	// Execute restore operations sequentially
+	return items
+}
+
+// executeBatchRestore executes restore operations for all selected items.
+// Config entries are restored in this command; setup entries are handed back on
+// the resulting message so they can be run through tea.Exec (see
+// batchRestoreConfigsDoneMsg). Before this split, executeBatchRestore called
+// performRestoreSubEntry on every selected item with no filter, so each setup
+// entry failed as "Not a config entry" and inflated failCount.
+func (m Model) executeBatchRestore() tea.Cmd {
+	var (
+		configs []batchRestoreItem
+		setups  []setupRunItem
+	)
+
+	for _, item := range m.collectBatchRestoreItems() {
+		sub := m.Applications[item.appIdx].SubItems[item.subIdx]
+
+		if sub.SubEntry.IsSetup() {
+			setups = append(setups, setupRunItem{
+				appIdx: item.appIdx,
+				subIdx: item.subIdx,
+				name:   item.name,
+				sub:    sub,
+			})
+
+			continue
+		}
+
+		configs = append(configs, item)
+	}
+
+	// Execute the config restores sequentially in the background.
 	return func() tea.Msg {
-		results := make([]ResultItem, 0, len(items))
+		results := make([]ResultItem, 0, len(configs))
 		successCount := 0
 		failCount := 0
 
-		for _, item := range items {
-			// Get sub-entry data
-			subItem := &m.Applications[item.appIdx].SubItems[item.subIdx]
+		for _, item := range configs {
+			subItem := m.Applications[item.appIdx].SubItems[item.subIdx]
 
-			// Perform restore
-			success, message := m.performRestoreSubEntry(subItem.SubEntry, subItem.Target)
+			success, message := m.performRestoreSubEntry(subItem)
 
-			// Record result
 			results = append(results, ResultItem{
 				Name:    item.name,
 				Success: success,
@@ -98,18 +135,36 @@ func (m Model) executeBatchRestore() tea.Cmd {
 			} else {
 				failCount++
 			}
-
-			// Send progress update (not final message)
-			// Note: In a real implementation, we would send BatchOperationMsg here
-			// For now, we'll just collect results and send BatchCompleteMsg at the end
 		}
 
-		return BatchCompleteMsg{
-			Results:      results,
-			SuccessCount: successCount,
-			FailCount:    failCount,
+		return batchRestoreConfigsDoneMsg{
+			results:      results,
+			setups:       setups,
+			successCount: successCount,
+			failCount:    failCount,
 		}
 	}
+}
+
+// handleBatchRestoreConfigsDone starts the queued setup entries once the config
+// half of a batch restore has finished. With no setup entries the batch
+// completes exactly as it did before.
+func (m Model) handleBatchRestoreConfigsDone(msg batchRestoreConfigsDoneMsg) (tea.Model, tea.Cmd) {
+	if len(msg.setups) == 0 {
+		return m, func() tea.Msg {
+			return BatchCompleteMsg{
+				Results:      msg.results,
+				SuccessCount: msg.successCount,
+				FailCount:    msg.failCount,
+			}
+		}
+	}
+
+	m.results = msg.results
+	m.batchSuccessCount = msg.successCount
+	m.batchFailCount = msg.failCount
+
+	return m, m.startSetupRun(msg.setups, true)
 }
 
 // executeBatchInstall executes package installation for all selected apps.

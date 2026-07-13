@@ -157,6 +157,13 @@ type Model struct {
 	summaryOperation   Operation // Which batch operation: restore, install, delete
 	summaryDoublePress string    // Track double-press state: "r", "i", or "d"
 
+	// Setup entry execution state. Setup entries are subprocesses that may
+	// prompt for a sudo password, so they run one at a time through tea.Exec
+	// (see setup_run.go) rather than inside a plain background command.
+	pendingSetups     []setupRunItem // Queued setup entries, in run order
+	currentSetupIndex int            // Index of the entry currently running
+	setupBatch        bool           // The queue belongs to a multi-select batch operation
+
 	// Batch operation progress state
 	spinner           spinner.Model  // Loading spinner for async state detection
 	batchProgress     progress.Model // Progress bar for batch operations
@@ -279,6 +286,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case stateCheckResultMsg:
 		return m.handleStateCheckResult(msg)
+
+	case batchRestoreConfigsDoneMsg:
+		return m.handleBatchRestoreConfigsDone(msg)
+
+	case setupRunMsg:
+		return m.handleSetupRunResult(msg)
 
 	case spinner.TickMsg:
 		if m.hasLoadingItems() {

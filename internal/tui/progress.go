@@ -634,7 +634,21 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if appIdx >= 0 && subIdx >= 0 {
 				// Restore single sub-entry
 				subItem := &m.Applications[appIdx].SubItems[subIdx]
-				success, message := m.performRestoreSubEntry(subItem.SubEntry, subItem.Target)
+
+				// A setup entry runs a command that may prompt for a sudo
+				// password, so it is dispatched through tea.Exec (which hands
+				// the terminal over) instead of running inline here.
+				if subItem.SubEntry.IsSetup() {
+					m.results = nil
+					return m, m.startSetupRun([]setupRunItem{{
+						appIdx: appIdx,
+						subIdx: subIdx,
+						name:   subItem.SubEntry.Name,
+						sub:    *subItem,
+					}}, false)
+				}
+
+				success, message := m.performRestoreSubEntry(*subItem)
 				if success {
 					m.Applications[appIdx].SubItems[subIdx].State = m.detectSubEntryState(subItem)
 					m.rebuildTable()
@@ -647,14 +661,15 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.showingResults = true
 				m.resultsScrollOffset = 0
 			} else if appIdx >= 0 && subIdx < 0 {
-				// Restore all sub-entries for this application
+				// Restore all sub-entries for this application: config entries
+				// inline, setup entries queued for the tea.Exec runner.
 				m.results = nil
 				for i := range m.Applications[appIdx].SubItems {
 					subItem := &m.Applications[appIdx].SubItems[i]
-					if !subItem.SubEntry.IsConfig() {
+					if subItem.SubEntry.IsSetup() || !subItem.SubEntry.IsConfig() {
 						continue
 					}
-					success, message := m.performRestoreSubEntry(subItem.SubEntry, subItem.Target)
+					success, message := m.performRestoreSubEntry(*subItem)
 					if success {
 						m.Applications[appIdx].SubItems[i].State = m.detectSubEntryState(subItem)
 					}
@@ -664,9 +679,14 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 						Message: message,
 					})
 				}
+				m.rebuildTable()
+
+				if setups := m.collectAppSetupItems(appIdx); len(setups) > 0 {
+					return m, m.startSetupRun(setups, false)
+				}
+
 				m.showingResults = true
 				m.resultsScrollOffset = 0
-				m.rebuildTable()
 			}
 		}
 

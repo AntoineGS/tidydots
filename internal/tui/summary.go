@@ -98,6 +98,18 @@ func (m Model) renderInstallSummary() string {
 	return b.String()
 }
 
+// summarySubEntryDetail describes what will happen to a sub-entry, so the
+// pre-flight summary does not present a setup entry as a file restore to an
+// empty target path: a config entry deploys files to its target, a setup entry
+// runs its check and, if that fails, its setup command.
+func summarySubEntryDetail(sub SubEntryItem) string {
+	if sub.SubEntry.IsSetup() {
+		return fmt.Sprintf(" (%s: runs the setup command if its check fails)", TypeSetup)
+	}
+
+	return fmt.Sprintf(" → %s", sub.Target)
+}
+
 // renderHierarchicalSummary renders the hierarchical summary for restore/delete operations.
 // Shows selected apps + sub-entries with their details.
 func (m Model) renderHierarchicalSummary(operation string) string {
@@ -136,7 +148,7 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 				b.WriteString("  ")
 				b.WriteString(CheckedStyle.Render("  • "))
 				b.WriteString(sub.SubEntry.Name)
-				b.WriteString(MutedTextStyle.Render(fmt.Sprintf(" → %s", sub.Target)))
+				b.WriteString(MutedTextStyle.Render(summarySubEntryDetail(sub)))
 				b.WriteString("\n")
 			}
 		}
@@ -191,7 +203,7 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 					b.WriteString("  ")
 					b.WriteString(CheckedStyle.Render("  • "))
 					b.WriteString(sub.SubEntry.Name)
-					b.WriteString(MutedTextStyle.Render(fmt.Sprintf(" → %s", sub.Target)))
+					b.WriteString(MutedTextStyle.Render(summarySubEntryDetail(sub)))
 					b.WriteString("\n")
 				}
 			}

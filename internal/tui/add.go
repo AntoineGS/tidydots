@@ -101,12 +101,29 @@ func (m Model) renderSubEntryInlineDetail(_ *SubEntryItem, _ int) string {
 	return ""
 }
 
-// performRestoreSubEntry performs restore on a SubEntry
-func (m Model) performRestoreSubEntry(subEntry config.SubEntry, target string) (bool, string) {
+// performRestoreSubEntry performs restore on a SubEntry.
+//
+// A sub-entry is either a config entry (it deploys files) or a setup entry (it
+// runs a command); restore means both, so this handles both. Setup entries used
+// to be rejected here with "Not a config entry" — on the very rows the TUI had
+// flagged as needing setup.
+//
+// CAUTION: for a setup entry this shells out and may prompt for a sudo
+// password. It must therefore only be reached from a goroutine that does not
+// hold the terminal — go through startSetupRun, which wraps the call in
+// tea.Exec (see setup_run.go). Never call it for a setup entry from the
+// bubbletea Update/View goroutine or from a plain tea.Cmd.
+func (m Model) performRestoreSubEntry(item SubEntryItem) (bool, string) {
+	if item.SubEntry.IsSetup() {
+		return m.runSetupForItem(item)
+	}
+
+	subEntry := item.SubEntry
 	if !subEntry.IsConfig() {
 		return false, "Not a config entry"
 	}
 
+	target := item.Target
 	backupPath := m.resolvePath(subEntry.Backup)
 
 	var err error
