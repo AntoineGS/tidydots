@@ -678,6 +678,31 @@ func TestSetupRun_EndToEnd_RealSubprocess(t *testing.T) {
 	}
 }
 
+// TestStartSetupRun_IgnoresADispatchWhileOneIsQueued guards against double-tapping
+// `r`: the second keypress lands before the first run's execMsg is handled, and
+// would queue the same entry twice — producing a duplicate row in the results
+// popup.
+func TestStartSetupRun_IgnoresADispatchWhileOneIsQueued(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	m := newSetupModel(t, stub, false)
+
+	if cmd := m.startSetupRun([]setupRunItem{setupItemOf(m)}, false); cmd == nil {
+		t.Fatal("the first startSetupRun returned no command")
+	}
+
+	if cmd := m.startSetupRun([]setupRunItem{setupItemOf(m)}, false); cmd != nil {
+		t.Error("a second startSetupRun dispatched while one is in flight; the entry would run (and be reported) twice")
+	}
+
+	if len(m.pendingSetups) != 1 {
+		t.Errorf("pendingSetups = %d, want 1 (the queue in flight must not be replaced)", len(m.pendingSetups))
+	}
+
+	if m.currentSetupIndex != 0 {
+		t.Errorf("currentSetupIndex = %d, want 0 (the in-flight run must not be rewound)", m.currentSetupIndex)
+	}
+}
+
 // TestSetupRunResult_SurfacesATerminalHandoverFailure guards the blank-message
 // bug. If bubbletea fails to release the terminal, Run() never executes: the
 // exec carries no outcome (success = false, message = ""), and the results popup

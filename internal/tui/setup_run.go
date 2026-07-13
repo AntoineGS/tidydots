@@ -115,7 +115,15 @@ func (m Model) runSetupForItem(item SubEntryItem) (bool, string) {
 // at a time: each holds the terminal while it runs, so they must never overlap.
 // batch marks the run as part of a multi-select batch operation, whose
 // selections are cleared when the queue drains.
+//
+// A run already in flight wins: the tea.Exec dispatched for it has not reached
+// the event loop yet, so a second keypress (double-tapping `r`) would queue the
+// same entry again and report it twice.
 func (m *Model) startSetupRun(items []setupRunItem, batch bool) tea.Cmd {
+	if len(m.pendingSetups) > 0 {
+		return nil
+	}
+
 	m.pendingSetups = items
 	m.currentSetupIndex = 0
 	m.setupBatch = batch
