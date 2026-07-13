@@ -1,6 +1,9 @@
 package manager
 
 import (
+	"context"
+	"errors"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -237,5 +240,140 @@ func TestRestore_SetupEntryFailure_DoesNotAbortRestore(t *testing.T) {
 		t.Errorf("expected 3 shell calls (app-one check+run, app-two check), got %d; "+
 			"restore aborted early instead of collecting the error",
 			len(shellCalls(stub)))
+	}
+}
+
+// scriptedResponse is a single canned reply from scriptedRunner.
+type scriptedResponse struct {
+	err error
+	res cmdexec.Result
+}
+
+// scriptedRunner is a Runner that can return a NON-NIL error, which
+// cmdexec.StubRunner deliberately cannot (it signals failure through ExitCode
+// alone). OsRunner returns exactly this shape whenever the command never
+// launched — shell missing, working directory gone, context already canceled:
+// a non-nil error together with ExitCode 0 and no captured output.
+type scriptedRunner struct {
+	responses []scriptedResponse
+	Calls     []cmdexec.Call
+}
+
+func (r *scriptedRunner) RunIn(
+	_ context.Context, opts cmdexec.RunOptions, name string, args ...string,
+) (cmdexec.Result, error) {
+	r.Calls = append(r.Calls, cmdexec.Call{Name: name, Args: args, Dir: opts.Dir, Sudo: opts.Sudo})
+
+	if len(r.responses) == 0 {
+		return cmdexec.Result{}, nil
+	}
+
+	next := r.responses[0]
+	r.responses = r.responses[1:]
+
+	return next.res, next.err
+}
+
+func (r *scriptedRunner) Run(ctx context.Context, name string, args ...string) (cmdexec.Result, error) {
+	return r.RunIn(ctx, cmdexec.RunOptions{}, name, args...)
+}
+
+func (r *scriptedRunner) RunWithSudo(ctx context.Context, name string, args ...string) (cmdexec.Result, error) {
+	return r.RunIn(ctx, cmdexec.RunOptions{Sudo: true}, name, args...)
+}
+
+func (r *scriptedRunner) LookPath(string) (string, error) {
+	return "", exec.ErrNotFound
+}
+
+// newScriptedManager builds a Linux Manager backed by a scriptedRunner.
+func newScriptedManager(responses ...scriptedResponse) (*Manager, *scriptedRunner) {
+	runner := &scriptedRunner{responses: responses}
+
+	cfg := &config.Config{Version: 3, BackupRoot: "/repo"}
+	plat := &platform.Platform{OS: platform.OSLinux, EnvVars: map[string]string{}}
+
+	return New(cfg, plat).WithRunner(runner), runner
+}
+
+// TestRunSetupEntry_RunNeverLaunched_SurfacesRealCause is the regression guard
+// for the "exit 0" bug: when the run command cannot even start, OsRunner
+// returns a non-nil error with ExitCode 0 and empty Stderr. Formatting only
+// the exit code and stderr produced "command failed (exit 0): " — which reads
+// as success and threw away the only thing that explained the failure.
+func TestRunSetupEntry_RunNeverLaunched_SurfacesRealCause(t *testing.T) {
+	launchErr := errors.New(`exec: "sh": executable file not found in $PATH`)
+
+	m, runner := newScriptedManager(
+		scriptedResponse{res: cmdexec.Result{ExitCode: 1}},      // check fails
+		scriptedResponse{res: cmdexec.Result{}, err: launchErr}, // run never launches
+	)
+
+	err := m.runSetupEntry("vicinae", setupEntry())
+	if err == nil {
+		t.Fatal("expected an error when the run command cannot be launched, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "executable file not found") {
+		t.Errorf("error must surface the real cause, got: %v", err)
+	}
+
+	if strings.HasSuffix(err.Error(), ": ") {
+		t.Errorf("error must not end in a dangling %q, got: %q", ": ", err.Error())
+	}
+
+	if !errors.Is(err, launchErr) {
+		t.Errorf("error must wrap the launch error so callers can inspect it, got: %v", err)
+	}
+
+	// A run that never launched changed nothing, so there is nothing to
+	// re-check: the failure is reported instead.
+	if len(runner.Calls) != 2 {
+		t.Errorf("executed %d command(s), want 2 (check, then the run that failed to launch); "+
+			"the re-check must not run after a failed run: %+v", len(runner.Calls), runner.Calls)
+	}
+}
+
+// TestRunSetupEntry_RunContextCanceled_WrapsContextCanceled proves a canceled
+// run is still detectable by callers via errors.Is.
+func TestRunSetupEntry_RunContextCanceled_WrapsContextCanceled(t *testing.T) {
+	m, runner := newScriptedManager(
+		scriptedResponse{res: cmdexec.Result{ExitCode: 1}},             // check fails
+		scriptedResponse{res: cmdexec.Result{}, err: context.Canceled}, // run canceled
+	)
+	defer func() {
+		if len(runner.Calls) != 2 {
+			t.Errorf("executed %d command(s), want 2 (check, then the canceled run)", len(runner.Calls))
+		}
+	}()
+
+	err := m.runSetupEntry("vicinae", setupEntry())
+	if err == nil {
+		t.Fatal("expected an error when the run command is canceled, got nil")
+	}
+
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("error must wrap context.Canceled, got: %v", err)
+	}
+}
+
+// TestRunSetupEntry_RunFailsSilently_OmitsDanglingSeparator covers a real
+// non-zero exit that printed nothing: there is no reason to report, so the
+// message must stop after the exit code rather than trailing a bare ": ".
+func TestRunSetupEntry_RunFailsSilently_OmitsDanglingSeparator(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	stub.AddResult("sh", cmdexec.Result{ExitCode: 1}) // check fails
+	stub.AddResult("sh", cmdexec.Result{ExitCode: 3}) // run fails, prints nothing
+
+	m := newSetupManager(stub, false)
+
+	err := m.runSetupEntry("vicinae", setupEntry())
+	if err == nil {
+		t.Fatal("expected an error when the run command exits non-zero, got nil")
+	}
+
+	want := "setup vicinae/enable-service: command failed (exit 3)"
+	if err.Error() != want {
+		t.Errorf("error = %q, want %q", err.Error(), want)
 	}
 }

@@ -10,6 +10,57 @@ import (
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
+// setupRunError reports a setup entry whose run command failed.
+//
+// The exit code alone does not identify the failure. When the command never
+// launched at all — the shell is missing, the working directory does not
+// exist, the context was already canceled — OsRunner returns a non-nil error
+// together with ExitCode 0 and no captured output. Formatting only the exit
+// code and stderr then produced "command failed (exit 0): ", which reads as
+// success and discarded the error, the one thing that explained what went
+// wrong. reason therefore prefers stderr and falls back to that error, and
+// Unwrap keeps it reachable through errors.Is/errors.As (context.Canceled in
+// particular).
+type setupRunError struct {
+	err      error
+	app      string
+	entry    string
+	reason   string
+	exitCode int
+}
+
+func (e *setupRunError) Error() string {
+	msg := fmt.Sprintf("setup %s/%s: command failed (exit %d)", e.app, e.entry, e.exitCode)
+
+	// No stderr and no error to report: stop after the exit code rather than
+	// trailing a bare ": ".
+	if e.reason != "" {
+		msg += ": " + e.reason
+	}
+
+	return msg
+}
+
+// Unwrap exposes the underlying execution error, so a caller can still detect
+// e.g. context.Canceled behind the formatted message.
+func (e *setupRunError) Unwrap() error { return e.err }
+
+// newSetupRunError builds a setupRunError from the result of a run command.
+func newSetupRunError(appName, entryName string, res cmdexec.Result, err error) *setupRunError {
+	reason := strings.TrimSpace(string(res.Stderr))
+	if reason == "" && err != nil {
+		reason = err.Error()
+	}
+
+	return &setupRunError{
+		app:      appName,
+		entry:    entryName,
+		reason:   reason,
+		exitCode: res.ExitCode,
+		err:      err,
+	}
+}
+
 // commandSucceeded reports whether a command completed with a zero exit status.
 //
 // Both the error and the exit code must be consulted: OsRunner reports a
@@ -116,10 +167,7 @@ func (m *Manager) runSetupEntry(appName string, e config.SubEntry) error {
 		cmdexec.RunOptions{Dir: m.setupWorkDir(), Sudo: e.Sudo}, name, args...)
 
 	if !commandSucceeded(res, err) {
-		stderr := strings.TrimSpace(string(res.Stderr))
-
-		return fmt.Errorf("setup %s/%s: command failed (exit %d): %s",
-			appName, e.Name, res.ExitCode, stderr)
+		return newSetupRunError(appName, e.Name, res, err)
 	}
 
 	// Confirm the command actually achieved what it claimed. A script can exit 0
