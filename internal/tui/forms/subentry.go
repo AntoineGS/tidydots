@@ -23,6 +23,7 @@ const (
 	SubFieldIsFolder // Config-specific toggle
 	SubFieldFiles    // Config-specific list
 	SubFieldIsSudo   // Sudo toggle
+	SubFieldIsCopy   // Deployment method toggle: copy instead of symlink
 )
 
 // AddFileMode represents the current mode for adding files to the files list
@@ -50,8 +51,12 @@ type SubEntryForm struct {
 	// Check and Run belong to setup entries, which this form does not edit (they
 	// are edited in tidydots.yaml). They are carried through anyway so that a
 	// form built from an entry cannot silently delete them on the way back out.
-	Check              map[string]string
-	Run                map[string]string
+	Check map[string]string
+	Run   map[string]string
+	// Method is the entry's deployment method as it was read in. IsCopy is what
+	// the toggle edits; Method is kept so that turning the toggle off restores the
+	// original spelling ("" or an explicit "symlink") rather than normalizing it.
+	Method             string
 	NameInput          textinput.Model
 	LinuxTargetInput   textinput.Model
 	WindowsTargetInput textinput.Model
@@ -73,6 +78,7 @@ type SubEntryForm struct {
 	AddingFile         bool
 	EditingFile        bool
 	IsSudo             bool
+	IsCopy             bool
 }
 
 // GetFieldType returns the field type at the current focus index
@@ -95,7 +101,8 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 
 	// Config-specific fields start at index 3
 	if f.IsFolder {
-		// Folder mode: backup (3), isFolder (4), isSudo (5)
+		// Folder mode: backup (3), isFolder (4), isSudo (5).
+		// No copy toggle: copy mode is files-only (see ToggleFolderMode).
 		switch idx {
 		case 3:
 			return SubFieldBackup
@@ -105,7 +112,7 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 			return SubFieldIsSudo
 		}
 	} else {
-		// Files mode: backup (3), isFolder (4), files (5), isSudo (6)
+		// Files mode: backup (3), isFolder (4), files (5), isSudo (6), isCopy (7)
 		switch idx {
 		case 3:
 			return SubFieldBackup
@@ -115,6 +122,8 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 			return SubFieldFiles
 		case 6:
 			return SubFieldIsSudo
+		case 7:
+			return SubFieldIsCopy
 		}
 	}
 
@@ -135,8 +144,25 @@ func (f *SubEntryForm) MaxIndex() int {
 		return 5
 	}
 
-	// Config files: backup, isFolder, files, isSudo = 4 fields (3-6)
-	return 6
+	// Config files: backup, isFolder, files, isSudo, isCopy = 5 fields (3-7)
+	return 7
+}
+
+// ToggleFolderMode flips between folder and files mode.
+//
+// Copy mode is files-only: config validation rejects a copy entry with no files
+// list, and config.Save does not validate, so a form left holding IsCopy in
+// folder mode would write a tidydots.yaml that no longer loads. Switching into
+// folder mode therefore clears the copy flag.
+func (f *SubEntryForm) ToggleFolderMode() {
+	if f == nil {
+		return
+	}
+
+	f.IsFolder = !f.IsFolder
+	if f.IsFolder {
+		f.IsCopy = false
+	}
 }
 
 // IsTextInputField returns true if the current field is a text input
@@ -149,7 +175,7 @@ func (f *SubEntryForm) IsTextInputField() bool {
 	switch ft {
 	case SubFieldName, SubFieldLinux, SubFieldWindows, SubFieldBackup:
 		return true
-	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo:
+	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
 		// These fields don't have suggestions
 	}
 
@@ -164,7 +190,7 @@ func (f *SubEntryForm) IsToggleField() bool {
 
 	ft := f.GetFieldType()
 
-	return ft == SubFieldIsFolder || ft == SubFieldIsSudo
+	return ft == SubFieldIsFolder || ft == SubFieldIsSudo || ft == SubFieldIsCopy
 }
 
 // UpdateFocus updates which input field is focused
@@ -189,7 +215,7 @@ func (f *SubEntryForm) UpdateFocus() {
 		f.WindowsTargetInput.Focus()
 	case SubFieldBackup:
 		f.BackupInput.Focus()
-	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo:
+	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
 		// Boolean and list fields don't use text input focus
 	}
 }
@@ -220,7 +246,7 @@ func (f *SubEntryForm) EnterFieldEditMode() {
 		f.OriginalValue = f.BackupInput.Value()
 		f.BackupInput.Focus()
 		f.BackupInput.SetCursor(len(f.BackupInput.Value()))
-	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo:
+	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
 		// Boolean and list fields don't use text input editing
 	}
 }
@@ -241,7 +267,7 @@ func (f *SubEntryForm) CancelFieldEdit() {
 		f.WindowsTargetInput.SetValue(f.OriginalValue)
 	case SubFieldBackup:
 		f.BackupInput.SetValue(f.OriginalValue)
-	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo:
+	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
 		// Boolean and list fields don't use text input restoration
 	}
 
@@ -272,6 +298,22 @@ func (f *SubEntryForm) Validate() error {
 	return nil
 }
 
+// buildMethod resolves the toggle back to a method string. Turning copy off
+// restores the method the entry came in with, so an explicit "symlink" survives
+// a round-trip and an absent method stays absent — symlink is the default, and
+// writing it out would churn every file the form touches.
+func (f *SubEntryForm) buildMethod() string {
+	if f.IsCopy {
+		return config.MethodCopy
+	}
+
+	if f.Method == config.MethodCopy {
+		return ""
+	}
+
+	return f.Method
+}
+
 // BuildSubEntry validates and returns the SubEntry from the form, or an error.
 func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 	if f == nil {
@@ -295,6 +337,13 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 		return config.SubEntry{}, errors.New("backup path is required")
 	}
 
+	// Config validation rejects copy mode without a files list, and config.Save
+	// does not validate — so refuse here rather than write a file that will not
+	// load. The UI keeps the toggle out of folder mode; this covers the rest.
+	if f.IsCopy && f.IsFolder {
+		return config.SubEntry{}, errors.New("copy mode requires a files list; turn off folder mode")
+	}
+
 	// Build SubEntry from form. Check and Run have no fields in this form, so they
 	// are written back exactly as they came in: whatever the form does not carry
 	// through is deleted from the config file when the caller saves.
@@ -302,6 +351,7 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 		Name:    name,
 		Targets: targets,
 		Sudo:    f.IsSudo,
+		Method:  f.buildMethod(),
 		Backup:  backup,
 		Check:   maps.Clone(f.Check),
 		Run:     maps.Clone(f.Run),
@@ -343,6 +393,8 @@ func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 		WindowsTargetInput: windowsTargetInput,
 		BackupInput:        backupInput,
 		IsSudo:             entry.Sudo,
+		IsCopy:             entry.IsCopy(),
+		Method:             entry.Method,
 		IsFolder:           entry.IsFolder(),
 		Files:              entry.Files,
 		Check:              maps.Clone(entry.Check),
