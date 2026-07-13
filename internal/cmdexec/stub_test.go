@@ -123,3 +123,30 @@ func TestStubRunner_Run_NoQueuedResults_ReturnsZeroResult(t *testing.T) {
 		t.Errorf("Stderr: got %q, want empty", got.Stderr)
 	}
 }
+
+func TestStubRunner_RunIn_RecordsDirAndSudo(t *testing.T) {
+	s := cmdexec.NewStubRunner()
+	s.AddResult("sh", cmdexec.Result{ExitCode: 7})
+
+	res, err := s.RunIn(context.Background(), cmdexec.RunOptions{Dir: "/repo", Sudo: true}, "sh", "-c", "true")
+	if err != nil {
+		t.Fatalf("RunIn returned error: %v", err)
+	}
+
+	if res.ExitCode != 7 {
+		t.Errorf("ExitCode = %d, want 7 (queued result must be returned)", res.ExitCode)
+	}
+
+	if len(s.Calls) != 1 {
+		t.Fatalf("expected 1 recorded call, got %d", len(s.Calls))
+	}
+
+	got := s.Calls[0]
+	if got.Dir != "/repo" {
+		t.Errorf("Call.Dir = %q, want %q", got.Dir, "/repo")
+	}
+
+	if !got.Sudo {
+		t.Error("Call.Sudo = false, want true")
+	}
+}

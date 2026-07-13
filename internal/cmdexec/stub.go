@@ -5,10 +5,11 @@ import (
 	"os/exec"
 )
 
-// Call records a single invocation of Run or RunWithSudo.
+// Call records a single invocation of Run, RunWithSudo, or RunIn.
 type Call struct {
 	Name string
 	Args []string
+	Dir  string
 	Sudo bool
 }
 
@@ -50,6 +51,13 @@ func (s *StubRunner) Run(_ context.Context, name string, args ...string) (Result
 // RunWithSudo records the call with Sudo=true and returns the next queued Result.
 func (s *StubRunner) RunWithSudo(_ context.Context, name string, args ...string) (Result, error) {
 	s.Calls = append(s.Calls, Call{Name: name, Args: args, Sudo: true})
+
+	return s.popResult(name), nil
+}
+
+// RunIn records the call with its options and returns the next queued Result.
+func (s *StubRunner) RunIn(_ context.Context, opts RunOptions, name string, args ...string) (Result, error) {
+	s.Calls = append(s.Calls, Call{Name: name, Args: args, Dir: opts.Dir, Sudo: opts.Sudo})
 
 	return s.popResult(name), nil
 }
