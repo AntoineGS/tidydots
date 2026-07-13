@@ -69,6 +69,10 @@ const (
 	StateOutdated = tuitable.StateOutdated
 	// StateModified indicates linked but rendered file has user edits.
 	StateModified = tuitable.StateModified
+	// StateSetupOk indicates a setup entry whose check command passes.
+	StateSetupOk = tuitable.StateSetupOk
+	// StateSetupNeeded indicates a setup entry whose check command fails.
+	StateSetupNeeded = tuitable.StateSetupNeeded
 )
 
 // TableRow is an alias for tuitable.Row so that all existing code in

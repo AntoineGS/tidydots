@@ -135,20 +135,24 @@ func getTypeInfo(subItem SubEntryItem) string {
 
 // needsAttention returns true if the status text indicates something needs attention
 func needsAttention(status string) bool {
-	return status != StatusInstalled && status != StatusUnknown && status != StatusLoading && status != StateLinked.String()
+	return status != StatusInstalled &&
+		status != StatusUnknown &&
+		status != StatusLoading &&
+		status != StateLinked.String() &&
+		status != StateSetupOk.String()
 }
 
 // stateSeverity returns a numeric severity for a PathState.
 // Higher values indicate more urgent states that should take priority in the info column.
 func stateSeverity(s PathState) int {
 	switch s {
-	case StateMissing, StateReady, StateAdopt:
+	case StateMissing, StateReady, StateAdopt, StateSetupNeeded:
 		return 3 // Red — action required
 	case StateOutdated:
 		return 2 // Amber — template source changed
 	case StateModified:
 		return 1 // Blue — user edits detected
-	case StateLoading, StateLinked:
+	case StateLoading, StateLinked, StateSetupOk:
 		return 0 // No attention
 	}
 

@@ -9,8 +9,22 @@ import (
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
+// detectSetupPathState reports the state of a setup sub-entry by running its
+// check command. A nil manager means the check cannot be run, so the entry is
+// reported as satisfied rather than falsely flagged.
+func detectSetupPathState(sub config.SubEntry, mgr *manager.Manager) PathState {
+	if mgr == nil || mgr.IsSetupApplied(sub) {
+		return StateSetupOk
+	}
+	return StateSetupNeeded
+}
+
 // detectSubEntryState determines the state of a sub-entry item
 func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
+	if item.SubEntry.IsSetup() {
+		return detectSetupPathState(item.SubEntry, m.Manager)
+	}
+
 	targetPath := config.ExpandPath(item.Target, m.Platform.EnvVars)
 	backupPath := m.resolvePath(item.SubEntry.Backup)
 
@@ -178,6 +192,10 @@ func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 // detectSubEntryStateStatic determines the state of a sub-entry item without using Model receiver.
 // This is safe to call from goroutines since it takes explicit dependencies.
 func detectSubEntryStateStatic(item SubEntryItem, plat *platform.Platform, cfg *config.Config, mgr *manager.Manager) PathState {
+	if item.SubEntry.IsSetup() {
+		return detectSetupPathState(item.SubEntry, mgr)
+	}
+
 	targetPath := config.ExpandPath(item.Target, plat.EnvVars)
 	backupPath := resolvePathStatic(item.SubEntry.Backup, cfg, plat.EnvVars)
 

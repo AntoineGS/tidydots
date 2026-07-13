@@ -114,6 +114,28 @@ func TestRowFields(t *testing.T) {
 	}
 }
 
+func TestPathState_String_SetupStates(t *testing.T) {
+	if got, want := StateSetupOk.String(), "Set up"; got != want {
+		t.Errorf("StateSetupOk.String() = %q, want %q", got, want)
+	}
+
+	if got, want := StateSetupNeeded.String(), "Needs setup"; got != want {
+		t.Errorf("StateSetupNeeded.String() = %q, want %q", got, want)
+	}
+}
+
+// The existing states are declared with iota; appending must not renumber them,
+// or persisted/compared state values would silently shift meaning.
+func TestPathState_ExistingValuesUnchanged(t *testing.T) {
+	if StateLoading != 0 {
+		t.Errorf("StateLoading = %d, want 0", StateLoading)
+	}
+
+	if StateModified != 6 {
+		t.Errorf("StateModified = %d, want 6; new states must be appended, not inserted", StateModified)
+	}
+}
+
 func TestRowAppLevel(t *testing.T) {
 	// Application-level row (Level=0, SubIndex=-1)
 	r := Row{

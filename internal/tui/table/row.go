@@ -25,6 +25,10 @@ const (
 	StateOutdated
 	// StateModified indicates linked but rendered file has user edits.
 	StateModified
+	// StateSetupOk indicates a setup entry whose check command passes.
+	StateSetupOk
+	// StateSetupNeeded indicates a setup entry whose check command fails.
+	StateSetupNeeded
 )
 
 // String returns the human-readable name of a PathState.
@@ -44,6 +48,10 @@ func (s PathState) String() string {
 		return "Outdated"
 	case StateModified:
 		return "Modified"
+	case StateSetupOk:
+		return "Set up"
+	case StateSetupNeeded:
+		return "Needs setup"
 	}
 
 	return "Unknown"

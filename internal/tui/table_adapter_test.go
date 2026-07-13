@@ -534,3 +534,37 @@ func TestAppInfoMaxState_Modified(t *testing.T) {
 		t.Errorf("expected StateModified, got %v", got)
 	}
 }
+
+func TestStateSetupNeeded_NeedsAttention(t *testing.T) {
+	if !needsAttention(StateSetupNeeded.String()) {
+		t.Error("StateSetupNeeded should need attention")
+	}
+}
+
+func TestStateSetupOk_DoesNotNeedAttention(t *testing.T) {
+	if needsAttention(StateSetupOk.String()) {
+		t.Error("StateSetupOk should not need attention")
+	}
+}
+
+func TestStateSeverity_SetupStates(t *testing.T) {
+	if got, want := stateSeverity(StateSetupNeeded), 3; got != want {
+		t.Errorf("stateSeverity(StateSetupNeeded) = %d, want %d (red, action required)", got, want)
+	}
+
+	if got, want := stateSeverity(StateSetupOk), 0; got != want {
+		t.Errorf("stateSeverity(StateSetupOk) = %d, want %d (no attention)", got, want)
+	}
+}
+
+func TestAppInfoMaxState_SetupNeeded(t *testing.T) {
+	app := ApplicationItem{
+		SubItems: []SubEntryItem{
+			{State: StateLinked},
+			{State: StateSetupNeeded},
+		},
+	}
+	if got := appInfoMaxState(app); got != StateSetupNeeded {
+		t.Errorf("expected StateSetupNeeded, got %v", got)
+	}
+}
