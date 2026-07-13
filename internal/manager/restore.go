@@ -53,6 +53,22 @@ func (m *Manager) Restore() error {
 				return err
 			}
 
+			// Setup entries run their check, and their run command if it fails.
+			// They are dispatched in YAML order, so a setup entry listed after
+			// config entries runs after those entries are deployed.
+			if subEntry.IsSetup() {
+				if err := m.runSetupEntry(app.Name, subEntry); err != nil {
+					m.logger.Error("setup failed",
+						slog.String("app", app.Name),
+						slog.String("entry", subEntry.Name),
+						slog.String("error", err.Error()))
+
+					errs = append(errs, err)
+				}
+
+				continue
+			}
+
 			// Only process config entries
 			if !subEntry.IsConfig() {
 				m.logger.Debug("skipping entry",
