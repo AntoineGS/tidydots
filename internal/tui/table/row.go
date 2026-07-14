@@ -31,6 +31,9 @@ const (
 	StateSetupNeeded
 )
 
+// stateLinkedLabel is the display label for StateLinked.
+const stateLinkedLabel = "Linked"
+
 // String returns the human-readable name of a PathState.
 func (s PathState) String() string {
 	switch s {
@@ -43,7 +46,7 @@ func (s PathState) String() string {
 	case StateMissing:
 		return "Missing"
 	case StateLinked:
-		return "Linked"
+		return stateLinkedLabel
 	case StateOutdated:
 		return "Outdated"
 	case StateModified:

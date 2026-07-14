@@ -218,7 +218,7 @@ func (m *Manager) gitClone(repoURL, targetPath, branch string, sudo bool) (bool,
 	if err := ValidateGitBranch(branch); err != nil {
 		return false, fmt.Sprintf("Invalid git branch: %v", err)
 	}
-	args := []string{"clone"}
+	args := []string{argClone}
 	if branch != "" {
 		args = append(args, "-b", branch)
 	}
@@ -233,9 +233,9 @@ func (m *Manager) gitClone(repoURL, targetPath, branch string, sudo bool) (bool,
 
 	var err error
 	if sudo {
-		_, err = m.runner.RunWithSudo(m.ctx, "git", args...)
+		_, err = m.runner.RunWithSudo(m.ctx, cmdGit, args...)
 	} else {
-		_, err = m.runner.Run(m.ctx, "git", args...)
+		_, err = m.runner.Run(m.ctx, cmdGit, args...)
 	}
 
 	if err != nil {
@@ -255,9 +255,9 @@ func (m *Manager) gitPull(repoPath string, sudo bool) (bool, string) {
 
 	var err error
 	if sudo {
-		_, err = m.runner.RunWithSudo(m.ctx, "git", "-C", repoPath, "pull")
+		_, err = m.runner.RunWithSudo(m.ctx, cmdGit, "-C", repoPath, "pull")
 	} else {
-		_, err = m.runner.Run(m.ctx, "git", "-C", repoPath, "pull")
+		_, err = m.runner.Run(m.ctx, cmdGit, "-C", repoPath, "pull")
 	}
 
 	if err != nil {

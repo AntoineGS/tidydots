@@ -187,7 +187,7 @@ func (m *Manager) GetInstallMethod(pkg Package) string {
 		return MethodURL
 	}
 
-	return "none"
+	return MethodNone
 }
 
 // GetInstallablePackages returns packages from the configuration that can be

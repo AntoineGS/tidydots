@@ -12,6 +12,26 @@ import (
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
+// Command tokens shared by the manager command table and the command builders.
+const (
+	// pkgPlaceholder is the token in managerCmd args replaced by the package name.
+	pkgPlaceholder = "{pkg}"
+	// cmdSudo is the executable used to elevate an install command.
+	cmdSudo = "sudo"
+	// cmdGit is the git executable used to clone and update repositories.
+	// The git package manager identifier is Git.
+	cmdGit = "git"
+	// cmdAptGet is the Debian/Ubuntu install executable. The package manager
+	// identifier is Apt ("apt"), which is a different command.
+	cmdAptGet = "apt-get"
+	// argInstall is the install subcommand accepted by most package managers.
+	argInstall = "install"
+	// argClone is the git clone subcommand.
+	argClone = "clone"
+	// flagNoConfirm skips interactive prompts for the pacman family of managers.
+	flagNoConfirm = "--noconfirm"
+)
+
 // bulkListFunc runs a single command to list all installed packages and returns
 // a set of lowercase package IDs. Used by managers where per-package queries are
 // slow or unreliable under concurrency (e.g. winget).
@@ -26,15 +46,15 @@ type managerCmd struct {
 }
 
 var managerCmds = map[PackageManager]managerCmd{
-	Pacman: {install: []string{"sudo", "pacman", "-S", "--noconfirm", "{pkg}"}, check: []string{"pacman", "-Q", "{pkg}"}},
-	Yay:    {install: []string{"yay", "-S", "--noconfirm", "{pkg}"}, check: []string{"pacman", "-Q", "{pkg}"}},
-	Paru:   {install: []string{"paru", "-S", "--noconfirm", "{pkg}"}, check: []string{"pacman", "-Q", "{pkg}"}},
-	Apt:    {install: []string{"sudo", "apt-get", "install", "-y", "{pkg}"}, check: []string{"dpkg", "-s", "{pkg}"}},
-	Dnf:    {install: []string{"sudo", "dnf", "install", "-y", "{pkg}"}, check: []string{"rpm", "-q", "{pkg}"}},
-	Brew:   {install: []string{"brew", "install", "{pkg}"}, check: []string{"brew", "list", "{pkg}"}},
-	Winget: {install: []string{"winget", "install", "--accept-package-agreements", "--accept-source-agreements", "{pkg}"}, bulkList: wingetBulkList},
-	Scoop:  {install: []string{"scoop", "install", "{pkg}"}, check: []string{"scoop", "info", "{pkg}"}},
-	Choco:  {install: []string{"choco", "install", "-y", "{pkg}"}, check: []string{"choco", "list", "--local-only", "{pkg}"}},
+	Pacman: {install: []string{cmdSudo, string(Pacman), "-S", flagNoConfirm, pkgPlaceholder}, check: []string{string(Pacman), "-Q", pkgPlaceholder}},
+	Yay:    {install: []string{string(Yay), "-S", flagNoConfirm, pkgPlaceholder}, check: []string{string(Pacman), "-Q", pkgPlaceholder}},
+	Paru:   {install: []string{string(Paru), "-S", flagNoConfirm, pkgPlaceholder}, check: []string{string(Pacman), "-Q", pkgPlaceholder}},
+	Apt:    {install: []string{cmdSudo, cmdAptGet, argInstall, "-y", pkgPlaceholder}, check: []string{"dpkg", "-s", pkgPlaceholder}},
+	Dnf:    {install: []string{cmdSudo, string(Dnf), argInstall, "-y", pkgPlaceholder}, check: []string{"rpm", "-q", pkgPlaceholder}},
+	Brew:   {install: []string{string(Brew), argInstall, pkgPlaceholder}, check: []string{string(Brew), "list", pkgPlaceholder}},
+	Winget: {install: []string{string(Winget), argInstall, "--accept-package-agreements", "--accept-source-agreements", pkgPlaceholder}, bulkList: wingetBulkList},
+	Scoop:  {install: []string{string(Scoop), argInstall, pkgPlaceholder}, check: []string{string(Scoop), "info", pkgPlaceholder}},
+	Choco:  {install: []string{string(Choco), argInstall, "-y", pkgPlaceholder}, check: []string{string(Choco), "list", "--local-only", pkgPlaceholder}},
 }
 
 // wingetBulkList runs "winget list" once and parses the output to build a set of
@@ -48,7 +68,7 @@ func wingetBulkList(ctx context.Context) map[string]bool {
 func wingetBulkListWithRunner(ctx context.Context, r cmdexec.Runner) map[string]bool {
 	slog.Debug("running winget bulk list")
 
-	result, err := r.Run(ctx, "winget", "list", "--disable-interactivity", "--accept-source-agreements")
+	result, err := r.Run(ctx, string(Winget), "list", "--disable-interactivity", "--accept-source-agreements")
 
 	if err != nil {
 		slog.Debug("winget bulk list failed",
@@ -147,7 +167,7 @@ func cleanWingetOutput(output string) []string {
 func expandArgs(args []string, pkgName string) []string {
 	result := make([]string, len(args))
 	for i, arg := range args {
-		if arg == "{pkg}" {
+		if arg == pkgPlaceholder {
 			result[i] = pkgName
 		} else {
 			result[i] = arg
@@ -192,16 +212,16 @@ func BuildCommand(ctx context.Context, pkg Package, method, osType string) *exec
 		}
 		// Expand ~ since git clone doesn't do shell tilde expansion
 		target = config.ExpandPath(target, nil)
-		args := []string{"clone"}
+		args := []string{argClone}
 		if gitVal.Git.Branch != "" {
 			args = append(args, "-b", gitVal.Git.Branch)
 		}
 		args = append(args, gitVal.Git.URL, target)
 		if gitVal.Git.Sudo {
-			args = append([]string{"git"}, args...)
-			return exec.CommandContext(ctx, "sudo", args...) //nolint:gosec // intentional command from user config
+			args = append([]string{cmdGit}, args...)
+			return exec.CommandContext(ctx, cmdSudo, args...) //nolint:gosec // intentional command from user config
 		}
-		return exec.CommandContext(ctx, "git", args...) //nolint:gosec // intentional command from user config
+		return exec.CommandContext(ctx, cmdGit, args...) //nolint:gosec // intentional command from user config
 
 	case string(Installer):
 		installerVal, ok := pkg.Managers[Installer]

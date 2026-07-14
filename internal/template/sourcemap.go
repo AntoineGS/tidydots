@@ -143,9 +143,19 @@ func (e *Engine) RenderStringWithSourceMap(name, tmplStr string) (string, map[in
 	return buf.String(), srcMap, nil
 }
 
+// Template line types produced by ClassifyLineTypes.
+const (
+	// lineTypeText marks a line with no {{ delimiters; editable in reverse editing.
+	lineTypeText = "text"
+	// lineTypeExpression marks a line whose template actions produce visible output; read-only.
+	lineTypeExpression = "expression"
+	// lineTypeDirective marks a line holding only template directives; read-only, no visible output.
+	lineTypeDirective = "directive"
+)
+
 // lineTypePriority maps line types to priority values for reverse map selection.
 // Lower values are preferred when multiple template lines map to the same rendered line.
-var lineTypePriority = map[string]int{"text": 0, "expression": 1, "directive": 2}
+var lineTypePriority = map[string]int{lineTypeText: 0, lineTypeExpression: 1, lineTypeDirective: 2}
 
 // BuildReverseMap inverts a forward source map (template line -> rendered line)
 // into a reverse map (rendered line -> template line).
@@ -185,14 +195,14 @@ func ClassifyLineTypes(tmplStr string) map[int]string {
 	for i, line := range lines {
 		lineNum := i + 1
 		if !strings.Contains(line, "{{") {
-			types[lineNum] = "text"
+			types[lineNum] = lineTypeText
 			continue
 		}
 		stripped := templateActionPattern.ReplaceAllString(line, "")
 		if strings.TrimSpace(stripped) == "" {
-			types[lineNum] = "directive"
+			types[lineNum] = lineTypeDirective
 		} else {
-			types[lineNum] = "expression"
+			types[lineNum] = lineTypeExpression
 		}
 	}
 

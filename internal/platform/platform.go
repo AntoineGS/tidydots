@@ -26,6 +26,25 @@ const (
 	OSWindows = "windows"
 )
 
+// distroArch is the /etc/os-release ID of Arch Linux.
+const distroArch = "arch"
+
+// Package manager names. These mirror the PackageManager identifiers in the
+// packages package, which cannot be imported here because that package already
+// imports platform.
+const (
+	mgrYay    = "yay"
+	mgrParu   = "paru"
+	mgrPacman = "pacman"
+	mgrApt    = "apt"
+	mgrDnf    = "dnf"
+	mgrBrew   = "brew"
+	mgrWinget = "winget"
+	mgrScoop  = "scoop"
+	mgrChoco  = "choco"
+	mgrGit    = "git"
+)
+
 // Platform holds detected platform information including the operating system,
 // Linux distribution, hostname, current user, and privilege status.
 type Platform struct {
@@ -230,7 +249,7 @@ func detectWSL() bool {
 
 // IsArchLinux returns true if the detected distribution is Arch Linux.
 func (p *Platform) IsArchLinux() bool {
-	return p.Distro == "arch"
+	return p.Distro == distroArch
 }
 
 // WithOS returns a copy of the Platform with the OS field overridden.
@@ -285,10 +304,10 @@ func isCommandAvailableWithRunner(cmd string, r cmdexec.Runner) bool {
 // Includes Arch Linux (yay, paru, pacman), Debian/Fedora/macOS (apt, dnf, brew),
 // Windows (winget, scoop, choco) package managers, and git for repository cloning.
 var KnownPackageManagers = []string{
-	"yay", "paru", "pacman", // Arch Linux
-	"apt", "dnf", "brew", // Debian/Fedora/macOS
-	"winget", "scoop", "choco", // Windows
-	"git", // Git for repository cloning
+	mgrYay, mgrParu, mgrPacman, // Arch Linux
+	mgrApt, mgrDnf, mgrBrew, // Debian/Fedora/macOS
+	mgrWinget, mgrScoop, mgrChoco, // Windows
+	mgrGit, // Git for repository cloning
 }
 
 // detectWindowsDriveMounts reads /proc/mounts and returns the mount points of
@@ -365,11 +384,11 @@ var (
 // Managers not listed here (like "git") are considered cross-platform.
 var managersForOS = map[string]map[string]bool{
 	OSLinux: {
-		"yay": true, "paru": true, "pacman": true,
-		"apt": true, "dnf": true, "brew": true,
+		mgrYay: true, mgrParu: true, mgrPacman: true,
+		mgrApt: true, mgrDnf: true, mgrBrew: true,
 	},
 	OSWindows: {
-		"winget": true, "scoop": true, "choco": true,
+		mgrWinget: true, mgrScoop: true, mgrChoco: true,
 	},
 }
 

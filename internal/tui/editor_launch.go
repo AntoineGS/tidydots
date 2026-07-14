@@ -27,6 +27,9 @@ const (
 	editorModeFallback = "fallback"
 )
 
+// editorVim is the vim executable, the first entry in the fallback editor chain.
+const editorVim = "vim"
+
 // editorLaunchCompleteMsg is sent when the editor exits and the TUI should resume.
 type editorLaunchCompleteMsg struct {
 	err error
@@ -122,7 +125,7 @@ func getEditor() string {
 		return editor
 	}
 	// Fallback chain
-	for _, e := range []string{"vim", "vi", "nano"} {
+	for _, e := range []string{editorVim, "vi", "nano"} {
 		if _, err := exec.LookPath(e); err == nil {
 			return e
 		}

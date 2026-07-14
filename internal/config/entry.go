@@ -14,6 +14,10 @@ const (
 	MethodCopy = "copy"
 )
 
+// managerGit is the managers-map key whose value is a GitPackage object rather
+// than a plain package name.
+const managerGit = "git"
+
 // ManagerValue represents a typed value for a package manager entry.
 // It holds either a package name string (for traditional managers like pacman, apt),
 // a GitPackage configuration (for git repositories), or an InstallerPackage
@@ -183,7 +187,7 @@ func (ep *EntryPackage) UnmarshalYAML(node *yaml.Node) error {
 			)
 
 			switch key {
-			case "git":
+			case managerGit:
 				mv, err = unmarshalGitManager(value)
 			case "installer":
 				mv, err = unmarshalInstallerManager(value)
@@ -225,7 +229,7 @@ func (ep *EntryPackage) GetGitPackage() (*GitPackage, bool) {
 		return nil, false
 	}
 
-	value, ok := ep.Managers["git"]
+	value, ok := ep.Managers[managerGit]
 	if !ok || value.Git == nil {
 		return nil, false
 	}

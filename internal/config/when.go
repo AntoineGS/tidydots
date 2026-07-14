@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// whenTrue is the rendered value a when expression must produce to match.
+const whenTrue = "true"
+
 // EvaluateWhen evaluates a template-based when expression without logging.
 // Empty when returns true (always match). Nil renderer returns false.
 // The template is rendered and the trimmed result is checked against "true".
@@ -36,5 +39,5 @@ func EvaluateWhenWithLogger(when string, renderer PathRenderer, logger *slog.Log
 		return false
 	}
 
-	return strings.TrimSpace(result) == "true"
+	return strings.TrimSpace(result) == whenTrue
 }

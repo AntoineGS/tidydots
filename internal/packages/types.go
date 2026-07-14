@@ -54,6 +54,8 @@ const (
 	MethodCustom = "custom"
 	// MethodURL identifies a URL-based download and install method
 	MethodURL = "url"
+	// MethodNone identifies that no installation method is available
+	MethodNone = "none"
 )
 
 // Type aliases pointing to canonical definitions in the config package.
