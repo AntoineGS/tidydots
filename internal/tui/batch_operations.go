@@ -253,13 +253,7 @@ func (m Model) executeBatchDelete() tea.Cmd {
 			}
 
 			// Find the config index for the sub-entry
-			configSubIdx := -1
-			for i, entry := range m.Config.Applications[configAppIdx].Entries {
-				if entry.Name == sub.SubEntry.Name {
-					configSubIdx = i
-					break
-				}
-			}
+			configSubIdx := m.findConfigSubEntryIndex(configAppIdx, sub.SubEntry.Name)
 
 			if configSubIdx >= 0 {
 				items = append(items, deleteItem{

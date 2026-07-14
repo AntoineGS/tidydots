@@ -311,23 +311,36 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.Operation == OpList && (m.confirmingDeleteApp || m.confirmingDeleteSubEntry) {
 		switch {
 		case key.Matches(msg, ConfirmKeys.Yes):
-			// Confirm delete
+			// Confirm delete. appIdx/subIdx index the sorted m.Applications and
+			// its OS-filtered SubItems; deletion slices the unsorted, unfiltered
+			// m.Config, so both must be resolved to config indices by name.
 			appIdx, subIdx := m.getApplicationAtCursorFromTable()
 			if m.confirmingDeleteApp && appIdx >= 0 {
 				m.confirmingDeleteApp = false
-				if err := m.deleteApplication(appIdx); err != nil {
-					m.err = err
-				} else {
-					// Rebuild table after deletion
-					m.rebuildTable()
+				configAppIdx := m.findConfigApplicationIndex(m.Applications[appIdx].Application.Name)
+				if configAppIdx >= 0 {
+					if err := m.deleteApplication(configAppIdx); err != nil {
+						m.err = err
+					} else {
+						// Rebuild table after deletion
+						m.rebuildTable()
+					}
 				}
 			} else if m.confirmingDeleteSubEntry && appIdx >= 0 && subIdx >= 0 {
 				m.confirmingDeleteSubEntry = false
-				if err := m.deleteSubEntry(appIdx, subIdx); err != nil {
-					m.err = err
-				} else {
-					// Rebuild table after deletion
-					m.rebuildTable()
+				app := m.Applications[appIdx]
+				configAppIdx := m.findConfigApplicationIndex(app.Application.Name)
+				configSubIdx := -1
+				if configAppIdx >= 0 {
+					configSubIdx = m.findConfigSubEntryIndex(configAppIdx, app.SubItems[subIdx].SubEntry.Name)
+				}
+				if configSubIdx >= 0 {
+					if err := m.deleteSubEntry(configAppIdx, configSubIdx); err != nil {
+						m.err = err
+					} else {
+						// Rebuild table after deletion
+						m.rebuildTable()
+					}
 				}
 			}
 
@@ -1069,6 +1082,19 @@ func (m Model) getSearchedApplications() []ApplicationItem {
 func (m *Model) findConfigApplicationIndex(appName string) int {
 	for i, app := range m.Config.Applications {
 		if app.Name == appName {
+			return i
+		}
+	}
+
+	return -1
+}
+
+// findConfigSubEntryIndex finds the index of a sub-entry in
+// m.Config.Applications[configAppIdx].Entries by name. A SubItems index cannot
+// be used instead: SubItems skips entries that do not apply to the running OS.
+func (m *Model) findConfigSubEntryIndex(configAppIdx int, subName string) int {
+	for i, entry := range m.Config.Applications[configAppIdx].Entries {
+		if entry.Name == subName {
 			return i
 		}
 	}
