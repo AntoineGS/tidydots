@@ -437,17 +437,26 @@ func (m Model) renderTable(availableHeight int) string {
 
 			// Multi-select styling
 			tr := m.tableRows[actualRow]
-			appIdx := tr.AppIndex
 			subIdx := tr.SubIndex
 
 			isSelected := false
 			if subIdx < 0 {
 				isSelected = m.isAppSelected(tr.AppName)
 			} else {
+				// tr.AppIndex is a position in the sorted/search-compacted copy
+				// that flattenApplications received, NOT in m.Applications, so
+				// resolve the application by name (the same pattern as
+				// getApplicationAtCursorFromTable). tr.SubIndex IS the real
+				// position: it is stamped from subItem.Index.
 				subName := ""
-				if appIdx >= 0 && appIdx < len(m.Applications) &&
-					subIdx >= 0 && subIdx < len(m.Applications[appIdx].SubItems) {
-					subName = m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
+				for i := range m.Applications {
+					if m.Applications[i].Application.Name != tr.AppName {
+						continue
+					}
+					if subIdx >= 0 && subIdx < len(m.Applications[i].SubItems) {
+						subName = m.Applications[i].SubItems[subIdx].SubEntry.Name
+					}
+					break
 				}
 				isSelected = m.isSubEntrySelected(tr.AppName, subName)
 			}
