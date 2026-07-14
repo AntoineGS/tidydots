@@ -194,7 +194,6 @@ type ApplicationItem struct {
 	PkgInstalled *bool
 	PkgMethod    string
 	SubItems     []SubEntryItem
-	Selected     bool
 	Expanded     bool
 	IsFiltered   bool // True if this app doesn't match the current filter context
 }
@@ -210,8 +209,7 @@ type SubEntryItem struct {
 	// table a compacted copy of SubItems holding only the matching entries: a
 	// row's position in that copy is not its position in the real slice, and every
 	// cursor action indexes the real slice.
-	Index    int
-	Selected bool
+	Index int
 }
 
 // ResultItem is an alias for tuiops.ResultItem so that all existing code in

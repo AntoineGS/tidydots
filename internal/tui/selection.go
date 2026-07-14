@@ -154,6 +154,38 @@ func (m *Model) clearHiddenSelections() {
 	m.updateMultiSelectActive()
 }
 
+// pruneStaleSelections drops selection keys that no longer name a live
+// application or sub-entry (the item was renamed or deleted since it was
+// selected). Stale name keys cannot retarget another item the way stale
+// indices could, but they would inflate the multi-select banner counts.
+func (m *Model) pruneStaleSelections() {
+	liveApps := make(map[string]bool, len(m.Applications))
+	liveSubs := make(map[subEntryKey]bool)
+
+	for _, app := range m.Applications {
+		name := app.Application.Name
+		liveApps[name] = true
+
+		for _, sub := range app.SubItems {
+			liveSubs[subEntryKey{app: name, sub: sub.SubEntry.Name}] = true
+		}
+	}
+
+	for name := range m.selectedApps {
+		if !liveApps[name] {
+			delete(m.selectedApps, name)
+		}
+	}
+
+	for key := range m.selectedSubEntries {
+		if !liveSubs[key] {
+			delete(m.selectedSubEntries, key)
+		}
+	}
+
+	m.updateMultiSelectActive()
+}
+
 // moveToNextExpandedNode moves the cursor to the next expanded node in the table.
 // It wraps around to the beginning if it reaches the end.
 func (m *Model) moveToNextExpandedNode() {

@@ -73,7 +73,6 @@ func (m *Model) initApplicationItems() {
 			subItem := SubEntryItem{
 				SubEntry: subEntry,
 				Target:   expandedTarget,
-				Selected: true,
 				AppName:  app.Name,
 				Index:    len(subItems),
 			}
@@ -88,7 +87,6 @@ func (m *Model) initApplicationItems() {
 
 		appItem := ApplicationItem{
 			Application: app,
-			Selected:    true,
 			Expanded:    false,
 			SubItems:    subItems,
 			IsFiltered:  isFiltered,
@@ -167,6 +165,8 @@ func (m *Model) reinitPreservingState(editedAppName string) {
 			}
 		}
 	}
+
+	m.pruneStaleSelections()
 
 	// Rebuild table with restored states
 	m.initTableModel()

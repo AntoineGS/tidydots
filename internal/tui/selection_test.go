@@ -331,3 +331,29 @@ func TestClearHiddenSelections(t *testing.T) {
 		t.Error("multiSelectActive should remain true (visible app still selected)")
 	}
 }
+
+func TestReinitPreservingState_PrunesStaleSelections(t *testing.T) {
+	m := NewModel(orderProbeConfig(), linuxPlatform(), false)
+
+	// Select both apps, then delete "zebra" from the config and rebuild, as
+	// the edit/delete flows do. The stale "zebra" keys must not survive to
+	// inflate the multi-select banner counts.
+	m.toggleAppSelection(0) // alpha
+	m.toggleAppSelection(1) // zebra
+
+	m.Config.Applications = m.Config.Applications[:1] // drop zebra
+	m.reinitPreservingState("")
+
+	if !m.selectedApps["alpha"] {
+		t.Error("alpha's selection must survive the rebuild")
+	}
+	if m.selectedApps["zebra"] {
+		t.Error("zebra's app selection must be pruned after deletion")
+	}
+	if m.selectedSubEntries[subEntryKey{app: "zebra", sub: "conf-z"}] {
+		t.Error("zebra's sub-entry selection must be pruned after deletion")
+	}
+	if !m.multiSelectActive {
+		t.Error("multiSelectActive must stay true (alpha is still selected)")
+	}
+}
