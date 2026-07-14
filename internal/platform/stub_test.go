@@ -2,6 +2,7 @@ package platform
 
 import (
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/cmdexec"
@@ -508,6 +509,14 @@ func TestLookPathSkipWindowsDrives_NotFound(t *testing.T) {
 }
 
 func TestLookPathSkipWindowsDrives_Found(t *testing.T) {
+	// lookPathSkipWindowsDrives only runs under WSL (it reads /proc/mounts), and
+	// both it and this test assume Unix PATH syntax: ':' as the list separator
+	// and '/' as the path separator. On Windows t.TempDir() returns C:\..., which
+	// a ':' split would tear in half.
+	if runtime.GOOS == OSWindows {
+		t.Skip("lookPathSkipWindowsDrives is WSL-only and assumes Unix PATH syntax")
+	}
+
 	// Create a temp directory with a fake executable and add it to PATH
 	tmpDir := t.TempDir()
 	fakeBin := tmpDir + "/fakecmd"

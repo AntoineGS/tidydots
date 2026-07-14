@@ -49,6 +49,7 @@ func TestFilesEqual_MissingDst_NotEqual(t *testing.T) {
 
 func TestFilesEqual_Sudo_UsesCmpExitCode(t *testing.T) {
 	t.Parallel()
+	skipIfNoSudo(t)
 	mgr, mem, stub := newSudoManager(t)
 	_ = mem.WriteFile("/src", []byte("x"), 0644)
 	_ = mem.WriteFile("/dst", []byte("x"), 0644) // presence only; cmp result is stubbed
@@ -65,6 +66,7 @@ func TestFilesEqual_Sudo_UsesCmpExitCode(t *testing.T) {
 
 func TestCopyFileTo_Sudo_RecordsCp(t *testing.T) {
 	t.Parallel()
+	skipIfNoSudo(t)
 	mgr, mem, stub := newSudoManager(t)
 	_ = mem.WriteFile("/src", []byte("x"), 0644)
 
@@ -106,6 +108,7 @@ func TestRemovePath_NoSudo_RemovesViaFS(t *testing.T) {
 
 func TestRemovePath_Sudo_RecordsRmForce(t *testing.T) {
 	t.Parallel()
+	skipIfNoSudo(t)
 	mgr, _, stub := newSudoManager(t)
 
 	if err := mgr.removePath("/etc/f", true); err != nil {
@@ -218,6 +221,7 @@ func TestRestoreFileCopy_DryRunWritesNothing(t *testing.T) {
 
 func TestRestoreFileCopy_Sudo_MigratesSymlinkThenCopies(t *testing.T) {
 	t.Parallel()
+	skipIfNoSudo(t)
 	mgr, mem, stub := newSudoManager(t)
 	_ = mem.MkdirAll("/backup", 0755)
 	_ = mem.MkdirAll("/etc", 0755)

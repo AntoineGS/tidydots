@@ -19,6 +19,18 @@ func skipIfNoSymlink(t *testing.T) {
 	}
 }
 
+// skipIfNoSudo skips tests that assert on the sudo code path. copyFileTo,
+// removePath and filesEqual all gate that path behind runtime.GOOS != Windows,
+// so on Windows they silently fall through to the filesystem abstraction and
+// the runner records no calls.
+func skipIfNoSudo(t *testing.T) {
+	t.Helper()
+
+	if runtime.GOOS == platform.OSWindows {
+		t.Skip("sudo code paths are not taken on Windows")
+	}
+}
+
 // newUtilityManager returns a Manager suitable for calling utility methods
 // such as copyFile, copyDir, removeAll, mergeFile, createSymlink, etc. in
 // tests. It uses the real OS filesystem and command runner, so callers can
