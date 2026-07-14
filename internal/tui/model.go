@@ -149,9 +149,9 @@ type Model struct {
 	filterEnabled bool // true to hide filtered apps, false to show all
 
 	// Selection state for multi-select mode
-	selectedApps       map[int]bool    // appIndex -> selected
-	selectedSubEntries map[string]bool // appIndex:subIndex -> selected
-	multiSelectActive  bool            // true when selections exist
+	selectedApps       map[string]bool      // application name -> selected
+	selectedSubEntries map[subEntryKey]bool // (app name, entry name) -> selected
+	multiSelectActive  bool                 // true when selections exist
 
 	// Summary screen state
 	summaryOperation   Operation // Which batch operation: restore, install, delete
@@ -251,8 +251,8 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 		sortColumn:         SortColumnName, // Default sort by name
 		sortAscending:      true,           // Ascending by default
 		filterEnabled:      true,           // Filter ON by default
-		selectedApps:       make(map[int]bool),
-		selectedSubEntries: make(map[string]bool),
+		selectedApps:       make(map[string]bool),
+		selectedSubEntries: make(map[subEntryKey]bool),
 		multiSelectActive:  false,
 	}
 

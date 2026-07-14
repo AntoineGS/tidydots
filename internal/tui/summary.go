@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -54,40 +53,29 @@ func (m Model) viewSummary() string {
 func (m Model) renderInstallSummary() string {
 	var b strings.Builder
 
-	// Collect and sort selected app indices for deterministic output
-	sortedAppIndices := make([]int, 0, len(m.selectedApps))
-	for appIdx := range m.selectedApps {
-		sortedAppIndices = append(sortedAppIndices, appIdx)
-	}
-	sort.Ints(sortedAppIndices)
-
-	// Count selected apps with packages
+	// Count selected apps with packages. Iterating m.Applications keeps the
+	// output in model order without collecting and sorting map keys.
 	selectedAppsWithPkg := 0
-	for _, appIdx := range sortedAppIndices {
-		if appIdx >= 0 && appIdx < len(m.Applications) {
-			app := m.Applications[appIdx]
-			if app.PkgInstalled != nil && !*app.PkgInstalled {
-				selectedAppsWithPkg++
-			}
+	for _, app := range m.Applications {
+		if m.selectedApps[app.Application.Name] && app.PkgInstalled != nil && !*app.PkgInstalled {
+			selectedAppsWithPkg++
 		}
 	}
 
 	b.WriteString(SubtitleStyle.Render(fmt.Sprintf("Will install packages for %d application(s):", selectedAppsWithPkg)))
 	b.WriteString("\n\n")
 
-	// List selected apps with packages
-	for _, appIdx := range sortedAppIndices {
-		if appIdx >= 0 && appIdx < len(m.Applications) {
-			app := m.Applications[appIdx]
-			if app.PkgInstalled != nil && !*app.PkgInstalled {
-				b.WriteString(CheckedStyle.Render("  • "))
-				b.WriteString(PathNameStyle.Render(app.Application.Name))
-				if app.PkgMethod != "" && app.PkgMethod != TypeNone {
-					b.WriteString(MutedTextStyle.Render(fmt.Sprintf(" (%s)", app.PkgMethod)))
-				}
-				b.WriteString("\n")
-			}
+	for _, app := range m.Applications {
+		if !m.selectedApps[app.Application.Name] || app.PkgInstalled == nil || *app.PkgInstalled {
+			continue
 		}
+
+		b.WriteString(CheckedStyle.Render("  • "))
+		b.WriteString(PathNameStyle.Render(app.Application.Name))
+		if app.PkgMethod != "" && app.PkgMethod != TypeNone {
+			b.WriteString(MutedTextStyle.Render(fmt.Sprintf(" (%s)", app.PkgMethod)))
+		}
+		b.WriteString("\n")
 	}
 
 	if selectedAppsWithPkg == 0 {
@@ -126,87 +114,58 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 	b.WriteString(SubtitleStyle.Render(fmt.Sprintf("%d application(s), %d item(s) will be %s:", appCount, subEntryCount, actionVerb)))
 	b.WriteString("\n\n")
 
-	// Collect and sort selected app indices for deterministic output
-	sortedAppIndices := make([]int, 0, len(m.selectedApps))
-	for appIdx := range m.selectedApps {
-		sortedAppIndices = append(sortedAppIndices, appIdx)
-	}
-	sort.Ints(sortedAppIndices)
-
-	// Show selected apps (expanded with sub-entries)
-	for _, appIdx := range sortedAppIndices {
-		if appIdx >= 0 && appIdx < len(m.Applications) {
-			app := m.Applications[appIdx]
-			// App header
-			b.WriteString(CheckedStyle.Render("▼ "))
-			b.WriteString(PathNameStyle.Render(app.Application.Name))
-			b.WriteString(MutedTextStyle.Render(fmt.Sprintf(" (%d entries)", len(app.SubItems))))
-			b.WriteString("\n")
-
-			// Sub-entries
-			for _, sub := range app.SubItems {
-				b.WriteString("  ")
-				b.WriteString(CheckedStyle.Render("  • "))
-				b.WriteString(sub.SubEntry.Name)
-				b.WriteString(MutedTextStyle.Render(summarySubEntryDetail(sub)))
-				b.WriteString("\n")
-			}
-		}
-	}
-
-	// Show standalone selected sub-entries (parent not selected)
-	standaloneSubs := make(map[int][]int) // appIdx -> []subIdx
-
-	// Sort the selectedSubEntries keys for deterministic iteration
-	sortedSubKeys := make([]string, 0, len(m.selectedSubEntries))
-	for key := range m.selectedSubEntries {
-		sortedSubKeys = append(sortedSubKeys, key)
-	}
-	sort.Strings(sortedSubKeys)
-
-	for _, key := range sortedSubKeys {
-		var appIdx, subIdx int
-		if _, err := fmt.Sscanf(key, "%d:%d", &appIdx, &subIdx); err != nil {
+	// Show selected apps (expanded with sub-entries), in model order.
+	for _, app := range m.Applications {
+		if !m.selectedApps[app.Application.Name] {
 			continue
 		}
 
-		// Skip if parent app is selected (already shown above)
-		if m.selectedApps[appIdx] {
+		// App header
+		b.WriteString(CheckedStyle.Render("▼ "))
+		b.WriteString(PathNameStyle.Render(app.Application.Name))
+		b.WriteString(MutedTextStyle.Render(fmt.Sprintf(" (%d entries)", len(app.SubItems))))
+		b.WriteString("\n")
+
+		// Sub-entries
+		for _, sub := range app.SubItems {
+			b.WriteString("  ")
+			b.WriteString(CheckedStyle.Render("  • "))
+			b.WriteString(sub.SubEntry.Name)
+			b.WriteString(MutedTextStyle.Render(summarySubEntryDetail(sub)))
+			b.WriteString("\n")
+		}
+	}
+
+	// Show standalone selected sub-entries (parent not selected), grouped by app.
+	for _, app := range m.Applications {
+		name := app.Application.Name
+		if m.selectedApps[name] {
 			continue
 		}
 
-		standaloneSubs[appIdx] = append(standaloneSubs[appIdx], subIdx)
-	}
-
-	// Collect and sort standalone app indices for deterministic output
-	sortedStandaloneIndices := make([]int, 0, len(standaloneSubs))
-	for appIdx := range standaloneSubs {
-		sortedStandaloneIndices = append(sortedStandaloneIndices, appIdx)
-	}
-	sort.Ints(sortedStandaloneIndices)
-
-	// Render standalone sub-entries grouped by app
-	for _, appIdx := range sortedStandaloneIndices {
-		subIndices := standaloneSubs[appIdx]
-		if appIdx >= 0 && appIdx < len(m.Applications) {
-			app := m.Applications[appIdx]
-			// Show app header (not fully selected, just a container)
-			b.WriteString(MutedTextStyle.Render("▶ "))
-			b.WriteString(app.Application.Name)
-			b.WriteString(MutedTextStyle.Render(fmt.Sprintf(" (%d/%d entries)", len(subIndices), len(app.SubItems))))
-			b.WriteString("\n")
-
-			// Show selected sub-entries
-			for _, subIdx := range subIndices {
-				if subIdx >= 0 && subIdx < len(app.SubItems) {
-					sub := app.SubItems[subIdx]
-					b.WriteString("  ")
-					b.WriteString(CheckedStyle.Render("  • "))
-					b.WriteString(sub.SubEntry.Name)
-					b.WriteString(MutedTextStyle.Render(summarySubEntryDetail(sub)))
-					b.WriteString("\n")
-				}
+		var selected []SubEntryItem
+		for _, sub := range app.SubItems {
+			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] {
+				selected = append(selected, sub)
 			}
+		}
+
+		if len(selected) == 0 {
+			continue
+		}
+
+		// Show app header (not fully selected, just a container)
+		b.WriteString(MutedTextStyle.Render("▶ "))
+		b.WriteString(name)
+		b.WriteString(MutedTextStyle.Render(fmt.Sprintf(" (%d/%d entries)", len(selected), len(app.SubItems))))
+		b.WriteString("\n")
+
+		for _, sub := range selected {
+			b.WriteString("  ")
+			b.WriteString(CheckedStyle.Render("  • "))
+			b.WriteString(sub.SubEntry.Name)
+			b.WriteString(MutedTextStyle.Render(summarySubEntryDetail(sub)))
+			b.WriteString("\n")
 		}
 	}
 

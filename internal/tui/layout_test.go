@@ -85,7 +85,7 @@ func TestLayoutHeightConsistency(t *testing.T) {
 		{
 			name: "with_multi_select_banner",
 			setup: func(m *Model) {
-				m.selectedApps[0] = true
+				m.selectedApps["app-01"] = true
 				m.multiSelectActive = true
 			},
 		},
@@ -110,7 +110,7 @@ func TestLayoutHeightConsistency(t *testing.T) {
 				m.results = []ResultItem{
 					{Name: "app-01/config", Message: "Restored successfully", Success: true},
 				}
-				m.selectedApps[0] = true
+				m.selectedApps["app-01"] = true
 				m.multiSelectActive = true
 			},
 		},
@@ -421,7 +421,7 @@ func TestScrollOffsetDivergence(t *testing.T) {
 		{
 			name: "with_multi_select",
 			setup: func(m *Model) {
-				m.selectedApps[0] = true
+				m.selectedApps["app-01"] = true
 				m.multiSelectActive = true
 			},
 		},

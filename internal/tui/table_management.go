@@ -442,9 +442,14 @@ func (m Model) renderTable(availableHeight int) string {
 
 			isSelected := false
 			if subIdx < 0 {
-				isSelected = m.isAppSelected(appIdx)
+				isSelected = m.isAppSelected(tr.AppName)
 			} else {
-				isSelected = m.isSubEntrySelected(appIdx, subIdx)
+				subName := ""
+				if appIdx >= 0 && appIdx < len(m.Applications) &&
+					subIdx >= 0 && subIdx < len(m.Applications[appIdx].SubItems) {
+					subName = m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
+				}
+				isSelected = m.isSubEntrySelected(tr.AppName, subName)
 			}
 
 			if isSelected {
