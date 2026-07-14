@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/fsys"
@@ -610,5 +611,55 @@ func TestMemFS_WalkDir_StopOnError(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("WalkDir stop: visited %d entries, want 1", count)
+	}
+}
+
+// TestMemFS_AcceptsOSNativePaths pins the invariant that MemFS accepts paths
+// built with path/filepath, which is how every caller builds them. On Windows
+// filepath emits backslashes, so a MemFS that keys on the raw string would miss
+// its own slash-keyed entries and report ErrNotExist.
+func TestMemFS_AcceptsOSNativePaths(t *testing.T) {
+	m := fsys.NewMemFS()
+
+	dir := filepath.Join("/", "base", "nested")
+	if err := m.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("MkdirAll %q: %v", dir, err)
+	}
+
+	file := filepath.Join(dir, "config.yaml")
+	if err := m.WriteFile(file, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("WriteFile %q: %v", file, err)
+	}
+
+	// Readable through both the OS-native and the slash-separated spelling.
+	for _, name := range []string{file, "/base/nested/config.yaml"} {
+		data, err := m.ReadFile(name)
+		if err != nil {
+			t.Fatalf("ReadFile %q: %v", name, err)
+		}
+		if string(data) != "hello" {
+			t.Errorf("ReadFile %q = %q, want %q", name, data, "hello")
+		}
+	}
+
+	link := filepath.Join(dir, "link.yaml")
+	if err := m.Symlink(file, link); err != nil {
+		t.Fatalf("Symlink %q -> %q: %v", link, file, err)
+	}
+	data, err := m.ReadFile(link)
+	if err != nil {
+		t.Fatalf("ReadFile through symlink %q: %v", link, err)
+	}
+	if string(data) != "hello" {
+		t.Errorf("ReadFile through symlink = %q, want %q", data, "hello")
+	}
+
+	// Readlink round-trips the target verbatim, as the real filesystem does.
+	target, err := m.Readlink(link)
+	if err != nil {
+		t.Fatalf("Readlink %q: %v", link, err)
+	}
+	if target != file {
+		t.Errorf("Readlink = %q, want %q", target, file)
 	}
 }
