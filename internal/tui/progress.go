@@ -1029,10 +1029,14 @@ func (m Model) viewListTable() string {
 	return BaseStyle.Render(b.String())
 }
 
-// getSearchedApplications returns searched applications for hierarchical view
+// getSearchedApplications returns searched applications for hierarchical view.
+// It always returns a fresh slice: initTableModel sorts the result in place,
+// and m.Applications must keep its load-time order — the selection maps and
+// every cursor action resolve against it. A shallow clone is enough because
+// view code only reads SubItems, never reorders them.
 func (m Model) getSearchedApplications() []ApplicationItem {
 	if m.searchText == "" {
-		return m.Applications
+		return slices.Clone(m.Applications)
 	}
 
 	searchLower := strings.ToLower(m.searchText)
