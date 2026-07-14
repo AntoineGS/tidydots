@@ -76,11 +76,14 @@ func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bo
 						typeInfo,
 						displayTarget, // Show original config path, not expanded
 					},
-					Level:           1,
-					TreeChar:        treeChar,
-					AppIndex:        appIdx,
-					AppName:         app.Application.Name,
-					SubIndex:        subIdx,
+					Level:    1,
+					TreeChar: treeChar,
+					AppIndex: appIdx,
+					AppName:  app.Application.Name,
+					// subItem.Index, not subIdx: under a search filter this app is a
+					// copy whose SubItems hold only the matching entries, so subIdx is
+					// a position in that copy. Cursor actions index the real slice.
+					SubIndex:        subItem.Index,
 					State:           subItem.State,
 					StatusAttention: needsAttention(subItem.State.String()),
 					InfoAttention:   false, // Sub-entries don't have info attention
