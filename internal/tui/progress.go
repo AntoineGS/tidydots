@@ -181,7 +181,11 @@ func (m *Model) refreshApplicationStates() {
 	}
 }
 
-// getApplicationAtCursorFromTable returns the application and sub-entry indices from table cursor
+// getApplicationAtCursorFromTable resolves the cursor row to real indices into
+// m.Applications (and its SubItems). Resolution goes through the row's AppName:
+// names are the stable identity — the table is built from a sorted, filtered
+// COPY of m.Applications, so no position on a row can be trusted against the
+// model except SubIndex, which flattenApplications stamps from the real slice.
 func (m *Model) getApplicationAtCursorFromTable() (int, int) {
 	if m.tableCursor < 0 || m.tableCursor >= len(m.tableRows) {
 		return -1, -1
