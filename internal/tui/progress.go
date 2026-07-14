@@ -983,18 +983,7 @@ func (m Model) viewListTable() string {
 	availableForTable := maxVisibleRows + 4 // Add back table border lines
 
 	// Derive content needed below the table for rendering
-	appIdx, subIdx := m.getApplicationAtCursorFromTable()
-	var detailContent string
-	if m.showingDetail && appIdx >= 0 {
-		if subIdx >= 0 {
-			detailContent = m.renderSubEntryInlineDetail(&m.Applications[appIdx].SubItems[subIdx], m.width)
-		} else {
-			filtered := m.getSearchedApplications()
-			if appIdx < len(filtered) {
-				detailContent = m.renderApplicationInlineDetail(&filtered[appIdx], m.width)
-			}
-		}
-	}
+	detailContent := m.detailContent()
 
 	var diffPickerContent string
 	if m.showingDiffPicker {

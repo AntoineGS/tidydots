@@ -225,24 +225,9 @@ func (m Model) computeMaxVisibleRows() int {
 
 	linesAfterTable := 1 // blank line or multi-select banner after table
 
-	// Detail panel (currently returns "" but will have height when implemented)
-	if m.showingDetail {
-		appIdx, subIdx := m.getApplicationAtCursorFromTable()
-		if appIdx >= 0 {
-			var detailContent string
-			if subIdx >= 0 {
-				detailContent = m.renderSubEntryInlineDetail(
-					&m.Applications[appIdx].SubItems[subIdx], m.width)
-			} else {
-				filtered := m.getSearchedApplications()
-				if appIdx < len(filtered) {
-					detailContent = m.renderApplicationInlineDetail(&filtered[appIdx], m.width)
-				}
-			}
-			if detailContent != "" {
-				linesAfterTable += strings.Count(detailContent, "\n") + 1
-			}
-		}
+	// Detail panel (renderers currently return "" but will have height when implemented)
+	if detailContent := m.detailContent(); detailContent != "" {
+		linesAfterTable += strings.Count(detailContent, "\n") + 1
 	}
 
 	// Diff picker panel
