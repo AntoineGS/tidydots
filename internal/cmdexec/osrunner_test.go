@@ -22,14 +22,21 @@ func TestOsRunner_RunIn_SetsWorkingDirectory(t *testing.T) {
 		t.Fatalf("RunIn returned error: %v", err)
 	}
 
-	// t.TempDir can sit under a symlinked root (macOS /tmp -> /private/tmp),
-	// so compare fully resolved paths.
+	// t.TempDir can sit under a symlinked root (on macOS /var -> /private/var).
+	// os/exec sets PWD=Dir verbatim in the child, and `pwd` reports that logical
+	// path, so the two sides can spell the same directory differently. Resolve
+	// both before comparing.
 	want, err := filepath.EvalSymlinks(dir)
 	if err != nil {
-		t.Fatalf("EvalSymlinks: %v", err)
+		t.Fatalf("EvalSymlinks(dir): %v", err)
 	}
 
-	if got := strings.TrimSpace(string(res.Stdout)); got != want {
+	got, err := filepath.EvalSymlinks(strings.TrimSpace(string(res.Stdout)))
+	if err != nil {
+		t.Fatalf("EvalSymlinks(stdout): %v", err)
+	}
+
+	if got != want {
 		t.Errorf("pwd = %q, want %q", got, want)
 	}
 }
