@@ -73,7 +73,6 @@ func (m *Model) initApplicationItems() {
 			subItem := SubEntryItem{
 				SubEntry: subEntry,
 				Target:   expandedTarget,
-				Selected: true,
 				AppName:  app.Name,
 				Index:    len(subItems),
 			}
@@ -88,7 +87,6 @@ func (m *Model) initApplicationItems() {
 
 		appItem := ApplicationItem{
 			Application: app,
-			Selected:    true,
 			Expanded:    false,
 			SubItems:    subItems,
 			IsFiltered:  isFiltered,
@@ -168,6 +166,8 @@ func (m *Model) reinitPreservingState(editedAppName string) {
 		}
 	}
 
+	m.pruneStaleSelections()
+
 	// Rebuild table with restored states
 	m.initTableModel()
 }
@@ -181,7 +181,11 @@ func (m *Model) refreshApplicationStates() {
 	}
 }
 
-// getApplicationAtCursorFromTable returns the application and sub-entry indices from table cursor
+// getApplicationAtCursorFromTable resolves the cursor row to real indices into
+// m.Applications (and its SubItems). Resolution goes through the row's AppName:
+// names are the stable identity — the table is built from a sorted, filtered
+// COPY of m.Applications, so no position on a row can be trusted against the
+// model except SubIndex, which flattenApplications stamps from the real slice.
 func (m *Model) getApplicationAtCursorFromTable() (int, int) {
 	if m.tableCursor < 0 || m.tableCursor >= len(m.tableRows) {
 		return -1, -1
@@ -979,18 +983,7 @@ func (m Model) viewListTable() string {
 	availableForTable := maxVisibleRows + 4 // Add back table border lines
 
 	// Derive content needed below the table for rendering
-	appIdx, subIdx := m.getApplicationAtCursorFromTable()
-	var detailContent string
-	if m.showingDetail && appIdx >= 0 {
-		if subIdx >= 0 {
-			detailContent = m.renderSubEntryInlineDetail(&m.Applications[appIdx].SubItems[subIdx], m.width)
-		} else {
-			filtered := m.getSearchedApplications()
-			if appIdx < len(filtered) {
-				detailContent = m.renderApplicationInlineDetail(&filtered[appIdx], m.width)
-			}
-		}
-	}
+	detailContent := m.detailContent()
 
 	var diffPickerContent string
 	if m.showingDiffPicker {
@@ -1029,10 +1022,14 @@ func (m Model) viewListTable() string {
 	return BaseStyle.Render(b.String())
 }
 
-// getSearchedApplications returns searched applications for hierarchical view
+// getSearchedApplications returns searched applications for hierarchical view.
+// It always returns a fresh slice: initTableModel sorts the result in place,
+// and m.Applications must keep its load-time order — the selection maps and
+// every cursor action resolve against it. A shallow clone is enough because
+// view code only reads SubItems, never reorders them.
 func (m Model) getSearchedApplications() []ApplicationItem {
 	if m.searchText == "" {
-		return m.Applications
+		return slices.Clone(m.Applications)
 	}
 
 	searchLower := strings.ToLower(m.searchText)

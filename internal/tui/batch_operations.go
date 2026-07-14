@@ -40,44 +40,37 @@ type batchRestoreConfigsDoneMsg struct {
 }
 
 // collectBatchRestoreItems returns every selected sub-entry, de-duplicated
-// against apps that are selected as a whole.
+// against apps that are selected as a whole. Iterating m.Applications (rather
+// than the selection maps) makes the batch order deterministic: model order,
+// not map order.
 func (m Model) collectBatchRestoreItems() []batchRestoreItem {
 	var items []batchRestoreItem
 
-	// Add selected apps (all sub-entries)
-	for appIdx := range m.selectedApps {
-		if appIdx >= 0 && appIdx < len(m.Applications) {
-			app := m.Applications[appIdx]
+	for appIdx, app := range m.Applications {
+		name := app.Application.Name
+
+		// Whole app selected: every sub-entry is included.
+		if m.selectedApps[name] {
 			for subIdx := range app.SubItems {
 				items = append(items, batchRestoreItem{
 					appIdx: appIdx,
 					subIdx: subIdx,
-					name:   app.Application.Name + "/" + app.SubItems[subIdx].SubEntry.Name,
+					name:   name + "/" + app.SubItems[subIdx].SubEntry.Name,
 				})
 			}
-		}
-	}
 
-	// Add standalone selected sub-entries
-	for key := range m.selectedSubEntries {
-		var appIdx, subIdx int
-		if _, err := fmt.Sscanf(key, "%d:%d", &appIdx, &subIdx); err != nil {
 			continue
 		}
 
-		// Skip if parent app is selected (already added above)
-		if m.selectedApps[appIdx] {
-			continue
-		}
-
-		if appIdx >= 0 && appIdx < len(m.Applications) &&
-			subIdx >= 0 && subIdx < len(m.Applications[appIdx].SubItems) {
-			app := m.Applications[appIdx]
-			items = append(items, batchRestoreItem{
-				appIdx: appIdx,
-				subIdx: subIdx,
-				name:   app.Application.Name + "/" + app.SubItems[subIdx].SubEntry.Name,
-			})
+		// Standalone selected sub-entries.
+		for subIdx, sub := range app.SubItems {
+			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] {
+				items = append(items, batchRestoreItem{
+					appIdx: appIdx,
+					subIdx: subIdx,
+					name:   name + "/" + sub.SubEntry.Name,
+				})
+			}
 		}
 	}
 
@@ -173,21 +166,21 @@ func (m Model) executeBatchInstall() tea.Cmd {
 	// Collect all selected apps with packages to install
 	var packages []PackageItem
 
-	for appIdx := range m.selectedApps {
-		if appIdx >= 0 && appIdx < len(m.Applications) {
-			app := m.Applications[appIdx]
+	for _, app := range m.Applications {
+		if !m.selectedApps[app.Application.Name] {
+			continue
+		}
 
-			// Only install if package exists and is not already installed
-			if app.PkgInstalled != nil && !*app.PkgInstalled && app.Application.HasPackage() {
-				// Convert Application to PackageItem
-				pkg := PackageItem{
-					Name:     app.Application.Name,
-					Package:  app.Application.Package,
-					Method:   app.PkgMethod,
-					Selected: true,
-				}
-				packages = append(packages, pkg)
+		// Only install if package exists and is not already installed
+		if app.PkgInstalled != nil && !*app.PkgInstalled && app.Application.HasPackage() {
+			// Convert Application to PackageItem
+			pkg := PackageItem{
+				Name:     app.Application.Name,
+				Package:  app.Application.Package,
+				Method:   app.PkgMethod,
+				Selected: true,
 			}
+			packages = append(packages, pkg)
 		}
 	}
 
@@ -230,50 +223,39 @@ func (m Model) executeBatchDelete() tea.Cmd {
 
 	var items []deleteItem
 
-	// Add selected apps (entire app deletion)
-	for appIdx := range m.selectedApps {
-		if appIdx >= 0 && appIdx < len(m.Applications) {
-			app := m.Applications[appIdx]
-			// Find the config index
-			configIdx := m.findConfigApplicationIndex(app.Application.Name)
+	for _, app := range m.Applications {
+		name := app.Application.Name
+
+		// Whole app selected: delete the application.
+		if m.selectedApps[name] {
+			configIdx := m.findConfigApplicationIndex(name)
 			if configIdx >= 0 {
 				items = append(items, deleteItem{
 					configAppIdx: configIdx,
 					subIdx:       -1,
-					name:         app.Application.Name,
+					name:         name,
 					sortKey:      configIdx * 1000, // App deletions get higher priority per app
 				})
 			}
-		}
-	}
 
-	// Add standalone selected sub-entries
-	for key := range m.selectedSubEntries {
-		var appIdx, subIdx int
-		if _, err := fmt.Sscanf(key, "%d:%d", &appIdx, &subIdx); err != nil {
 			continue
 		}
 
-		// Skip if parent app is selected (will be deleted with app)
-		if m.selectedApps[appIdx] {
+		// Standalone selected sub-entries.
+		configAppIdx := m.findConfigApplicationIndex(name)
+		if configAppIdx < 0 {
 			continue
 		}
 
-		if appIdx >= 0 && appIdx < len(m.Applications) &&
-			subIdx >= 0 && subIdx < len(m.Applications[appIdx].SubItems) {
-			app := m.Applications[appIdx]
-			subEntry := app.SubItems[subIdx]
-
-			// Find the config index for the app
-			configAppIdx := m.findConfigApplicationIndex(app.Application.Name)
-			if configAppIdx < 0 {
+		for _, sub := range app.SubItems {
+			if !m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] {
 				continue
 			}
 
 			// Find the config index for the sub-entry
 			configSubIdx := -1
 			for i, entry := range m.Config.Applications[configAppIdx].Entries {
-				if entry.Name == subEntry.SubEntry.Name {
+				if entry.Name == sub.SubEntry.Name {
 					configSubIdx = i
 					break
 				}
@@ -283,7 +265,7 @@ func (m Model) executeBatchDelete() tea.Cmd {
 				items = append(items, deleteItem{
 					configAppIdx: configAppIdx,
 					subIdx:       configSubIdx,
-					name:         app.Application.Name + "/" + subEntry.SubEntry.Name,
+					name:         name + "/" + sub.SubEntry.Name,
 					sortKey:      configAppIdx*1000 + configSubIdx, // Sub-entries sorted within app
 				})
 			}

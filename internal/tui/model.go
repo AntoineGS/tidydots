@@ -149,9 +149,9 @@ type Model struct {
 	filterEnabled bool // true to hide filtered apps, false to show all
 
 	// Selection state for multi-select mode
-	selectedApps       map[int]bool    // appIndex -> selected
-	selectedSubEntries map[string]bool // appIndex:subIndex -> selected
-	multiSelectActive  bool            // true when selections exist
+	selectedApps       map[string]bool      // application name -> selected
+	selectedSubEntries map[subEntryKey]bool // (app name, entry name) -> selected
+	multiSelectActive  bool                 // true when selections exist
 
 	// Summary screen state
 	summaryOperation   Operation // Which batch operation: restore, install, delete
@@ -194,7 +194,6 @@ type ApplicationItem struct {
 	PkgInstalled *bool
 	PkgMethod    string
 	SubItems     []SubEntryItem
-	Selected     bool
 	Expanded     bool
 	IsFiltered   bool // True if this app doesn't match the current filter context
 }
@@ -210,8 +209,7 @@ type SubEntryItem struct {
 	// table a compacted copy of SubItems holding only the matching entries: a
 	// row's position in that copy is not its position in the real slice, and every
 	// cursor action indexes the real slice.
-	Index    int
-	Selected bool
+	Index int
 }
 
 // ResultItem is an alias for tuiops.ResultItem so that all existing code in
@@ -251,8 +249,8 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 		sortColumn:         SortColumnName, // Default sort by name
 		sortAscending:      true,           // Ascending by default
 		filterEnabled:      true,           // Filter ON by default
-		selectedApps:       make(map[int]bool),
-		selectedSubEntries: make(map[string]bool),
+		selectedApps:       make(map[string]bool),
+		selectedSubEntries: make(map[subEntryKey]bool),
 		multiSelectActive:  false,
 	}
 

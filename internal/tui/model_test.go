@@ -681,7 +681,7 @@ func TestFilterToggleWithSelections(t *testing.T) {
 	}
 
 	// Select the filtered app (arch-specific, index 0 after sorting: arch-specific=0, nvim=1)
-	model.selectedApps[0] = true
+	model.selectedApps["arch-specific"] = true
 	model.multiSelectActive = true
 
 	// Count hidden selections (arch-specific would be hidden when filter is ON)
@@ -707,7 +707,7 @@ func TestFilterToggleWithSelections(t *testing.T) {
 	model.initApplicationItems()
 
 	// Verify hidden selections cleared (arch-specific should be deselected)
-	if model.selectedApps[0] {
+	if model.selectedApps["arch-specific"] {
 		t.Error("arch-specific (index 0) should be deselected after clearing hidden selections")
 	}
 

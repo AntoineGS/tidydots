@@ -112,11 +112,11 @@ func setupMultiSelect(m *Model) {
 	m.initApplicationItems()
 
 	// Select bash (app index 0) and nvim (app index 2)
-	m.selectedApps[0] = true
-	m.selectedApps[2] = true
+	m.selectedApps["bash"] = true
+	m.selectedApps[nvimAppName] = true
 
 	// Select a sub-entry from nvim
-	m.selectedSubEntries["nvim/init"] = true
+	m.selectedSubEntries[subEntryKey{app: nvimAppName, sub: "init"}] = true
 
 	m.multiSelectActive = true
 	m.Screen = ScreenResults

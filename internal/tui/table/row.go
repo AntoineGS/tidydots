@@ -64,9 +64,9 @@ type Row struct {
 	Level           int       // 0 = application, 1 = sub-entry
 	TreeChar        string    // "▶ ", "▼ ", "├─", "└─"
 	IsExpanded      bool
-	AppIndex        int       // Index in filtered array (for display)
-	AppName         string    // Application name for lookup in m.Applications
-	SubIndex        int       // -1 for application rows
+	AppName         string    // Application name; the stable identity for lookups in m.Applications
+	SubName         string    // Sub-entry name ("" on application rows); identity for selection lookups
+	SubIndex        int       // Real index into the app's SubItems; -1 for application rows
 	State           PathState // For badge rendering
 	StatusAttention bool      // Status column needs attention
 	InfoAttention   bool      // Info column needs attention

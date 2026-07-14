@@ -444,7 +444,7 @@ func TestHandleSetupRunResult_RunsQueuedEntriesOneAtATime(t *testing.T) {
 func TestExecuteBatchRestore_DoesNotFailSetupEntries(t *testing.T) {
 	stub := cmdexec.NewStubRunner()
 	m := newSetupModel(t, stub, false)
-	m.selectedSubEntries = map[string]bool{"0:1": true} // the setup entry
+	m.selectedSubEntries = map[subEntryKey]bool{{app: "vicinae", sub: "enable-service"}: true}
 	m.multiSelectActive = true
 
 	cmd := m.executeBatchRestore()
@@ -552,7 +552,7 @@ func TestHandleBatchRestoreConfigsDone_NoSetups_CompletesAsBefore(t *testing.T) 
 func TestSummary_DescribesSetupEntriesAccurately(t *testing.T) {
 	stub := cmdexec.NewStubRunner()
 	m := newSetupModel(t, stub, false)
-	m.selectedApps = map[int]bool{0: true}
+	m.selectedApps = map[string]bool{"vicinae": true}
 	m.multiSelectActive = true
 	m.summaryOperation = OpRestore
 

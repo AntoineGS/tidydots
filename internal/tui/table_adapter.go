@@ -10,7 +10,7 @@ import (
 func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bool) []TableRow {
 	var rows []TableRow
 
-	for appIdx, app := range apps {
+	for _, app := range apps {
 		// Skip filtered apps when filter is enabled
 		if filterEnabled && app.IsFiltered {
 			continue
@@ -47,7 +47,6 @@ func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bo
 			Level:           0,
 			TreeChar:        expandChar,
 			IsExpanded:      app.Expanded,
-			AppIndex:        appIdx,
 			AppName:         app.Application.Name,
 			SubIndex:        -1,
 			StatusAttention: needsAttention(statusText),
@@ -78,8 +77,8 @@ func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bo
 					},
 					Level:    1,
 					TreeChar: treeChar,
-					AppIndex: appIdx,
 					AppName:  app.Application.Name,
+					SubName:  subItem.SubEntry.Name,
 					// subItem.Index, not subIdx: under a search filter this app is a
 					// copy whose SubItems hold only the matching entries, so subIdx is
 					// a position in that copy. Cursor actions index the real slice.

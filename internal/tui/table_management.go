@@ -22,25 +22,25 @@ func (m *Model) sortTableRows() {
 		subEntries []TableRow
 	}
 
-	groups := make(map[int]*appGroup)
-	var appIndices []int
+	groups := make(map[string]*appGroup)
+	var appNames []string
 
 	for _, row := range m.tableRows {
-		if _, exists := groups[row.AppIndex]; !exists {
-			groups[row.AppIndex] = &appGroup{}
-			// appIndices are added in the order they appear in tableRows,
+		if _, exists := groups[row.AppName]; !exists {
+			groups[row.AppName] = &appGroup{}
+			// appNames are added in the order they appear in tableRows,
 			// which preserves the current visual order
-			appIndices = append(appIndices, row.AppIndex)
+			appNames = append(appNames, row.AppName)
 		}
 
 		if row.SubIndex == -1 {
-			groups[row.AppIndex].appRow = row
+			groups[row.AppName].appRow = row
 		} else {
-			groups[row.AppIndex].subEntries = append(groups[row.AppIndex].subEntries, row)
+			groups[row.AppName].subEntries = append(groups[row.AppName].subEntries, row)
 		}
 	}
 
-	// NOTE: We do NOT sort appIndices here. The appIndices array already
+	// NOTE: We do NOT sort appNames here. The appNames array already
 	// represents the current visual order from tableRows. Re-sorting would
 	// cause applications to jump positions when expanding/collapsing.
 	//
@@ -73,8 +73,8 @@ func (m *Model) sortTableRows() {
 
 	// Rebuild tableRows in sorted order
 	m.tableRows = make([]TableRow, 0, len(m.tableRows))
-	for _, appIdx := range appIndices {
-		group := groups[appIdx]
+	for _, appName := range appNames {
+		group := groups[appName]
 		m.tableRows = append(m.tableRows, group.appRow)
 		m.tableRows = append(m.tableRows, group.subEntries...)
 	}
@@ -94,7 +94,7 @@ func (m *Model) fixTreeCharacters() {
 		// Find if this is the last sub-entry for its app
 		isLast := true
 		for j := i + 1; j < len(m.tableRows); j++ {
-			if m.tableRows[j].AppIndex != m.tableRows[i].AppIndex {
+			if m.tableRows[j].AppName != m.tableRows[i].AppName {
 				// Different app, we're done
 				break
 			}
@@ -225,24 +225,9 @@ func (m Model) computeMaxVisibleRows() int {
 
 	linesAfterTable := 1 // blank line or multi-select banner after table
 
-	// Detail panel (currently returns "" but will have height when implemented)
-	if m.showingDetail {
-		appIdx, subIdx := m.getApplicationAtCursorFromTable()
-		if appIdx >= 0 {
-			var detailContent string
-			if subIdx >= 0 {
-				detailContent = m.renderSubEntryInlineDetail(
-					&m.Applications[appIdx].SubItems[subIdx], m.width)
-			} else {
-				filtered := m.getSearchedApplications()
-				if appIdx < len(filtered) {
-					detailContent = m.renderApplicationInlineDetail(&filtered[appIdx], m.width)
-				}
-			}
-			if detailContent != "" {
-				linesAfterTable += strings.Count(detailContent, "\n") + 1
-			}
-		}
+	// Detail panel (renderers currently return "" but will have height when implemented)
+	if detailContent := m.detailContent(); detailContent != "" {
+		linesAfterTable += strings.Count(detailContent, "\n") + 1
 	}
 
 	// Diff picker panel
@@ -437,14 +422,12 @@ func (m Model) renderTable(availableHeight int) string {
 
 			// Multi-select styling
 			tr := m.tableRows[actualRow]
-			appIdx := tr.AppIndex
-			subIdx := tr.SubIndex
 
 			isSelected := false
-			if subIdx < 0 {
-				isSelected = m.isAppSelected(appIdx)
+			if tr.SubIndex < 0 {
+				isSelected = m.isAppSelected(tr.AppName)
 			} else {
-				isSelected = m.isSubEntrySelected(appIdx, subIdx)
+				isSelected = m.isSubEntrySelected(tr.AppName, tr.SubName)
 			}
 
 			if isSelected {

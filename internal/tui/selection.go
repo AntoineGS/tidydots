@@ -1,8 +1,19 @@
 package tui
 
-import "fmt"
+// Selection helper methods.
+//
+// Selections are keyed by NAME, not by position. Config validation enforces
+// unique application names and unique entry names within an application
+// (internal/config/validate.go), so names are a stable identity: they survive
+// the view's sort (which reorders a copy), the search filter (which compacts
+// a copy), and reinitPreservingState (which rebuilds and re-sorts
+// m.Applications after config edits). A position key survives none of those.
 
-// Selection helper methods
+// subEntryKey identifies one sub-entry by its application and entry names.
+type subEntryKey struct {
+	app string
+	sub string
+}
 
 // toggleAppSelection toggles the selection state of an entire application and all its sub-entries.
 // When selecting an app, all its sub-entries are selected. When deselecting, all are deselected.
@@ -11,22 +22,21 @@ func (m *Model) toggleAppSelection(appIdx int) {
 		return
 	}
 
-	// Toggle the app selection state
-	newState := !m.selectedApps[appIdx]
-	m.selectedApps[appIdx] = newState
+	app := m.Applications[appIdx]
+	name := app.Application.Name
 
-	// Toggle all sub-entries to match
-	for subIdx := range m.Applications[appIdx].SubItems {
-		key := m.makeSubEntryKey(appIdx, subIdx)
-		m.selectedSubEntries[key] = newState
+	newState := !m.selectedApps[name]
+	m.selectedApps[name] = newState
+
+	for _, sub := range app.SubItems {
+		m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] = newState
 	}
 
 	// Clean up maps if deselecting
 	if !newState {
-		delete(m.selectedApps, appIdx)
-		for subIdx := range m.Applications[appIdx].SubItems {
-			key := m.makeSubEntryKey(appIdx, subIdx)
-			delete(m.selectedSubEntries, key)
+		delete(m.selectedApps, name)
+		for _, sub := range app.SubItems {
+			delete(m.selectedSubEntries, subEntryKey{app: name, sub: sub.SubEntry.Name})
 		}
 	}
 
@@ -42,9 +52,11 @@ func (m *Model) toggleSubEntrySelection(appIdx, subIdx int) {
 		return
 	}
 
-	key := m.makeSubEntryKey(appIdx, subIdx)
+	key := subEntryKey{
+		app: m.Applications[appIdx].Application.Name,
+		sub: m.Applications[appIdx].SubItems[subIdx].SubEntry.Name,
+	}
 
-	// Toggle the sub-entry selection state
 	newState := !m.selectedSubEntries[key]
 	m.selectedSubEntries[key] = newState
 
@@ -58,14 +70,9 @@ func (m *Model) toggleSubEntrySelection(appIdx, subIdx int) {
 
 // clearSelections clears all selection state, resetting to no selections.
 func (m *Model) clearSelections() {
-	m.selectedApps = make(map[int]bool)
-	m.selectedSubEntries = make(map[string]bool)
+	m.selectedApps = make(map[string]bool)
+	m.selectedSubEntries = make(map[subEntryKey]bool)
 	m.multiSelectActive = false
-}
-
-// makeSubEntryKey creates a unique key for a sub-entry using the format "appIdx:subIdx".
-func (m *Model) makeSubEntryKey(appIdx, subIdx int) string {
-	return fmt.Sprintf("%d:%d", appIdx, subIdx)
 }
 
 // updateMultiSelectActive updates the multiSelectActive flag based on current selections.
@@ -74,22 +81,19 @@ func (m *Model) updateMultiSelectActive() {
 	m.multiSelectActive = len(m.selectedApps) > 0 || len(m.selectedSubEntries) > 0
 }
 
-// isAppSelected returns true if the application at appIdx is selected.
-func (m *Model) isAppSelected(appIdx int) bool {
-	return m.selectedApps[appIdx]
+// isAppSelected returns true if the named application is selected.
+func (m *Model) isAppSelected(appName string) bool {
+	return m.selectedApps[appName]
 }
 
 // isSubEntrySelected returns true if the sub-entry is selected.
 // A sub-entry is considered selected if it's explicitly selected OR if its parent app is selected.
-func (m *Model) isSubEntrySelected(appIdx, subIdx int) bool {
-	// Check if parent app is selected (implicit selection)
-	if m.selectedApps[appIdx] {
+func (m *Model) isSubEntrySelected(appName, subName string) bool {
+	if m.selectedApps[appName] {
 		return true
 	}
 
-	// Check if sub-entry is explicitly selected
-	key := m.makeSubEntryKey(appIdx, subIdx)
-	return m.selectedSubEntries[key]
+	return m.selectedSubEntries[subEntryKey{app: appName, sub: subName}]
 }
 
 // getSelectionCounts returns the count of selected apps and independent sub-entries.
@@ -97,15 +101,8 @@ func (m *Model) isSubEntrySelected(appIdx, subIdx int) bool {
 func (m *Model) getSelectionCounts() (appCount int, subEntryCount int) {
 	appCount = len(m.selectedApps)
 
-	// Count sub-entries that are NOT under a selected app
 	for key := range m.selectedSubEntries {
-		var appIdx, subIdx int
-		if _, err := fmt.Sscanf(key, "%d:%d", &appIdx, &subIdx); err != nil {
-			continue // Skip malformed keys
-		}
-
-		// Only count if parent app is not selected
-		if !m.selectedApps[appIdx] {
+		if !m.selectedApps[key.app] {
 			subEntryCount++
 		}
 	}
@@ -118,22 +115,20 @@ func (m *Model) getSelectionCounts() (appCount int, subEntryCount int) {
 func (m *Model) countHiddenSelections() int {
 	count := 0
 
-	// Count selected apps that are filtered
-	for appIdx := range m.selectedApps {
-		if appIdx >= 0 && appIdx < len(m.Applications) && m.Applications[appIdx].IsFiltered {
-			count++
-		}
-	}
-
-	// Count selected sub-entries under filtered apps
-	for key := range m.selectedSubEntries {
-		var appIdx, subIdx int
-		if _, err := fmt.Sscanf(key, "%d:%d", &appIdx, &subIdx); err != nil {
+	for _, app := range m.Applications {
+		if !app.IsFiltered {
 			continue
 		}
 
-		if appIdx >= 0 && appIdx < len(m.Applications) && m.Applications[appIdx].IsFiltered {
+		name := app.Application.Name
+		if m.selectedApps[name] {
 			count++
+		}
+
+		for _, sub := range app.SubItems {
+			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] {
+				count++
+			}
 		}
 	}
 
@@ -143,26 +138,51 @@ func (m *Model) countHiddenSelections() int {
 // clearHiddenSelections removes selections for apps where IsFiltered=true.
 // Called after toggling filter ON to keep selections in sync with visible items.
 func (m *Model) clearHiddenSelections() {
-	// Remove filtered apps from selected apps
-	for appIdx := range m.selectedApps {
-		if appIdx >= 0 && appIdx < len(m.Applications) && m.Applications[appIdx].IsFiltered {
-			delete(m.selectedApps, appIdx)
-		}
-	}
-
-	// Remove sub-entries under filtered apps
-	for key := range m.selectedSubEntries {
-		var appIdx, subIdx int
-		if _, err := fmt.Sscanf(key, "%d:%d", &appIdx, &subIdx); err != nil {
+	for _, app := range m.Applications {
+		if !app.IsFiltered {
 			continue
 		}
 
-		if appIdx >= 0 && appIdx < len(m.Applications) && m.Applications[appIdx].IsFiltered {
+		name := app.Application.Name
+		delete(m.selectedApps, name)
+
+		for _, sub := range app.SubItems {
+			delete(m.selectedSubEntries, subEntryKey{app: name, sub: sub.SubEntry.Name})
+		}
+	}
+
+	m.updateMultiSelectActive()
+}
+
+// pruneStaleSelections drops selection keys that no longer name a live
+// application or sub-entry (the item was renamed or deleted since it was
+// selected). Stale name keys cannot retarget another item the way stale
+// indices could, but they would inflate the multi-select banner counts.
+func (m *Model) pruneStaleSelections() {
+	liveApps := make(map[string]bool, len(m.Applications))
+	liveSubs := make(map[subEntryKey]bool)
+
+	for _, app := range m.Applications {
+		name := app.Application.Name
+		liveApps[name] = true
+
+		for _, sub := range app.SubItems {
+			liveSubs[subEntryKey{app: name, sub: sub.SubEntry.Name}] = true
+		}
+	}
+
+	for name := range m.selectedApps {
+		if !liveApps[name] {
+			delete(m.selectedApps, name)
+		}
+	}
+
+	for key := range m.selectedSubEntries {
+		if !liveSubs[key] {
 			delete(m.selectedSubEntries, key)
 		}
 	}
 
-	// Update multiSelectActive flag
 	m.updateMultiSelectActive()
 }
 
