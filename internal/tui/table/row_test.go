@@ -63,8 +63,8 @@ func TestRowFields(t *testing.T) {
 		Level:           1,
 		TreeChar:        "└─",
 		IsExpanded:      false,
-		AppIndex:        2,
 		AppName:         "nvim",
+		SubName:         "nvim-config",
 		SubIndex:        0,
 		State:           StateLinked,
 		StatusAttention: false,
@@ -82,8 +82,8 @@ func TestRowFields(t *testing.T) {
 	if r.IsExpanded {
 		t.Error("Row.IsExpanded should be false")
 	}
-	if r.AppIndex != 2 {
-		t.Errorf("Row.AppIndex = %d, want 2", r.AppIndex)
+	if r.SubName != "nvim-config" {
+		t.Errorf("Row.SubName = %q, want %q", r.SubName, "nvim-config")
 	}
 	if r.AppName != "nvim" {
 		t.Errorf("Row.AppName = %q, want %q", r.AppName, "nvim")
@@ -142,7 +142,6 @@ func TestRowAppLevel(t *testing.T) {
 		Data:      table.Row{"nvim", "Linked", "1/1", ""},
 		Level:     0,
 		TreeChar:  "▶ ",
-		AppIndex:  0,
 		AppName:   "nvim",
 		SubIndex:  -1,
 		State:     StateLinked,

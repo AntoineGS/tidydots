@@ -252,7 +252,7 @@ func TestExpandNodePreservesPosition(t *testing.T) {
 			name = strings.TrimPrefix(name, "├─")
 			name = strings.TrimPrefix(name, "└─")
 			name = strings.TrimSpace(name)
-			t.Logf("  [%d] %s (Level=%d, AppIndex=%d, SubIndex=%d)", i, name, row.Level, row.AppIndex, row.SubIndex)
+			t.Logf("  [%d] %s (Level=%d, AppName=%s, SubIndex=%d)", i, name, row.Level, row.AppName, row.SubIndex)
 		}
 	}
 

@@ -142,3 +142,34 @@ func TestCursorLookup_AppNameFilter_ResolvesRealIndex(t *testing.T) {
 		t.Errorf("cursor on 'reload-logind' resolved to %q", got)
 	}
 }
+
+// TestSelectionHighlight_UnderFilter_TargetsRealEntry is the regression guard
+// for the highlight half of the filtered-index bug: TableRow carried a
+// position in the FILTERED slice as its app identifier, and the styling path
+// handed it to selection lookups keyed by model position — so under a filter
+// the wrong rows rendered as selected. Rows now carry names, and the lookups
+// take names.
+func TestSelectionHighlight_UnderFilter_TargetsRealEntry(t *testing.T) {
+	m := NewModel(logindLikeConfig(), linuxPlatform(), false)
+	m.Applications[0].Expanded = true
+	m.searchText = "reload"
+	m.rebuildTable()
+
+	cursorToRow(t, &m, "reload-logind")
+
+	appIdx, subIdx := m.getApplicationAtCursorFromTable()
+	m.toggleSubEntrySelection(appIdx, subIdx)
+
+	row := m.tableRows[m.tableCursor]
+	if row.SubName != "reload-logind" {
+		t.Fatalf("row.SubName = %q, want %q", row.SubName, "reload-logind")
+	}
+
+	if !m.isSubEntrySelected(row.AppName, row.SubName) {
+		t.Error("the selected row must report selected via its own identity fields")
+	}
+
+	if m.isSubEntrySelected("logind-config", "drop-ins") {
+		t.Error("the sibling entry must not report selected")
+	}
+}
