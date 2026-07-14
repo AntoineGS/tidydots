@@ -232,6 +232,9 @@ Navigate to a config entry and press `e` to edit. Editable fields include:
 - **Targets** -- OS-specific target paths (linux, windows)
 - **Files** -- specific file list (empty means entire folder)
 - **Sudo** -- toggle for elevated privileges
+- **Copy files** -- toggle for [`method: copy`](../configuration/configs.md#deployment-method), which deploys real files instead of symlinks
+
+The **Copy files** toggle only appears when an explicit file list is set, because copy mode is files-only. Switching an entry back to whole-folder mode therefore clears it.
 
 !!! note "Setup entries are not editable in the TUI"
     A [setup entry](../configuration/setup.md) is defined by its `check` and `run` commands, and the entry form has no fields for them. Pressing `e` on a setup entry therefore does nothing but tell you so: edit its commands in `tidydots.yaml` directly. (You can still run a setup entry from the TUI with `r`, and delete it with `d`.)

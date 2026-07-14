@@ -24,6 +24,7 @@ const (
 	subFieldIsFolder = forms.SubFieldIsFolder
 	subFieldFiles    = forms.SubFieldFiles
 	subFieldIsSudo   = forms.SubFieldIsSudo
+	subFieldIsCopy   = forms.SubFieldIsCopy
 )
 
 // Mode constants from forms package.
@@ -112,6 +113,7 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
 
 	isSudo := false
+	isCopy := false
 	isFolder := true
 	var files []string
 
@@ -127,6 +129,7 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 
 		backupInput.SetValue(sub.Backup)
 		isSudo = sub.Sudo
+		isCopy = sub.IsCopy()
 		isFolder = sub.IsFolder()
 
 		if !isFolder && len(sub.Files) > 0 {
@@ -152,6 +155,8 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 		LinuxTargetInput:   linuxTargetInput,
 		WindowsTargetInput: windowsTargetInput,
 		IsSudo:             isSudo,
+		IsCopy:             isCopy,
+		Method:             sub.Method,
 		BackupInput:        backupInput,
 		// Carried, not edited: this form has no fields for them, and BuildSubEntry
 		// writes back whatever it holds. The guard above means a setup entry never
@@ -312,10 +317,13 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		ft := m.getSubEntryFieldType()
 		switch ft {
 		case subFieldIsFolder:
-			m.subEntryForm.IsFolder = !m.subEntryForm.IsFolder
+			m.subEntryForm.ToggleFolderMode()
 			return m, nil
 		case subFieldIsSudo:
 			m.subEntryForm.IsSudo = !m.subEntryForm.IsSudo
+			return m, nil
+		case subFieldIsCopy:
+			m.subEntryForm.IsCopy = !m.subEntryForm.IsCopy
 			return m, nil
 		case subFieldName, subFieldLinux, subFieldWindows, subFieldBackup, subFieldFiles:
 			// Text and list fields don't toggle
@@ -332,10 +340,13 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// Handle toggles on enter
 		switch ft {
 		case subFieldIsFolder:
-			m.subEntryForm.IsFolder = !m.subEntryForm.IsFolder
+			m.subEntryForm.ToggleFolderMode()
 			return m, nil
 		case subFieldIsSudo:
 			m.subEntryForm.IsSudo = !m.subEntryForm.IsSudo
+			return m, nil
+		case subFieldIsCopy:
+			m.subEntryForm.IsCopy = !m.subEntryForm.IsCopy
 			return m, nil
 		case subFieldName, subFieldLinux, subFieldWindows, subFieldBackup, subFieldFiles:
 			// Text and list fields don't toggle
@@ -681,6 +692,23 @@ func (m Model) viewSubEntryForm() string {
 
 	fmt.Fprintf(&b, "  %s  %s Yes\n\n", rootLabel, rootCheck)
 
+	// Deployment method toggle. Copy mode is files-only, so it has no field in
+	// folder mode — see SubEntryForm.ToggleFolderMode.
+	if !m.subEntryForm.IsFolder {
+		copyLabel := "Copy files:"
+		if ft == subFieldIsCopy {
+			copyLabel = HelpKeyStyle.Render("Copy files:")
+		}
+
+		copyCheck := CheckboxUnchecked
+		if m.subEntryForm.IsCopy {
+			copyCheck = CheckboxChecked
+		}
+
+		fmt.Fprintf(&b, "  %s %s Yes %s\n\n", copyLabel, copyCheck,
+			MutedTextStyle.Render("(deploy real files instead of symlinks)"))
+	}
+
 	// Error message
 	if m.subEntryForm.Err != "" {
 		b.WriteString(ErrorStyle.Render("  Error: " + m.subEntryForm.Err))
@@ -722,7 +750,7 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 		input = m.subEntryForm.WindowsTargetInput
 	case subFieldBackup:
 		input = m.subEntryForm.BackupInput
-	case subFieldIsFolder, subFieldFiles, subFieldIsSudo:
+	case subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy:
 		return placeholder
 	default:
 		return placeholder

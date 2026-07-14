@@ -465,9 +465,9 @@ func TestSubEntryForm_MaxIndex(t *testing.T) {
 			wantIndex: 5,
 		},
 		{
-			name:      "files_mode_max_is_6",
+			name:      "files_mode_max_is_7",
 			isFolder:  false,
-			wantIndex: 6,
+			wantIndex: 7,
 		},
 	}
 
