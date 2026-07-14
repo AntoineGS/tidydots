@@ -44,7 +44,7 @@ release:
     owner: AntoineGS
     name: tidydots
 
-brews:
+homebrew_casks:
   - name: tidydots
     homepage: https://github.com/AntoineGS/tidydots
     description: Cross-platform dotfile management tool
@@ -53,3 +53,11 @@ brews:
       owner: AntoineGS
       name: homebrew-tidydots
       token: "{{ .Env.GORELEASER_TOKEN }}"
+    hooks:
+      post:
+        # The released binaries are neither signed nor notarized, so without this
+        # macOS quarantines them and the first run is blocked by Gatekeeper.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/tidydots"]
+          end
