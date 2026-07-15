@@ -58,6 +58,21 @@ docs/
 
 **Configuration format reminder:** The correct v3 field names are `entries` (not `configs`/`packages`), `package` singular at app level (not `packages`), and `when` (not `filters`). Always use these in documentation examples.
 
+### tidydots-config agent skill
+
+Some environments also carry a `tidydots-config` agent skill (an opencode/Claude
+skill that helps author and troubleshoot `tidydots.yaml`). It is not vendored in
+this repo; when present it lives at `~/.config/opencode/skills/tidydots-config/`
+(`SKILL.md` plus `references/schema.md` and `references/troubleshooting.md`).
+
+**IMPORTANT:** Any change that alters the config schema, adds/renames a config
+field, changes package-manager or install-method behavior, changes the
+template/`when` system, or changes CLI safety behavior can make this skill stale.
+When you make such a change AND the skill is present at that path, update it in
+the same session (usually `references/schema.md` or `references/troubleshooting.md`),
+keeping it in sync with `docs/`. If the skill is not present, skip this — it is an
+optional, environment-local artifact, not a build dependency.
+
 ## Testing
 
 See [TESTING.md](TESTING.md) for comprehensive testing documentation including:
