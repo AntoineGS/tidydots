@@ -22,7 +22,7 @@ func validateInteractiveTarget(enabled bool, args []string) error {
 
 func selectConfigTarget(
 	cfg *config.Config,
-	renderer config.PathRenderer, //nolint:unparam // command integration will supply the runtime path renderer
+	renderer config.PathRenderer,
 	args []string,
 	allowSetup bool,
 ) (*config.Config, error) {

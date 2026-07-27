@@ -297,6 +297,8 @@ func createManager(args []string, allowSetup bool) (*manager.Manager, error) {
 	return mgr, nil
 }
 
+var createCommandManager = createManager
+
 func runInteractive(_ *cobra.Command, _ []string) error {
 	cfg, plat, configPath, err := loadConfig()
 	if err != nil {
@@ -319,7 +321,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return runInteractive(cmd, args)
 	}
 
-	mgr, err := createManager(args, true)
+	mgr, err := createCommandManager(args, true)
 	if err != nil {
 		return err
 	}
@@ -344,7 +346,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		return runInteractive(cmd, args)
 	}
 
-	mgr, err := createManager(args, false)
+	mgr, err := createCommandManager(args, false)
 	if err != nil {
 		return err
 	}
@@ -381,7 +383,7 @@ func runWithCancellation(fn func(ctx context.Context) error) error {
 }
 
 func runList(_ *cobra.Command, args []string) error {
-	mgr, err := createManager(args, false)
+	mgr, err := createCommandManager(args, false)
 	if err != nil {
 		return err
 	}

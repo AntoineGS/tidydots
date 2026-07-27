@@ -214,7 +214,7 @@ tidydots list [app [entry]] [flags]
 
 Lists every config entry that matches the current OS and `when` conditions, showing the backup path and the target path. This is useful for verifying your configuration and checking for broken symlinks.
 
-Targeting an application retains this config-only output. Directly targeting a setup entry returns an error. Unknown applications and entries return errors, as do applications excluded by current `when` conditions.
+Targeting an application lists its config entries, skips its setup entries, and retains the application's package summary. Targeting an entry lists only that config entry and suppresses the package summary. Directly targeting a setup entry returns an error. Unknown applications and entries return errors, as do applications excluded by current `when` conditions.
 
 ### Examples
 
