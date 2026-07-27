@@ -172,7 +172,7 @@ tidydots backup [app [entry]] [flags]
 
 For each config entry that matches the current OS and `when` conditions, copies the files from the target location into the backup path. This is the inverse of `restore` -- it captures the current state of your live configs into the repo.
 
-Targeting an application backs up all config entries in that application and skips setup entries. Directly targeting a setup entry returns an error. Targets cannot be combined with `--interactive`.
+Targeting an application backs up all config entries in that application and skips setup entries. Directly targeting a setup entry returns an error. Unknown applications and entries return errors, as do applications excluded by current `when` conditions. Targets cannot be combined with `--interactive`.
 
 ### Examples
 
@@ -214,7 +214,7 @@ tidydots list [app [entry]] [flags]
 
 Lists every config entry that matches the current OS and `when` conditions, showing the backup path and the target path. This is useful for verifying your configuration and checking for broken symlinks.
 
-Targeting an application retains this config-only output. Directly targeting a setup entry returns an error.
+Targeting an application retains this config-only output. Directly targeting a setup entry returns an error. Unknown applications and entries return errors, as do applications excluded by current `when` conditions.
 
 ### Examples
 
