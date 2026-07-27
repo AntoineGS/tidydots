@@ -81,8 +81,15 @@ Configurations directory: /home/youruser/dotfiles
 Restore configurations by creating symlinks from target locations to backup sources in your dotfiles repo.
 
 ```
-tidydots restore [flags]
+tidydots restore [app [entry]] [flags]
 ```
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `app` | No | Exact application name to restore. If omitted, all matching applications are restored. |
+| `entry` | No | Exact config or setup entry name within `app`. Requires `app`. |
 
 ### Flags
 
@@ -94,6 +101,8 @@ tidydots restore [flags]
 | `--force-render` | | Force re-render of templates, skipping the 3-way merge |
 
 ### Behavior
+
+Targeting an application restores all config and setup entries in that application. Targeting an entry restores only that entry. Excluded or unknown targets return errors. Targets cannot be combined with `--interactive`.
 
 For each config entry that matches the current OS and `when` conditions:
 
@@ -113,6 +122,12 @@ tidydots restore -n
 
 # Restore all configs
 tidydots restore
+
+# Restore every entry for one application
+tidydots restore nvim
+
+# Restore one entry within an application
+tidydots restore nvim config
 
 # Restore in interactive mode
 tidydots restore -i
@@ -137,8 +152,15 @@ tidydots restore -o windows
 Copy configuration files from target locations back into the backup directory in your dotfiles repo.
 
 ```
-tidydots backup [flags]
+tidydots backup [app [entry]] [flags]
 ```
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `app` | No | Exact application name to back up. If omitted, all matching applications are backed up. |
+| `entry` | No | Exact config entry name within `app`. Requires `app`; setup entries cannot be backed up. |
 
 ### Flags
 
@@ -150,6 +172,8 @@ tidydots backup [flags]
 
 For each config entry that matches the current OS and `when` conditions, copies the files from the target location into the backup path. This is the inverse of `restore` -- it captures the current state of your live configs into the repo.
 
+Targeting an application backs up all config entries in that application and skips setup entries. Directly targeting a setup entry returns an error. Targets cannot be combined with `--interactive`.
+
 ### Examples
 
 ```bash
@@ -158,6 +182,12 @@ tidydots backup -n
 
 # Backup all configs
 tidydots backup
+
+# Back up every config entry for one application
+tidydots backup nvim
+
+# Back up one config entry
+tidydots backup nvim config
 
 # Backup in interactive mode
 tidydots backup -i
@@ -170,18 +200,33 @@ tidydots backup -i
 Display all configured paths and their symlink targets for the current OS.
 
 ```
-tidydots list [flags]
+tidydots list [app [entry]] [flags]
 ```
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `app` | No | Exact application name to list. If omitted, all matching applications are listed. |
+| `entry` | No | Exact config entry name within `app`. Requires `app`; setup entries cannot be listed. |
 
 ### Behavior
 
 Lists every config entry that matches the current OS and `when` conditions, showing the backup path and the target path. This is useful for verifying your configuration and checking for broken symlinks.
+
+Targeting an application retains this config-only output. Directly targeting a setup entry returns an error.
 
 ### Examples
 
 ```bash
 # List all configured paths
 tidydots list
+
+# List one application
+tidydots list nvim
+
+# List one config entry
+tidydots list nvim config
 
 # List paths for a different OS
 tidydots list -o windows
