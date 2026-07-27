@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
+	tmpl "github.com/AntoineGS/tidydots/internal/template"
 	"github.com/spf13/cobra"
 )
 
@@ -135,6 +137,17 @@ func TestSelectConfigTarget_RestoreAllowsSetupEntry(t *testing.T) {
 	}
 	if len(got.Applications[0].Entries) != 1 || !got.Applications[0].Entries[0].IsSetup() {
 		t.Fatalf("selected entries = %#v, want nvim/setup", got.Applications[0].Entries)
+	}
+}
+
+func TestSelectConfigTarget_EvaluatesWhenWithPlatformContext(t *testing.T) {
+	cfg := targetTestConfig()
+	cfg.Applications[2].When = `{{ eq .OS "windows" }}`
+	engine := tmpl.NewEngine(tmpl.NewContextFromPlatform(&platform.Platform{OS: platform.OSLinux}))
+
+	_, err := selectConfigTarget(cfg, engine, []string{"windows-only"}, true)
+	if err == nil || !strings.Contains(err.Error(), "does not match current conditions") {
+		t.Fatalf("selectConfigTarget() error = %v, want condition mismatch", err)
 	}
 }
 

@@ -111,9 +111,10 @@ The repo should contain a tidydots.yaml file with your path definitions.`,
 	}
 
 	restoreCmd := &cobra.Command{
-		Use:   "restore",
+		Use:   "restore [app [entry]]",
 		Short: "Restore configurations by creating symlinks",
-		Long:  `Restore configurations by creating symlinks from target locations to backup sources.`,
+		Long:  `Restore configurations by creating symlinks from target locations to backup sources. Optionally target one application or one entry.`,
+		Args:  validateTargetArgs,
 		RunE:  runRestore,
 	}
 	restoreCmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Run in interactive mode")
@@ -122,17 +123,19 @@ The repo should contain a tidydots.yaml file with your path definitions.`,
 	restoreCmd.Flags().BoolVar(&forceRender, "force-render", false, "Force re-render of templates, skipping 3-way merge")
 
 	backupCmd := &cobra.Command{
-		Use:   "backup",
+		Use:   "backup [app [entry]]",
 		Short: "Backup configurations from target locations",
-		Long:  `Copy configuration files from target locations to backup directory.`,
+		Long:  `Copy configuration files from target locations to backup directory. Optionally target one application or one config entry.`,
+		Args:  validateTargetArgs,
 		RunE:  runBackup,
 	}
 	backupCmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Run in interactive mode")
 
 	listCmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all configured paths",
-		Long:  `Display all configured paths and their targets for the current OS.`,
+		Use:   "list [app [entry]]",
+		Short: "List configured paths",
+		Long:  `Display configured paths and their targets for the current OS. Optionally target one application or one config entry.`,
+		Args:  validateTargetArgs,
 		RunE:  runList,
 	}
 
@@ -264,8 +267,15 @@ func loadConfig() (*config.Config, *platform.Platform, string, error) {
 	return cfg, plat, configFile, nil
 }
 
-func createManager() (*manager.Manager, error) {
+func createManager(args []string, allowSetup bool) (*manager.Manager, error) {
 	cfg, plat, _, err := loadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	tmplCtx := tmpl.NewContextFromPlatform(plat)
+	engine := tmpl.NewEngine(tmplCtx)
+	cfg, err = selectConfigTarget(cfg, engine, args, allowSetup)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +290,6 @@ func createManager() (*manager.Manager, error) {
 	mgr.ForceDelete = forceDelete
 	mgr.ForceRender = forceRender
 
-	// Initialize state store for template render tracking
 	if err := mgr.InitStateStore(); err != nil {
 		fmt.Printf("Warning: could not initialize template state store: %v\n", err)
 	}
@@ -303,11 +312,14 @@ func runInteractive(_ *cobra.Command, _ []string) error {
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {
+	if err := validateInteractiveTarget(interactive, args); err != nil {
+		return err
+	}
 	if interactive {
 		return runInteractive(cmd, args)
 	}
 
-	mgr, err := createManager()
+	mgr, err := createManager(args, true)
 	if err != nil {
 		return err
 	}
@@ -325,11 +337,14 @@ func runRestoreWithManager(m manager.Restorer) error {
 }
 
 func runBackup(cmd *cobra.Command, args []string) error {
+	if err := validateInteractiveTarget(interactive, args); err != nil {
+		return err
+	}
 	if interactive {
 		return runInteractive(cmd, args)
 	}
 
-	mgr, err := createManager()
+	mgr, err := createManager(args, false)
 	if err != nil {
 		return err
 	}
@@ -365,8 +380,8 @@ func runWithCancellation(fn func(ctx context.Context) error) error {
 	return fn(ctx)
 }
 
-func runList(_ *cobra.Command, _ []string) error {
-	mgr, err := createManager()
+func runList(_ *cobra.Command, args []string) error {
+	mgr, err := createManager(args, false)
 	if err != nil {
 		return err
 	}
