@@ -180,9 +180,8 @@ func (m *Manager) renderTemplateAndLink(tmplAbsPath, relPath string) error {
 						slog.String("path", conflictPath),
 						slog.String("error", err.Error()))
 				}
+				finalContent = []byte(mergeResult.Content)
 			}
-
-			finalContent = []byte(mergeResult.Content)
 		} else if m.pathExists(renderedAbsPath) {
 			// First render but rendered file exists (orphaned) - back it up
 			bakPath := renderedAbsPath + ".bak"

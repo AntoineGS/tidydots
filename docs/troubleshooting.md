@@ -58,7 +58,7 @@ tidydots restore -d ~/dotfiles
 
 ## Template merge conflicts
 
-**Symptom:** A `.tmpl.rendered` file contains conflict markers like:
+**Symptom:** A `.tmpl.conflict` file is generated with conflict markers like:
 
 ```
 <<<<<<< user-edits
@@ -70,20 +70,16 @@ new template output here
 
 **Cause:** You manually edited a `.tmpl.rendered` file, and then re-rendered the template. The 3-way merge detected that both sides changed the same lines and could not automatically resolve the difference.
 
+The deployed `.tmpl.rendered` file has already been replaced with valid fresh template output. The conflict file preserves the manual edits that could not be merged.
+
 **Solution:**
 
-**Option 1: Resolve manually.** Open the `.tmpl.rendered` file, pick the correct version for each conflicting section, and remove the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`).
+**Option 1: Port the edits.** Inspect `.tmpl.conflict`, apply the desired user
+changes to the `.tmpl` source, and run `tidydots restore` again.
 
-**Option 2: Discard your edits.** If you want the pure template output without any manual changes, re-run restore with `--force-render`:
-
-```bash
-tidydots restore --force-render
-```
-
-!!! warning
-    `--force-render` overwrites all rendered files with fresh template output. Any manual edits to `.tmpl.rendered` files will be lost.
-
-**Option 3: Check the conflict file.** When a merge conflict occurs, tidydots also writes a `.tmpl.conflict` file alongside the rendered file. You can inspect it for additional context.
+**Option 2: Discard the edits.** Remove the conflict file or leave it in place;
+the next successful merge removes it automatically. The deployed
+`.tmpl.rendered` file already contains the fresh template output.
 
 !!! tip
     To avoid merge conflicts in the future, prefer making changes in the `.tmpl` source file rather than editing the `.tmpl.rendered` output directly.

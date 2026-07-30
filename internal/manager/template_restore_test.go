@@ -339,8 +339,8 @@ func TestRestoreFolderWithTemplates_MultiCycle(t *testing.T) {
 	if !strings.Contains(string(content3), "port=3000") {
 		t.Errorf("Cycle 3: template's port change should be applied, got %q", string(content3))
 	}
-	if !strings.Contains(string(content3), "debug=true") {
-		t.Errorf("Cycle 3: user's debug addition should survive, got %q", string(content3))
+	if strings.Contains(string(content3), "debug=true") {
+		t.Errorf("Cycle 3: conflicted user edits should not be deployed, got %q", string(content3))
 	}
 
 	// Verify relative symlink persists through cycles
@@ -393,9 +393,26 @@ func TestRestoreFolderWithTemplates_Conflict(t *testing.T) {
 	if !testPathExists(conflictPath) {
 		t.Fatal("conflict file should exist")
 	}
-	conflictContent, _ := os.ReadFile(conflictPath) //nolint:gosec
-	if !strings.Contains(string(conflictContent), "<<<<<<< user-edits") {
-		t.Errorf("conflict file should contain conflict markers, got %q", string(conflictContent))
+
+	renderedContent, err := os.ReadFile(renderedPath) //nolint:gosec
+	if err != nil {
+		t.Fatalf("read rendered file: %v", err)
+	}
+	if got, want := string(renderedContent), "line1\ntemplate-change\n"; got != want {
+		t.Errorf("rendered content = %q, want fresh template output %q", got, want)
+	}
+	if strings.Contains(string(renderedContent), "<<<<<<<") {
+		t.Errorf("rendered file should not contain conflict markers, got %q", string(renderedContent))
+	}
+
+	conflictContent, err := os.ReadFile(conflictPath) //nolint:gosec
+	if err != nil {
+		t.Fatalf("read conflict file: %v", err)
+	}
+	for _, want := range []string{"<<<<<<< user-edits", "user-change", "=======", "template-change", ">>>>>>> template"} {
+		if !strings.Contains(string(conflictContent), want) {
+			t.Errorf("conflict file should contain %q, got %q", want, string(conflictContent))
+		}
 	}
 
 	// Verify relative symlink

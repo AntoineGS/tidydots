@@ -196,10 +196,16 @@ font_size = 12
 >>>>>>> template
 ```
 
-A separate `.tmpl.conflict` file is also written with the full merged content including conflict markers. The `.tmpl.rendered` file itself receives the merged content (including any conflict markers), so you can resolve conflicts by editing the rendered file directly.
+When a conflict occurs, tidydots writes the full merged content, including
+conflict markers, to `.tmpl.conflict`. It overwrites `.tmpl.rendered` with the
+fresh template output so the configuration consumed by applications remains
+valid. Any manual edits that could not be merged remain available in the
+conflict file.
 
 !!! tip "Resolving Conflicts"
-    Edit the `.tmpl.rendered` file to resolve conflicts, then remove the conflict markers. Your edits will be preserved on the next render through the 3-way merge. Alternatively, if you want to discard your edits entirely, use `--force-render`.
+    Inspect `.tmpl.conflict`, then port the desired user edits into the `.tmpl`
+    source and run restore again. A later successful merge removes the stale
+    conflict file automatically.
 
 ### Skip Optimization
 
