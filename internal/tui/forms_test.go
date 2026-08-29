@@ -58,6 +58,26 @@ func TestApplicationWhenHostnameChooser(t *testing.T) {
 	}
 }
 
+func TestApplicationWhenHostnameChooserEscapeRestoresDistinctExpression(t *testing.T) {
+	const original = `{{ eq .OS "linux" }}`
+	m := NewModel(&config.Config{Version: 3}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.HostnameChoices = []string{"desktop", "laptop"}
+	m.initApplicationForm(-1)
+	m.applicationForm.WhenInput.SetValue(original)
+	m.applicationForm.FocusIndex = 3
+
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+
+	if got := m.applicationForm.WhenInput.Value(); got != original {
+		t.Errorf("WhenInput after chooser cancel = %q, want original %q", got, original)
+	}
+}
+
 func TestApplicationForm_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
