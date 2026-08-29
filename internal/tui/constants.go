@@ -106,6 +106,7 @@ const (
 	CharLimitDesc    = tuishared.CharLimitDesc
 	CharLimitPath    = tuishared.CharLimitPath
 	CharLimitURL     = tuishared.CharLimitURL
+	CharLimitCommand = tuishared.CharLimitCommand
 	CharLimitWhen    = tuishared.CharLimitWhen
 	CharLimitPkgName = tuishared.CharLimitPkgName
 	CharLimitBranch  = tuishared.CharLimitBranch

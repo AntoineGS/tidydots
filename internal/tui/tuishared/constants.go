@@ -98,6 +98,7 @@ const (
 	CharLimitDesc    = 256
 	CharLimitPath    = 256
 	CharLimitURL     = 512
+	CharLimitCommand = 512
 	CharLimitWhen    = 512
 	CharLimitPkgName = 128
 	CharLimitBranch  = 128

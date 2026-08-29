@@ -94,10 +94,10 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", CharLimitPath, InputWidthNarrow)
 	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
 	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
-	linuxCheckInput := newFormInput("e.g., command -v foo", CharLimitPath, InputWidthNarrow)
-	linuxRunInput := newFormInput("e.g., install foo", CharLimitPath, InputWidthNarrow)
-	windowsCheckInput := newFormInput("e.g., where foo", CharLimitPath, InputWidthNarrow)
-	windowsRunInput := newFormInput("e.g., install foo", CharLimitPath, InputWidthNarrow)
+	linuxCheckInput := newFormInput("e.g., command -v foo", CharLimitCommand, InputWidthNarrow)
+	linuxRunInput := newFormInput("e.g., install foo", CharLimitCommand, InputWidthNarrow)
+	windowsCheckInput := newFormInput("e.g., where foo", CharLimitCommand, InputWidthNarrow)
+	windowsRunInput := newFormInput("e.g., install foo", CharLimitCommand, InputWidthNarrow)
 
 	isSudo := false
 	isCopy := false
@@ -156,9 +156,8 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 		IsSetup:            isSetup,
 		Method:             sub.Method,
 		BackupInput:        backupInput,
-		// Carried, not edited: this form has no fields for them, and BuildSubEntry
-		// writes back whatever it holds. The guard above means a setup entry never
-		// gets here — this keeps any other path from dropping them.
+		// Retain the original maps for callers that inspect the form state; setup
+		// command inputs are the source of truth when IsSetup is enabled.
 		Check:            maps.Clone(sub.Check),
 		Run:              maps.Clone(sub.Run),
 		IsFolder:         isFolder,

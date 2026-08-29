@@ -42,8 +42,8 @@ func NewGitTextInputs() (gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsI
 
 // NewInstallerTextInputs creates the three installer text inputs with standard placeholders and char limits
 func NewInstallerTextInputs() (installerLinuxInput, installerWindowsInput, installerBinaryInput textinput.Model) {
-	installerLinuxInput = NewFormInput(tuishared.PlaceholderInstallerLinux, tuishared.CharLimitURL, tuishared.InputWidthNarrow)
-	installerWindowsInput = NewFormInput(tuishared.PlaceholderInstallerWindows, tuishared.CharLimitURL, tuishared.InputWidthNarrow)
+	installerLinuxInput = NewFormInput(tuishared.PlaceholderInstallerLinux, tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	installerWindowsInput = NewFormInput(tuishared.PlaceholderInstallerWindows, tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
 	installerBinaryInput = NewFormInput(tuishared.PlaceholderInstallerBinary, tuishared.CharLimitBinary, tuishared.InputWidthNarrow)
 	return installerLinuxInput, installerWindowsInput, installerBinaryInput
 }

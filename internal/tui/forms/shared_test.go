@@ -448,8 +448,8 @@ func TestNewInstallerTextInputs(t *testing.T) {
 		placeholder string
 		charLimit   int
 	}{
-		{"installerLinux", installerLinux, tuishared.PlaceholderInstallerLinux, tuishared.CharLimitURL},
-		{"installerWindows", installerWindows, tuishared.PlaceholderInstallerWindows, tuishared.CharLimitURL},
+		{"installerLinux", installerLinux, tuishared.PlaceholderInstallerLinux, tuishared.CharLimitCommand},
+		{"installerWindows", installerWindows, tuishared.PlaceholderInstallerWindows, tuishared.CharLimitCommand},
 		{"installerBinary", installerBinary, tuishared.PlaceholderInstallerBinary, tuishared.CharLimitBinary},
 	}
 

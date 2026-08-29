@@ -53,9 +53,8 @@ type SubEntryForm struct {
 	Suggestions    []string
 	Files          []string
 	SelectedFiles  map[string]bool
-	// Check and Run belong to setup entries, which this form does not edit (they
-	// are edited in tidydots.yaml). They are carried through anyway so that a
-	// form built from an entry cannot silently delete them on the way back out.
+	// Check and Run hold setup commands loaded into the editable command inputs.
+	// They are also retained for form consumers that need the original maps.
 	Check map[string]string
 	Run   map[string]string
 	// Method is the entry's deployment method as it was read in. IsCopy is what
@@ -443,9 +442,8 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 		return config.SubEntry{}, errors.New("backup path is required")
 	}
 
-	// Build SubEntry from form. Check and Run have no fields in this form, so they
-	// are written back exactly as they came in: whatever the form does not carry
-	// through is deleted from the config file when the caller saves.
+	// Build a config entry from the config-specific form fields. Setup commands are
+	// built separately above and never appear in this branch.
 	subEntry := config.SubEntry{
 		Name:    name,
 		Targets: targets,
@@ -492,10 +490,10 @@ func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 
 	backupInput := NewFormInput("e.g., ./nvim", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
 	backupInput.SetValue(entry.Backup)
-	linuxCheckInput := NewFormInput("e.g., command -v foo", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
-	linuxRunInput := NewFormInput("e.g., install foo", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
-	windowsCheckInput := NewFormInput("e.g., where foo", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
-	windowsRunInput := NewFormInput("e.g., install foo", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
+	linuxCheckInput := NewFormInput("e.g., command -v foo", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	linuxRunInput := NewFormInput("e.g., install foo", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	windowsCheckInput := NewFormInput("e.g., where foo", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	windowsRunInput := NewFormInput("e.g., install foo", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
 	linuxCheckInput.SetValue(entry.Check["linux"])
 	linuxRunInput.SetValue(entry.Run["linux"])
 	windowsCheckInput.SetValue(entry.Check["windows"])
