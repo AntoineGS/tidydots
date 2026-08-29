@@ -1,10 +1,12 @@
 package forms_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
+	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
 )
 
 func TestNewSubEntryForm_Empty(t *testing.T) {
@@ -410,6 +412,23 @@ func TestNewSubEntryForm_SetupEntry(t *testing.T) {
 	}
 	if !form.IsSudo {
 		t.Error("IsSudo = false, want true")
+	}
+}
+
+func TestSubEntryForm_SetupCommandExceedsPathLimit(t *testing.T) {
+	command := strings.Repeat("x", tuishared.CharLimitPath+1)
+	form := forms.NewSubEntryForm(config.SubEntry{
+		Name:  "setup",
+		Check: map[string]string{"linux": command},
+		Run:   map[string]string{"linux": "run"},
+	})
+
+	got, err := form.BuildSubEntry()
+	if err != nil {
+		t.Fatalf("BuildSubEntry() error = %v", err)
+	}
+	if got.Check["linux"] != command {
+		t.Errorf("Linux check command length = %d, want %d", len(got.Check["linux"]), len(command))
 	}
 }
 
