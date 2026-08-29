@@ -3,8 +3,60 @@ package tui
 import (
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/tui/forms"
 )
+
+func TestBuildHostnameWhen(t *testing.T) {
+	tests := []struct {
+		hosts []string
+		want  string
+	}{
+		{nil, ""},
+		{[]string{"desktop"}, `{{ eq .Hostname "desktop" }}`},
+		{[]string{"desktop", "laptop"}, `{{ or (eq .Hostname "desktop") (eq .Hostname "laptop") }}`},
+		{[]string{`desk"top`}, `{{ eq .Hostname "desk\"top" }}`},
+	}
+	for _, tt := range tests {
+		if got := buildHostnameWhen(tt.hosts); got != tt.want {
+			t.Errorf("buildHostnameWhen(%v) = %q, want %q", tt.hosts, got, tt.want)
+		}
+	}
+}
+
+func TestApplicationWhenHostnameChooser(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.HostnameChoices = []string{"desktop", "laptop"}
+	m.initApplicationForm(-1)
+	m.applicationForm.FocusIndex = 3
+
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if m.applicationForm.WhenMode != forms.WhenModeChooser {
+		t.Fatalf("WhenMode = %v, want chooser", m.applicationForm.WhenMode)
+	}
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyDown})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeySpace})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if got := m.applicationForm.WhenInput.Value(); got != `{{ or (eq .Hostname "desktop") (eq .Hostname "laptop") }}` {
+		t.Errorf("WhenInput = %q, want hostname expression", got)
+	}
+
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+	if got := m.applicationForm.WhenInput.Value(); got != `{{ or (eq .Hostname "desktop") (eq .Hostname "laptop") }}` {
+		t.Errorf("cancel changed WhenInput to %q", got)
+	}
+}
 
 func TestApplicationForm_Validation(t *testing.T) {
 	tests := []struct {

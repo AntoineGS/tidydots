@@ -173,6 +173,9 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm == nil {
 		return m, nil
 	}
+	if m.applicationForm.WhenMode == forms.WhenModeChooser {
+		return m.updateWhenChooser(msg)
+	}
 
 	// Handle deps list editing
 	if m.applicationForm.EditingDeps {
@@ -280,10 +283,12 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if ft == appFieldWhen {
-			m.applicationForm.EditingWhen = true
 			m.applicationForm.OriginalValue = m.applicationForm.WhenInput.Value()
-			m.applicationForm.WhenInput.Focus()
-			m.applicationForm.WhenInput.SetCursor(len(m.applicationForm.WhenInput.Value()))
+			if len(m.HostnameChoices) > 0 {
+				m.startWhenChooser()
+			} else {
+				m.startWhenTextEdit()
+			}
 			return m, nil
 		}
 
@@ -807,11 +812,11 @@ func (m Model) viewApplicationForm() string {
 		whenLabel = HelpKeyStyle.Render("When:")
 	}
 	fmt.Fprintf(&b, "  %s\n", whenLabel)
-	b.WriteString(renderWhenField(
-		ft == appFieldWhen,
-		m.applicationForm.EditingWhen,
-		m.applicationForm.WhenInput,
-	))
+	if m.applicationForm.WhenMode == forms.WhenModeChooser {
+		b.WriteString(m.renderWhenChooser())
+	} else {
+		b.WriteString(renderWhenField(ft == appFieldWhen, m.applicationForm.EditingWhen, m.applicationForm.WhenInput))
+	}
 	b.WriteString("\n")
 
 	// Error message

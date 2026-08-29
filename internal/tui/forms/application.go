@@ -12,6 +12,15 @@ import (
 // ApplicationFieldType represents the type of field in the ApplicationForm
 type ApplicationFieldType int
 
+// WhenMode identifies the interaction mode for the When field.
+type WhenMode int
+
+const (
+	WhenModeNone WhenMode = iota
+	WhenModeChooser
+	WhenModeHostnames
+)
+
 // ApplicationForm field type constants.
 const (
 	AppFieldName ApplicationFieldType = iota
@@ -22,20 +31,23 @@ const (
 
 // ApplicationForm holds state for editing Application metadata
 type ApplicationForm struct {
-	PackageManagers  map[string]string
-	LastPackageName  string
-	Err              string
-	OriginalValue    string
-	DescriptionInput textinput.Model
-	PackageNameInput textinput.Model
-	NameInput        textinput.Model
-	WhenInput        textinput.Model
-	EditAppIdx       int
-	PackagesCursor   int
-	FocusIndex       int
-	EditingField     bool
-	EditingPackage   bool
-	EditingWhen      bool
+	PackageManagers   map[string]string
+	LastPackageName   string
+	Err               string
+	OriginalValue     string
+	DescriptionInput  textinput.Model
+	PackageNameInput  textinput.Model
+	NameInput         textinput.Model
+	WhenInput         textinput.Model
+	EditAppIdx        int
+	PackagesCursor    int
+	FocusIndex        int
+	EditingField      bool
+	EditingPackage    bool
+	EditingWhen       bool
+	WhenMode          WhenMode
+	HostnameCursor    int
+	SelectedHostnames map[string]bool
 
 	// Git package fields
 	GitURLInput     textinput.Model
@@ -74,6 +86,9 @@ func (f *ApplicationForm) ResetCursors() {
 	f.EditingPackage = false
 	f.EditingDeps = false
 	f.EditingDepItem = false
+	f.WhenMode = WhenModeNone
+	f.HostnameCursor = 0
+	f.SelectedHostnames = nil
 }
 
 // GetFieldType returns the field type at the current focus index

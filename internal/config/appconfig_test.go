@@ -97,6 +97,50 @@ func TestLoadAppConfig(t *testing.T) {
 	}
 }
 
+func TestAppConfigHostnamesRoundTrip(t *testing.T) {
+	tmpDir := t.TempDir()
+	setTestHome(t, tmpDir)
+	repo := filepath.Join(tmpDir, "dotfiles")
+	if err := os.MkdirAll(repo, 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{"desktop", "laptop"}
+	if err := SaveAppConfig(&AppConfig{ConfigDir: repo, Hostnames: want}); err != nil {
+		t.Fatalf("SaveAppConfig() error = %v", err)
+	}
+	got, err := LoadAppConfig()
+	if err != nil {
+		t.Fatalf("LoadAppConfig() error = %v", err)
+	}
+	if strings.Join(got.Hostnames, ",") != strings.Join(want, ",") {
+		t.Errorf("Hostnames = %v, want %v", got.Hostnames, want)
+	}
+}
+
+func TestLoadAppConfigWithoutHostnames(t *testing.T) {
+	tmpDir := t.TempDir()
+	setTestHome(t, tmpDir)
+	repo := filepath.Join(tmpDir, "dotfiles")
+	if err := os.MkdirAll(filepath.Join(tmpDir, appConfigDir), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(repo, 0750); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte("config_dir: " + repo + "\n")
+	if err := os.WriteFile(filepath.Join(tmpDir, appConfigDir, appConfigFile), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadAppConfig()
+	if err != nil {
+		t.Fatalf("LoadAppConfig() error = %v", err)
+	}
+	if len(got.Hostnames) != 0 {
+		t.Errorf("Hostnames = %v, want empty", got.Hostnames)
+	}
+}
+
 func TestLoadAppConfigWithTilde(t *testing.T) {
 	tmpDir := t.TempDir()
 

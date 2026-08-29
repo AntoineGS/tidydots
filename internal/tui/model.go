@@ -95,6 +95,9 @@ const (
 // ApplicationForm is an alias for forms.ApplicationForm.
 type ApplicationForm = forms.ApplicationForm
 
+// WhenMode is an alias for forms.WhenMode.
+type WhenMode = forms.WhenMode
+
 // SubEntryForm is an alias for forms.SubEntryForm.
 type SubEntryForm = forms.SubEntryForm
 
@@ -116,6 +119,7 @@ type Model struct {
 	pendingPackages          []PackageItem
 	results                  []ResultItem
 	Applications             []ApplicationItem
+	HostnameChoices          []string
 	searchInput              textinput.Model
 	tableRows                []TableRow
 	tableCursor              int

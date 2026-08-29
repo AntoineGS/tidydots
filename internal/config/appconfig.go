@@ -11,10 +11,11 @@ import (
 )
 
 // AppConfig is the minimal configuration stored in ~/.config/tidydots/
-// It only contains the path to the configurations repository
+// It contains the path to the configurations repository and local UI metadata.
 type AppConfig struct {
 	// ConfigDir is the path to the configurations repository
-	ConfigDir string `yaml:"config_dir"`
+	ConfigDir string   `yaml:"config_dir"`
+	Hostnames []string `yaml:"hostnames,omitempty"`
 }
 
 const (

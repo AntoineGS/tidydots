@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/AntoineGS/tidydots/internal/tui/tuishared"
+import (
+	"github.com/AntoineGS/tidydots/internal/tui/forms"
+	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
+)
 
 // Key binding constants for TUI navigation and interaction — re-exported from tuishared.
 const (
@@ -15,6 +18,13 @@ const (
 	KeyDelete    = tuishared.KeyDelete
 	KeyLeft      = tuishared.KeyLeft
 	KeyRight     = tuishared.KeyRight
+)
+
+// When field interaction modes.
+const (
+	WhenModeNone      = forms.WhenModeNone
+	WhenModeChooser   = forms.WhenModeChooser
+	WhenModeHostnames = forms.WhenModeHostnames
 )
 
 // UI element constants — re-exported from tuishared.
