@@ -48,7 +48,7 @@ func (m Model) updateWhenChooser(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if f == nil {
 		return m, nil
 	}
-	max := len(m.HostnameChoices)
+	optionCount := len(m.HostnameChoices)
 	if key.Matches(msg, FormNavKeys.Cancel) {
 		f.WhenInput.SetValue(f.OriginalValue)
 		f.WhenMode = 0
@@ -56,20 +56,20 @@ func (m Model) updateWhenChooser(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if key.Matches(msg, FormNavKeys.Down) {
-		f.HostnameCursor = (f.HostnameCursor + 1) % (max + 1)
+		f.HostnameCursor = (f.HostnameCursor + 1) % (optionCount + 1)
 		return m, nil
 	}
 	if key.Matches(msg, FormNavKeys.Up) || key.Matches(msg, FormNavKeys.TabPrev) {
-		f.HostnameCursor = (f.HostnameCursor + max) % (max + 1)
+		f.HostnameCursor = (f.HostnameCursor + optionCount) % (optionCount + 1)
 		return m, nil
 	}
-	if (key.Matches(msg, FormNavKeys.Toggle) || key.Matches(msg, FormNavKeys.TabNext)) && f.HostnameCursor < max {
+	if (key.Matches(msg, FormNavKeys.Toggle) || key.Matches(msg, FormNavKeys.TabNext)) && f.HostnameCursor < optionCount {
 		host := m.HostnameChoices[f.HostnameCursor]
 		f.SelectedHostnames[host] = !f.SelectedHostnames[host]
 		return m, nil
 	}
 	if key.Matches(msg, FormNavKeys.Edit) || key.Matches(msg, FormNavKeys.Save) {
-		if f.HostnameCursor == max {
+		if f.HostnameCursor == optionCount {
 			m.startWhenTextEdit()
 			return m, nil
 		}

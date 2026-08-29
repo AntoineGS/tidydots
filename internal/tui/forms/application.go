@@ -16,8 +16,11 @@ type ApplicationFieldType int
 type WhenMode int
 
 const (
+	// WhenModeNone indicates no active When interaction mode.
 	WhenModeNone WhenMode = iota
+	// WhenModeChooser displays hostname presets and the type-expression option.
 	WhenModeChooser
+	// WhenModeHostnames identifies hostname multi-selection mode.
 	WhenModeHostnames
 )
 
