@@ -17,14 +17,19 @@ import (
 type subEntryFieldType = forms.SubEntryFieldType
 
 const (
-	subFieldName     = forms.SubFieldName
-	subFieldLinux    = forms.SubFieldLinux
-	subFieldWindows  = forms.SubFieldWindows
-	subFieldBackup   = forms.SubFieldBackup
-	subFieldIsFolder = forms.SubFieldIsFolder
-	subFieldFiles    = forms.SubFieldFiles
-	subFieldIsSudo   = forms.SubFieldIsSudo
-	subFieldIsCopy   = forms.SubFieldIsCopy
+	subFieldName         = forms.SubFieldName
+	subFieldIsSetup      = forms.SubFieldIsSetup
+	subFieldLinux        = forms.SubFieldLinux
+	subFieldWindows      = forms.SubFieldWindows
+	subFieldLinuxCheck   = forms.SubFieldLinuxCheck
+	subFieldLinuxRun     = forms.SubFieldLinuxRun
+	subFieldWindowsCheck = forms.SubFieldWindowsCheck
+	subFieldWindowsRun   = forms.SubFieldWindowsRun
+	subFieldBackup       = forms.SubFieldBackup
+	subFieldIsFolder     = forms.SubFieldIsFolder
+	subFieldFiles        = forms.SubFieldFiles
+	subFieldIsSudo       = forms.SubFieldIsSudo
+	subFieldIsCopy       = forms.SubFieldIsCopy
 )
 
 // Mode constants from forms package.
@@ -34,10 +39,6 @@ const (
 	ModePicker    = forms.ModePicker
 	ModeTextInput = forms.ModeTextInput
 )
-
-// setupEntryNotEditable is shown when the user presses `e` on a setup entry: the
-// form cannot represent check/run, so editing happens in the config file.
-const setupEntryNotEditable = "Setup entries are not editable here — edit their check/run commands in tidydots.yaml"
 
 // initSubEntryForm initializes the sub-entry form.
 // appIdx is the index in m.Applications (sorted).
@@ -84,24 +85,6 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 
 		sub = app.Entries[configSubIdx]
 		hasSub = true
-
-		// A setup entry *is* its check/run commands, and this form has no fields
-		// for them: it edits a target/backup/files config entry. Opening it on a
-		// setup entry lets the user save the entry back without its commands —
-		// the entry stops being a setup entry, re-validates clean, and the setup
-		// step silently disappears from tidydots.yaml. Refuse, and say where they
-		// are edited instead.
-		if sub.IsSetup() {
-			m.results = []ResultItem{{
-				Name:    sub.Name,
-				Success: false,
-				Message: setupEntryNotEditable,
-			}}
-			m.showingResults = true
-			m.resultsScrollOffset = 0
-
-			return
-		}
 	}
 
 	nameInput := newFormInput("e.g., nvim-config", CharLimitName, InputWidthNarrow)
@@ -111,10 +94,15 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", CharLimitPath, InputWidthNarrow)
 	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
 	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
+	linuxCheckInput := newFormInput("e.g., command -v foo", CharLimitPath, InputWidthNarrow)
+	linuxRunInput := newFormInput("e.g., install foo", CharLimitPath, InputWidthNarrow)
+	windowsCheckInput := newFormInput("e.g., where foo", CharLimitPath, InputWidthNarrow)
+	windowsRunInput := newFormInput("e.g., install foo", CharLimitPath, InputWidthNarrow)
 
 	isSudo := false
 	isCopy := false
 	isFolder := true
+	isSetup := false
 	var files []string
 
 	if hasSub {
@@ -131,6 +119,11 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 		isSudo = sub.Sudo
 		isCopy = sub.IsCopy()
 		isFolder = sub.IsFolder()
+		isSetup = sub.IsSetup()
+		linuxCheckInput.SetValue(sub.Check["linux"])
+		linuxRunInput.SetValue(sub.Run["linux"])
+		windowsCheckInput.SetValue(sub.Check["windows"])
+		windowsRunInput.SetValue(sub.Run["windows"])
 
 		if !isFolder && len(sub.Files) > 0 {
 			files = make([]string, len(sub.Files))
@@ -154,8 +147,13 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 		NameInput:          nameInput,
 		LinuxTargetInput:   linuxTargetInput,
 		WindowsTargetInput: windowsTargetInput,
+		LinuxCheckInput:    linuxCheckInput,
+		LinuxRunInput:      linuxRunInput,
+		WindowsCheckInput:  windowsCheckInput,
+		WindowsRunInput:    windowsRunInput,
 		IsSudo:             isSudo,
 		IsCopy:             isCopy,
+		IsSetup:            isSetup,
 		Method:             sub.Method,
 		BackupInput:        backupInput,
 		// Carried, not edited: this form has no fields for them, and BuildSubEntry
@@ -319,6 +317,9 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case subFieldIsFolder:
 			m.subEntryForm.ToggleFolderMode()
 			return m, nil
+		case subFieldIsSetup:
+			m.subEntryForm.IsSetup = !m.subEntryForm.IsSetup
+			return m, nil
 		case subFieldIsSudo:
 			m.subEntryForm.IsSudo = !m.subEntryForm.IsSudo
 			return m, nil
@@ -341,6 +342,9 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		switch ft {
 		case subFieldIsFolder:
 			m.subEntryForm.ToggleFolderMode()
+			return m, nil
+		case subFieldIsSetup:
+			m.subEntryForm.IsSetup = !m.subEntryForm.IsSetup
 			return m, nil
 		case subFieldIsSudo:
 			m.subEntryForm.IsSudo = !m.subEntryForm.IsSudo
@@ -576,137 +580,151 @@ func (m Model) viewSubEntryForm() string {
 	fmt.Fprintf(&b, "  %s\n", nameLabel)
 	fmt.Fprintf(&b, "  %s\n\n", m.renderSubEntryFieldValue(subFieldName, "(empty)"))
 
-	// Linux target field
-	linuxTargetLabel := "Target (linux):"
-	if ft == subFieldLinux {
-		linuxTargetLabel = HelpKeyStyle.Render(linuxTargetLabel)
+	entryTypeLabel := "Entry type:"
+	if ft == subFieldIsSetup {
+		entryTypeLabel = HelpKeyStyle.Render(entryTypeLabel)
 	}
-
-	fmt.Fprintf(&b, "  %s\n", linuxTargetLabel)
-	fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldLinux, "(empty)"))
-
-	if m.subEntryForm.EditingField && ft == subFieldLinux && m.subEntryForm.ShowSuggestions {
-		b.WriteString(m.renderSubEntrySuggestions())
+	entryType := "Config"
+	if m.subEntryForm.IsSetup {
+		entryType = "Setup"
 	}
+	fmt.Fprintf(&b, "  %s  %s\n\n", entryTypeLabel, m.renderSubEntryToggleValue(subFieldIsSetup, entryType))
 
-	b.WriteString("\n")
-
-	// Windows target field
-	windowsTargetLabel := "Target (windows):"
-	if ft == subFieldWindows {
-		windowsTargetLabel = HelpKeyStyle.Render(windowsTargetLabel)
-	}
-
-	fmt.Fprintf(&b, "  %s\n", windowsTargetLabel)
-	fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldWindows, "(empty)"))
-
-	if m.subEntryForm.EditingField && ft == subFieldWindows && m.subEntryForm.ShowSuggestions {
-		b.WriteString(m.renderSubEntrySuggestions())
-	}
-
-	b.WriteString("\n")
-
-	// Backup field
-	backupLabel := "Backup path:"
-	if ft == subFieldBackup {
-		backupLabel = HelpKeyStyle.Render("Backup path:")
-	}
-
-	fmt.Fprintf(&b, "  %s\n", backupLabel)
-	fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldBackup, "(empty)"))
-
-	if m.subEntryForm.EditingField && ft == subFieldBackup && m.subEntryForm.ShowSuggestions {
-		b.WriteString(m.renderSubEntrySuggestions())
-	}
-
-	b.WriteString("\n")
-
-	// Is folder toggle
-	toggleLabel := "Backup type:"
-	if ft == subFieldIsFolder {
-		toggleLabel = HelpKeyStyle.Render("Backup type:")
-	}
-	folderCheck := CheckboxUnchecked
-	filesCheck := CheckboxChecked
-
-	if m.subEntryForm.IsFolder {
-		folderCheck = CheckboxChecked
-		filesCheck = CheckboxUnchecked
-	}
-
-	fmt.Fprintf(&b, "  %s  %s Folder  %s Files\n\n", toggleLabel, folderCheck, filesCheck)
-
-	// Files list (only shown when Files mode is selected)
-	if !m.subEntryForm.IsFolder {
-		filesLabel := "Files:"
-		if ft == subFieldFiles {
-			filesLabel = HelpKeyStyle.Render("Files:")
+	if m.subEntryForm.IsSetup {
+		b.WriteString(m.renderSubEntrySetupFields())
+	} else {
+		// Linux target field
+		linuxTargetLabel := "Target (linux):"
+		if ft == subFieldLinux {
+			linuxTargetLabel = HelpKeyStyle.Render(linuxTargetLabel)
 		}
 
-		fmt.Fprintf(&b, "  %s\n", filesLabel)
+		fmt.Fprintf(&b, "  %s\n", linuxTargetLabel)
+		fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldLinux, "(empty)"))
 
-		// Render file list
-		if len(m.subEntryForm.Files) == 0 && !m.subEntryForm.AddingFile {
-			b.WriteString(MutedTextStyle.Render("    (no files added)"))
-			b.WriteString("\n")
-		} else {
-			for i, file := range m.subEntryForm.Files {
-				prefix := IndentSpaces
-				// Show input if editing this file
-				switch {
-				case m.subEntryForm.EditingFile && m.subEntryForm.EditingFileIndex == i:
-					fmt.Fprintf(&b, "%s%s\n", prefix, m.subEntryForm.NewFileInput.View())
-				case ft == subFieldFiles && !m.subEntryForm.AddingFile && !m.subEntryForm.EditingFile && m.subEntryForm.FilesCursor == i:
-					fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render("• "+file))
-				default:
-					fmt.Fprintf(&b, "%s• %s\n", prefix, file)
-				}
-			}
-		}
-
-		// Add File button or input
-		if m.subEntryForm.AddingFile {
-			fmt.Fprintf(&b, "    %s\n", m.subEntryForm.NewFileInput.View())
-		} else if !m.subEntryForm.EditingFile {
-			addFileText := "[+ Add File]"
-			if ft == subFieldFiles && m.subEntryForm.FilesCursor == len(m.subEntryForm.Files) {
-				fmt.Fprintf(&b, "    %s\n", SelectedMenuItemStyle.Render(addFileText))
-			} else {
-				fmt.Fprintf(&b, "    %s\n", MutedTextStyle.Render(addFileText))
-			}
+		if m.subEntryForm.EditingField && ft == subFieldLinux && m.subEntryForm.ShowSuggestions {
+			b.WriteString(m.renderSubEntrySuggestions())
 		}
 
 		b.WriteString("\n")
-	}
 
-	// Root toggle
-	rootLabel := "Root only:"
-	if ft == subFieldIsSudo {
-		rootLabel = HelpKeyStyle.Render("Root only:")
-	}
-
-	rootCheck := CheckboxUnchecked
-	if m.subEntryForm.IsSudo {
-		rootCheck = CheckboxChecked
-	}
-
-	fmt.Fprintf(&b, "  %s  %s Yes\n\n", rootLabel, rootCheck)
-
-	// Deployment method toggle. Copy mode is files-only, so it has no field in
-	// folder mode — see SubEntryForm.ToggleFolderMode.
-	if !m.subEntryForm.IsFolder {
-		copyLabel := "Copy files:"
-		if ft == subFieldIsCopy {
-			copyLabel = HelpKeyStyle.Render("Copy files:")
+		// Windows target field
+		windowsTargetLabel := "Target (windows):"
+		if ft == subFieldWindows {
+			windowsTargetLabel = HelpKeyStyle.Render(windowsTargetLabel)
 		}
 
-		copyCheck := CheckboxUnchecked
-		if m.subEntryForm.IsCopy {
-			copyCheck = CheckboxChecked
+		fmt.Fprintf(&b, "  %s\n", windowsTargetLabel)
+		fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldWindows, "(empty)"))
+
+		if m.subEntryForm.EditingField && ft == subFieldWindows && m.subEntryForm.ShowSuggestions {
+			b.WriteString(m.renderSubEntrySuggestions())
 		}
 
-		fmt.Fprintf(&b, "  %s %s Yes %s\n\n", copyLabel, copyCheck,
-			MutedTextStyle.Render("(deploy real files instead of symlinks)"))
+		b.WriteString("\n")
+
+		// Backup field
+		backupLabel := "Backup path:"
+		if ft == subFieldBackup {
+			backupLabel = HelpKeyStyle.Render("Backup path:")
+		}
+
+		fmt.Fprintf(&b, "  %s\n", backupLabel)
+		fmt.Fprintf(&b, "  %s\n", m.renderSubEntryFieldValue(subFieldBackup, "(empty)"))
+
+		if m.subEntryForm.EditingField && ft == subFieldBackup && m.subEntryForm.ShowSuggestions {
+			b.WriteString(m.renderSubEntrySuggestions())
+		}
+
+		b.WriteString("\n")
+
+		// Is folder toggle
+		toggleLabel := "Backup type:"
+		if ft == subFieldIsFolder {
+			toggleLabel = HelpKeyStyle.Render("Backup type:")
+		}
+		folderCheck := CheckboxUnchecked
+		filesCheck := CheckboxChecked
+
+		if m.subEntryForm.IsFolder {
+			folderCheck = CheckboxChecked
+			filesCheck = CheckboxUnchecked
+		}
+
+		fmt.Fprintf(&b, "  %s  %s Folder  %s Files\n\n", toggleLabel, folderCheck, filesCheck)
+
+		// Files list (only shown when Files mode is selected)
+		if !m.subEntryForm.IsFolder {
+			filesLabel := "Files:"
+			if ft == subFieldFiles {
+				filesLabel = HelpKeyStyle.Render("Files:")
+			}
+
+			fmt.Fprintf(&b, "  %s\n", filesLabel)
+
+			// Render file list
+			if len(m.subEntryForm.Files) == 0 && !m.subEntryForm.AddingFile {
+				b.WriteString(MutedTextStyle.Render("    (no files added)"))
+				b.WriteString("\n")
+			} else {
+				for i, file := range m.subEntryForm.Files {
+					prefix := IndentSpaces
+					// Show input if editing this file
+					switch {
+					case m.subEntryForm.EditingFile && m.subEntryForm.EditingFileIndex == i:
+						fmt.Fprintf(&b, "%s%s\n", prefix, m.subEntryForm.NewFileInput.View())
+					case ft == subFieldFiles && !m.subEntryForm.AddingFile && !m.subEntryForm.EditingFile && m.subEntryForm.FilesCursor == i:
+						fmt.Fprintf(&b, "%s%s\n", prefix, SelectedMenuItemStyle.Render("• "+file))
+					default:
+						fmt.Fprintf(&b, "%s• %s\n", prefix, file)
+					}
+				}
+			}
+
+			// Add File button or input
+			if m.subEntryForm.AddingFile {
+				fmt.Fprintf(&b, "    %s\n", m.subEntryForm.NewFileInput.View())
+			} else if !m.subEntryForm.EditingFile {
+				addFileText := "[+ Add File]"
+				if ft == subFieldFiles && m.subEntryForm.FilesCursor == len(m.subEntryForm.Files) {
+					fmt.Fprintf(&b, "    %s\n", SelectedMenuItemStyle.Render(addFileText))
+				} else {
+					fmt.Fprintf(&b, "    %s\n", MutedTextStyle.Render(addFileText))
+				}
+			}
+
+			b.WriteString("\n")
+		}
+
+		// Root toggle
+		rootLabel := "Root only:"
+		if ft == subFieldIsSudo {
+			rootLabel = HelpKeyStyle.Render("Root only:")
+		}
+
+		rootCheck := CheckboxUnchecked
+		if m.subEntryForm.IsSudo {
+			rootCheck = CheckboxChecked
+		}
+
+		fmt.Fprintf(&b, "  %s  %s Yes\n\n", rootLabel, rootCheck)
+
+		// Deployment method toggle. Copy mode is files-only, so it has no field in
+		// folder mode — see SubEntryForm.ToggleFolderMode.
+		if !m.subEntryForm.IsFolder {
+			copyLabel := "Copy files:"
+			if ft == subFieldIsCopy {
+				copyLabel = HelpKeyStyle.Render("Copy files:")
+			}
+
+			copyCheck := CheckboxUnchecked
+			if m.subEntryForm.IsCopy {
+				copyCheck = CheckboxChecked
+			}
+
+			fmt.Fprintf(&b, "  %s %s Yes %s\n\n", copyLabel, copyCheck,
+				MutedTextStyle.Render("(deploy real files instead of symlinks)"))
+		}
 	}
 
 	// Error message
@@ -748,9 +766,17 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 		input = m.subEntryForm.LinuxTargetInput
 	case subFieldWindows:
 		input = m.subEntryForm.WindowsTargetInput
+	case subFieldLinuxCheck:
+		input = m.subEntryForm.LinuxCheckInput
+	case subFieldLinuxRun:
+		input = m.subEntryForm.LinuxRunInput
+	case subFieldWindowsCheck:
+		input = m.subEntryForm.WindowsCheckInput
+	case subFieldWindowsRun:
+		input = m.subEntryForm.WindowsRunInput
 	case subFieldBackup:
 		input = m.subEntryForm.BackupInput
-	case subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy:
+	case subFieldIsSetup, subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy:
 		return placeholder
 	default:
 		return placeholder

@@ -70,7 +70,7 @@ func TestFilePickerIntegration_FullFlow(t *testing.T) {
 	}
 
 	// Navigate to files field
-	m.subEntryForm.FocusIndex = 5 // Files field index
+	m.subEntryForm.FocusIndex = 6 // Files field index
 	m.updateSubEntryFormFocus()
 
 	// Verify we're on the files field

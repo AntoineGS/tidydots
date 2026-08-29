@@ -102,7 +102,15 @@ func (m Model) updateSubEntryFieldInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		m.subEntryForm.WindowsTargetInput, cmd = m.subEntryForm.WindowsTargetInput.Update(msg)
 	case subFieldBackup:
 		m.subEntryForm.BackupInput, cmd = m.subEntryForm.BackupInput.Update(msg)
-	case subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy:
+	case subFieldLinuxCheck:
+		m.subEntryForm.LinuxCheckInput, cmd = m.subEntryForm.LinuxCheckInput.Update(msg)
+	case subFieldLinuxRun:
+		m.subEntryForm.LinuxRunInput, cmd = m.subEntryForm.LinuxRunInput.Update(msg)
+	case subFieldWindowsCheck:
+		m.subEntryForm.WindowsCheckInput, cmd = m.subEntryForm.WindowsCheckInput.Update(msg)
+	case subFieldWindowsRun:
+		m.subEntryForm.WindowsRunInput, cmd = m.subEntryForm.WindowsRunInput.Update(msg)
+	case subFieldIsSetup, subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy:
 		// Boolean and list fields don't use text input
 	}
 
@@ -139,7 +147,8 @@ func (m *Model) updateSuggestionsSubEntry() {
 		input = m.subEntryForm.WindowsTargetInput.Value()
 	case subFieldBackup:
 		input = m.subEntryForm.BackupInput.Value()
-	case subFieldName, subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy:
+	case subFieldName, subFieldIsSetup, subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy,
+		subFieldLinuxCheck, subFieldLinuxRun, subFieldWindowsCheck, subFieldWindowsRun:
 		m.subEntryForm.ShowSuggestions = false
 		m.subEntryForm.Suggestions = nil
 		return

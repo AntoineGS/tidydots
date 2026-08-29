@@ -1,8 +1,9 @@
 package tui
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/AntoineGS/tidydots/internal/config"
 )
 
 // setupSubItemIndex returns the index of the application's setup sub-entry row.
@@ -20,58 +21,84 @@ func setupSubItemIndex(t *testing.T, m *Model, appIdx int) int {
 	return -1
 }
 
-// TestInitSubEntryForm_SetupEntry_RefusesToOpenTheForm guards a data-loss path.
-// Setup entries became cursorable rows in the manage view, so `e` now reaches
-// them — but the sub-entry form has no fields for check/run. Opening it and
-// saving rewrites the entry to tidydots.yaml *without* them: the entry stops
-// being a setup entry, re-validates clean, and the user's setup step silently
-// ceases to exist. The form must refuse rather than destroy.
-func TestInitSubEntryForm_SetupEntry_RefusesToOpenTheForm(t *testing.T) {
-	cfg := setupOnlyConfig(configSubEntry(), setupSubEntry())
+func TestInitSubEntryForm_SetupEntry_OpensEditableForm(t *testing.T) {
+	entry := setupSubEntry()
+	entry.Sudo = true
+	cfg := setupOnlyConfig(entry)
 	m := NewModel(cfg, linuxPlatform(), false)
 
 	subIdx := setupSubItemIndex(t, &m, 0)
 
 	m.initSubEntryForm(0, subIdx)
 
-	if m.subEntryForm != nil {
-		t.Fatal("the form opened on a setup entry: saving it would drop check/run from tidydots.yaml")
+	if m.subEntryForm == nil {
+		t.Fatal("the form did not open on a setup entry")
 	}
-
-	if m.Screen == ScreenAddForm {
-		t.Error("Screen = ScreenAddForm; the editable form must not be shown for a setup entry")
+	form := m.subEntryForm
+	if !form.IsSetup {
+		t.Error("IsSetup = false, want true")
 	}
-
-	if !m.showingResults || len(m.results) != 1 {
-		t.Fatalf("results = %+v (showing = %v), want exactly one message explaining the refusal",
-			m.results, m.showingResults)
+	if got := form.LinuxCheckInput.Value(); got != entry.Check["linux"] {
+		t.Errorf("LinuxCheckInput = %q, want %q", got, entry.Check["linux"])
 	}
-
-	if m.results[0].Success {
-		t.Error("the refusal is reported as a success; the edit did not happen")
+	if got := form.LinuxRunInput.Value(); got != entry.Run["linux"] {
+		t.Errorf("LinuxRunInput = %q, want %q", got, entry.Run["linux"])
 	}
-
-	if !strings.Contains(m.results[0].Message, "tidydots.yaml") {
-		t.Errorf("message = %q, want it to tell the user where setup entries are edited", m.results[0].Message)
+	if got := form.WindowsCheckInput.Value(); got != entry.Check["windows"] {
+		t.Errorf("WindowsCheckInput = %q, want %q", got, entry.Check["windows"])
 	}
-
-	// The config in memory is untouched: nothing was rewritten on the way out.
-	entry := cfg.Applications[0].Entries[1]
-	if !entry.IsSetup() {
-		t.Errorf("the entry is no longer a setup entry after the refused edit: %+v", entry)
+	if got := form.WindowsRunInput.Value(); got != entry.Run["windows"] {
+		t.Errorf("WindowsRunInput = %q, want %q", got, entry.Run["windows"])
+	}
+	if !form.IsSudo {
+		t.Error("IsSudo = false, want true")
 	}
 }
 
 // TestInitSubEntryForm_ConfigEntry_StillOpens proves the guard is narrow: config
 // entries are still editable.
+func TestSaveSubEntryForm_SetupEntry_RoundTripsEdits(t *testing.T) {
+	entry := setupSubEntry()
+	entry.Sudo = true
+	cfg := setupOnlyConfig(entry)
+	m, path := modelOnDisk(t, cfg)
+	subIdx := setupSubItemIndex(t, m, 0)
+	m.initSubEntryForm(0, subIdx)
+	form := m.subEntryForm
+	form.NameInput.SetValue("edited-setup")
+	form.LinuxCheckInput.SetValue("test -x /usr/bin/edited")
+	form.LinuxRunInput.SetValue("install-edited")
+	form.WindowsCheckInput.SetValue("where edited")
+	form.WindowsRunInput.SetValue("install-edited.exe")
+
+	if err := m.saveSubEntryForm(); err != nil {
+		t.Fatalf("saveSubEntryForm() error = %v", err)
+	}
+
+	saved, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("reloading config: %v", err)
+	}
+	got := saved.Applications[0].Entries[0]
+	if got.Name != "edited-setup" || got.Backup != "" || len(got.Targets) != 0 || len(got.Files) != 0 || got.Method != "" {
+		t.Fatalf("saved setup entry has config fields: %+v", got)
+	}
+	if got.Check["linux"] != "test -x /usr/bin/edited" || got.Run["linux"] != "install-edited" {
+		t.Errorf("saved Linux commands = %v/%v", got.Check["linux"], got.Run["linux"])
+	}
+	if got.Check["windows"] != "where edited" || got.Run["windows"] != "install-edited.exe" {
+		t.Errorf("saved Windows commands = %v/%v", got.Check["windows"], got.Run["windows"])
+	}
+	if !got.Sudo {
+		t.Error("saved Sudo = false, want true")
+	}
+}
+
 func TestInitSubEntryForm_ConfigEntry_StillOpens(t *testing.T) {
-	cfg := setupOnlyConfig(configSubEntry(), setupSubEntry())
+	cfg := setupOnlyConfig(configSubEntry())
 	m := NewModel(cfg, linuxPlatform(), false)
 
-	setupIdx := setupSubItemIndex(t, &m, 0)
-	configIdx := 1 - setupIdx
-
-	m.initSubEntryForm(0, configIdx)
+	m.initSubEntryForm(0, 0)
 
 	if m.subEntryForm == nil {
 		t.Fatal("the form did not open on a config entry")

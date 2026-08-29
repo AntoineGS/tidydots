@@ -17,8 +17,13 @@ type SubEntryFieldType int
 // SubEntryForm field type constants.
 const (
 	SubFieldName SubEntryFieldType = iota
+	SubFieldIsSetup
 	SubFieldLinux
 	SubFieldWindows
+	SubFieldLinuxCheck
+	SubFieldLinuxRun
+	SubFieldWindowsCheck
+	SubFieldWindowsRun
 	SubFieldBackup   // Config-specific
 	SubFieldIsFolder // Config-specific toggle
 	SubFieldFiles    // Config-specific list
@@ -60,6 +65,10 @@ type SubEntryForm struct {
 	NameInput          textinput.Model
 	LinuxTargetInput   textinput.Model
 	WindowsTargetInput textinput.Model
+	LinuxCheckInput    textinput.Model
+	LinuxRunInput      textinput.Model
+	WindowsCheckInput  textinput.Model
+	WindowsRunInput    textinput.Model
 	BackupInput        textinput.Model
 	NewFileInput       textinput.Model
 	FilePicker         filepicker.Model
@@ -73,6 +82,7 @@ type SubEntryForm struct {
 	ModeMenuCursor     int
 	AddFileMode        AddFileMode
 	IsFolder           bool
+	IsSetup            bool
 	ShowSuggestions    bool
 	EditingField       bool
 	AddingFile         bool
@@ -89,13 +99,32 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 
 	idx := f.FocusIndex
 
-	// Common fields: name (0), linux (1), windows (2)
+	// Common fields: name (0), entry type (1)
 	switch idx {
 	case 0:
 		return SubFieldName
 	case 1:
+		return SubFieldIsSetup
+	}
+	if f.IsSetup {
+		switch idx {
+		case 2:
+			return SubFieldLinuxCheck
+		case 3:
+			return SubFieldLinuxRun
+		case 4:
+			return SubFieldWindowsCheck
+		case 5:
+			return SubFieldWindowsRun
+		case 6:
+			return SubFieldIsSudo
+		}
+		return SubFieldName
+	}
+	if idx == 2 {
 		return SubFieldLinux
-	case 2:
+	}
+	if idx == 3 {
 		return SubFieldWindows
 	}
 
@@ -104,25 +133,25 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 		// Folder mode: backup (3), isFolder (4), isSudo (5).
 		// No copy toggle: copy mode is files-only (see ToggleFolderMode).
 		switch idx {
-		case 3:
-			return SubFieldBackup
 		case 4:
-			return SubFieldIsFolder
+			return SubFieldBackup
 		case 5:
+			return SubFieldIsFolder
+		case 6:
 			return SubFieldIsSudo
 		}
 	} else {
 		// Files mode: backup (3), isFolder (4), files (5), isSudo (6), isCopy (7)
 		switch idx {
-		case 3:
-			return SubFieldBackup
 		case 4:
-			return SubFieldIsFolder
+			return SubFieldBackup
 		case 5:
-			return SubFieldFiles
+			return SubFieldIsFolder
 		case 6:
-			return SubFieldIsSudo
+			return SubFieldFiles
 		case 7:
+			return SubFieldIsSudo
+		case 8:
 			return SubFieldIsCopy
 		}
 	}
@@ -137,15 +166,19 @@ func (f *SubEntryForm) MaxIndex() int {
 		return 0
 	}
 
-	// Common fields: name, linux, windows = 3 fields (0-2)
+	if f.IsSetup {
+		return 6
+	}
+
+	// Common fields: name, entry type, linux, windows = 4 fields (0-3)
 	// Config-specific fields start at 3
 	if f.IsFolder {
 		// Config folder: backup, isFolder, isSudo = 3 fields (3-5)
-		return 5
+		return 6
 	}
 
 	// Config files: backup, isFolder, files, isSudo, isCopy = 5 fields (3-7)
-	return 7
+	return 8
 }
 
 // ToggleFolderMode flips between folder and files mode.
@@ -173,9 +206,10 @@ func (f *SubEntryForm) IsTextInputField() bool {
 
 	ft := f.GetFieldType()
 	switch ft {
-	case SubFieldName, SubFieldLinux, SubFieldWindows, SubFieldBackup:
+	case SubFieldName, SubFieldLinux, SubFieldWindows, SubFieldBackup,
+		SubFieldLinuxCheck, SubFieldLinuxRun, SubFieldWindowsCheck, SubFieldWindowsRun:
 		return true
-	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
+	case SubFieldIsSetup, SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
 		// These fields don't have suggestions
 	}
 
@@ -190,7 +224,7 @@ func (f *SubEntryForm) IsToggleField() bool {
 
 	ft := f.GetFieldType()
 
-	return ft == SubFieldIsFolder || ft == SubFieldIsSudo || ft == SubFieldIsCopy
+	return ft == SubFieldIsSetup || ft == SubFieldIsFolder || ft == SubFieldIsSudo || ft == SubFieldIsCopy
 }
 
 // UpdateFocus updates which input field is focused
@@ -202,6 +236,10 @@ func (f *SubEntryForm) UpdateFocus() {
 	f.NameInput.Blur()
 	f.LinuxTargetInput.Blur()
 	f.WindowsTargetInput.Blur()
+	f.LinuxCheckInput.Blur()
+	f.LinuxRunInput.Blur()
+	f.WindowsCheckInput.Blur()
+	f.WindowsRunInput.Blur()
 	f.BackupInput.Blur()
 	f.NewFileInput.Blur()
 
@@ -213,6 +251,14 @@ func (f *SubEntryForm) UpdateFocus() {
 		f.LinuxTargetInput.Focus()
 	case SubFieldWindows:
 		f.WindowsTargetInput.Focus()
+	case SubFieldLinuxCheck:
+		f.LinuxCheckInput.Focus()
+	case SubFieldLinuxRun:
+		f.LinuxRunInput.Focus()
+	case SubFieldWindowsCheck:
+		f.WindowsCheckInput.Focus()
+	case SubFieldWindowsRun:
+		f.WindowsRunInput.Focus()
 	case SubFieldBackup:
 		f.BackupInput.Focus()
 	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
@@ -242,6 +288,22 @@ func (f *SubEntryForm) EnterFieldEditMode() {
 		f.OriginalValue = f.WindowsTargetInput.Value()
 		f.WindowsTargetInput.Focus()
 		f.WindowsTargetInput.SetCursor(len(f.WindowsTargetInput.Value()))
+	case SubFieldLinuxCheck:
+		f.OriginalValue = f.LinuxCheckInput.Value()
+		f.LinuxCheckInput.Focus()
+		f.LinuxCheckInput.SetCursor(len(f.LinuxCheckInput.Value()))
+	case SubFieldLinuxRun:
+		f.OriginalValue = f.LinuxRunInput.Value()
+		f.LinuxRunInput.Focus()
+		f.LinuxRunInput.SetCursor(len(f.LinuxRunInput.Value()))
+	case SubFieldWindowsCheck:
+		f.OriginalValue = f.WindowsCheckInput.Value()
+		f.WindowsCheckInput.Focus()
+		f.WindowsCheckInput.SetCursor(len(f.WindowsCheckInput.Value()))
+	case SubFieldWindowsRun:
+		f.OriginalValue = f.WindowsRunInput.Value()
+		f.WindowsRunInput.Focus()
+		f.WindowsRunInput.SetCursor(len(f.WindowsRunInput.Value()))
 	case SubFieldBackup:
 		f.OriginalValue = f.BackupInput.Value()
 		f.BackupInput.Focus()
@@ -265,6 +327,14 @@ func (f *SubEntryForm) CancelFieldEdit() {
 		f.LinuxTargetInput.SetValue(f.OriginalValue)
 	case SubFieldWindows:
 		f.WindowsTargetInput.SetValue(f.OriginalValue)
+	case SubFieldLinuxCheck:
+		f.LinuxCheckInput.SetValue(f.OriginalValue)
+	case SubFieldLinuxRun:
+		f.LinuxRunInput.SetValue(f.OriginalValue)
+	case SubFieldWindowsCheck:
+		f.WindowsCheckInput.SetValue(f.OriginalValue)
+	case SubFieldWindowsRun:
+		f.WindowsRunInput.SetValue(f.OriginalValue)
 	case SubFieldBackup:
 		f.BackupInput.SetValue(f.OriginalValue)
 	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
@@ -282,6 +352,10 @@ func (f *SubEntryForm) Validate() error {
 	if strings.TrimSpace(f.NameInput.Value()) == "" {
 		return errors.New("entry name is required")
 	}
+	if f.IsSetup {
+		_, err := f.buildSetupEntry(strings.TrimSpace(f.NameInput.Value()))
+		return err
+	}
 
 	if strings.TrimSpace(f.BackupInput.Value()) == "" {
 		return errors.New("backup path is required")
@@ -296,6 +370,35 @@ func (f *SubEntryForm) Validate() error {
 	}
 
 	return nil
+}
+
+func (f *SubEntryForm) buildSetupEntry(name string) (config.SubEntry, error) {
+	check := make(map[string]string)
+	run := make(map[string]string)
+	fields := []struct {
+		osName string
+		check  textinput.Model
+		run    textinput.Model
+	}{
+		{osName: "linux", check: f.LinuxCheckInput, run: f.LinuxRunInput},
+		{osName: "windows", check: f.WindowsCheckInput, run: f.WindowsRunInput},
+	}
+	for _, field := range fields {
+		checkValue := strings.TrimSpace(field.check.Value())
+		runValue := strings.TrimSpace(field.run.Value())
+		if checkValue == "" && runValue == "" {
+			continue
+		}
+		if checkValue == "" || runValue == "" {
+			return config.SubEntry{}, errors.New("setup check and run commands must be provided together for each OS")
+		}
+		check[field.osName] = checkValue
+		run[field.osName] = runValue
+	}
+	if len(run) == 0 {
+		return config.SubEntry{}, errors.New("at least one OS must have both setup check and run commands")
+	}
+	return config.SubEntry{Name: name, Check: check, Run: run, Sudo: f.IsSudo}, nil
 }
 
 // buildMethod resolves the toggle back to a method string. Turning copy off
@@ -321,12 +424,15 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 	}
 
 	name := strings.TrimSpace(f.NameInput.Value())
-	targets := BuildTargetsFromInputs(f.LinuxTargetInput, f.WindowsTargetInput)
-
 	// Validation
 	if name == "" {
 		return config.SubEntry{}, errors.New("name is required")
 	}
+	if f.IsSetup {
+		return f.buildSetupEntry(name)
+	}
+
+	targets := BuildTargetsFromInputs(f.LinuxTargetInput, f.WindowsTargetInput)
 
 	if len(targets) == 0 {
 		return config.SubEntry{}, errors.New("at least one target is required")
@@ -346,8 +452,6 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 		Sudo:    f.IsSudo,
 		Method:  f.buildMethod(),
 		Backup:  backup,
-		Check:   maps.Clone(f.Check),
-		Run:     maps.Clone(f.Run),
 	}
 
 	// Add files if in files mode
@@ -388,16 +492,29 @@ func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 
 	backupInput := NewFormInput("e.g., ./nvim", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
 	backupInput.SetValue(entry.Backup)
+	linuxCheckInput := NewFormInput("e.g., command -v foo", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
+	linuxRunInput := NewFormInput("e.g., install foo", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
+	windowsCheckInput := NewFormInput("e.g., where foo", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
+	windowsRunInput := NewFormInput("e.g., install foo", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
+	linuxCheckInput.SetValue(entry.Check["linux"])
+	linuxRunInput.SetValue(entry.Run["linux"])
+	windowsCheckInput.SetValue(entry.Check["windows"])
+	windowsRunInput.SetValue(entry.Run["windows"])
 
 	return &SubEntryForm{
 		NameInput:          nameInput,
 		LinuxTargetInput:   linuxTargetInput,
 		WindowsTargetInput: windowsTargetInput,
+		LinuxCheckInput:    linuxCheckInput,
+		LinuxRunInput:      linuxRunInput,
+		WindowsCheckInput:  windowsCheckInput,
+		WindowsRunInput:    windowsRunInput,
 		BackupInput:        backupInput,
 		IsSudo:             entry.Sudo,
 		IsCopy:             entry.IsCopy(),
 		Method:             entry.Method,
 		IsFolder:           entry.IsFolder(),
+		IsSetup:            entry.IsSetup(),
 		Files:              entry.Files,
 		Check:              maps.Clone(entry.Check),
 		Run:                maps.Clone(entry.Run),
