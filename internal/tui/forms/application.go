@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
 )
@@ -65,7 +66,7 @@ type ApplicationForm struct {
 	// Installer package fields
 	InstallerLinuxInput   CommandInput
 	InstallerWindowsInput CommandInput
-	InstallerBinaryInput  CommandInput
+	InstallerBinaryInput  textinput.Model
 	InstallerFieldCursor  int  // -1 = on installer label/button, 0-2 = on sub-fields
 	EditingInstallerField bool // true when editing an installer text field
 	HasInstallerPackage   bool // true when installer package is configured/expanded
@@ -78,9 +79,9 @@ type ApplicationForm struct {
 	HasCustomPackage   bool
 
 	// URL download package fields
-	URLLinuxInput          CommandInput
+	URLLinuxInput          textinput.Model
 	URLLinuxCommandInput   CommandInput
-	URLWindowsInput        CommandInput
+	URLWindowsInput        textinput.Model
 	URLWindowsCommandInput CommandInput
 	URLFieldCursor         int
 	EditingURLField        bool
@@ -163,18 +164,29 @@ func (f *ApplicationForm) GetGitFieldInput() *textinput.Model {
 }
 
 // GetInstallerFieldInput returns a pointer to the current installer text input based on InstallerFieldCursor
-func (f *ApplicationForm) GetInstallerFieldInput() *CommandInput {
+func (f *ApplicationForm) GetInstallerFieldInput() *textinput.Model {
 	if f == nil {
 		return nil
 	}
 
 	switch f.InstallerFieldCursor {
+	case tuishared.InstallerFieldBinary:
+		return &f.InstallerBinaryInput
+	default:
+		return nil
+	}
+}
+
+// GetInstallerCommandFieldInput returns the focused installer command input.
+func (f *ApplicationForm) GetInstallerCommandFieldInput() *CommandInput {
+	if f == nil {
+		return nil
+	}
+	switch f.InstallerFieldCursor {
 	case tuishared.InstallerFieldLinux:
 		return &f.InstallerLinuxInput
 	case tuishared.InstallerFieldWindows:
 		return &f.InstallerWindowsInput
-	case tuishared.InstallerFieldBinary:
-		return &f.InstallerBinaryInput
 	default:
 		return nil
 	}
@@ -195,7 +207,13 @@ func (f *ApplicationForm) GetCustomFieldInput() *CommandInput {
 }
 
 // GetURLFieldInput returns the current URL package input.
-func (f *ApplicationForm) GetURLFieldInput() *CommandInput {
+func (f *ApplicationForm) GetURLFieldInput() interface {
+	Value() string
+	SetValue(string)
+	Focus() tea.Cmd
+	Blur()
+	SetCursor(int)
+} {
 	if f == nil {
 		return nil
 	}
@@ -208,6 +226,36 @@ func (f *ApplicationForm) GetURLFieldInput() *CommandInput {
 		return &f.URLWindowsInput
 	case 3:
 		return &f.URLWindowsCommandInput
+	default:
+		return nil
+	}
+}
+
+// GetURLCommandFieldInput returns the focused URL install command input.
+func (f *ApplicationForm) GetURLCommandFieldInput() *CommandInput {
+	if f == nil {
+		return nil
+	}
+	switch f.URLFieldCursor {
+	case 1:
+		return &f.URLLinuxCommandInput
+	case 3:
+		return &f.URLWindowsCommandInput
+	default:
+		return nil
+	}
+}
+
+// GetURLTextFieldInput returns the focused single-line URL input.
+func (f *ApplicationForm) GetURLTextFieldInput() *textinput.Model {
+	if f == nil {
+		return nil
+	}
+	switch f.URLFieldCursor {
+	case 0:
+		return &f.URLLinuxInput
+	case 2:
+		return &f.URLWindowsInput
 	default:
 		return nil
 	}

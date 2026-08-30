@@ -161,6 +161,18 @@ func TestApplicationFormPreservesCommandText(t *testing.T) {
 	if pkg.Custom["linux"] != command || pkg.URL["linux"].Command != command || pkg.Managers["installer"].Installer.Command["linux"] != command {
 		t.Fatal("command text was not preserved when building application")
 	}
+	path := t.TempDir() + "/tidydots.yaml"
+	if err := config.Save(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool", Package: pkg}}}, path); err != nil {
+		t.Fatalf("config save failed: %v", err)
+	}
+	reloaded, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("config reload failed: %v", err)
+	}
+	reloadedPkg := reloaded.Applications[0].Package
+	if reloadedPkg.Custom["linux"] != command || reloadedPkg.URL["linux"].Command != command || reloadedPkg.Managers["installer"].Installer.Command["linux"] != command {
+		t.Fatal("interactive command values changed after config save/reload")
+	}
 }
 
 func TestNewApplicationForm_LoadsGitPackage(t *testing.T) {

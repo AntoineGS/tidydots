@@ -142,8 +142,16 @@ func (m Model) updateApplicationPackageMethodInput(msg tea.KeyPressMsg) (tea.Mod
 	if m, cmd, handled := m.handleTextEditKeys(msg); handled {
 		return m, cmd
 	}
-	input := m.applicationForm.GetCustomFieldInput()
-	if m.applicationForm.EditingURLField {
+	var input interface {
+		Value() string
+		SetValue(string)
+		Focus() tea.Cmd
+		Blur()
+		SetCursor(int)
+	}
+	if m.applicationForm.EditingCustomField {
+		input = m.applicationForm.GetCustomFieldInput()
+	} else {
 		input = m.applicationForm.GetURLFieldInput()
 	}
 	switch {
@@ -157,8 +165,16 @@ func (m Model) updateApplicationPackageMethodInput(msg tea.KeyPressMsg) (tea.Mod
 		m.applicationForm.EditingCustomField = false
 		m.applicationForm.EditingURLField = false
 	default:
-		if input != nil {
-			*input, cmd = input.Update(msg)
+		if m.applicationForm.EditingCustomField {
+			if command := m.applicationForm.GetCustomFieldInput(); command != nil {
+				*command, cmd = command.Update(msg)
+			}
+		} else if command := m.applicationForm.GetURLCommandFieldInput(); command != nil {
+			*command, cmd = command.Update(msg)
+		} else if url := m.applicationForm.GetURLTextFieldInput(); url != nil {
+			var updated tea.Cmd
+			*url, updated = url.Update(msg)
+			cmd = updated
 		}
 		m.applicationForm.Err = ""
 	}

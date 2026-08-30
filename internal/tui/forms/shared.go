@@ -57,6 +57,12 @@ func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
 	var cmd tea.Cmd
 	if paste, ok := msg.(tea.PasteMsg); ok {
 		msg = tea.PasteMsg{Content: encodeCommandText(paste.Content)}
+	} else if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+		key := keyMsg.Key()
+		if key.Text != "" {
+			key.Text = encodeCommandText(key.Text)
+			msg = tea.KeyPressMsg(key)
+		}
 	}
 	m.Model, cmd = m.Model.Update(msg)
 	return m, cmd
@@ -105,10 +111,10 @@ func NewGitTextInputs() (gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsI
 }
 
 // NewInstallerTextInputs creates the three installer text inputs with standard placeholders and char limits
-func NewInstallerTextInputs() (installerLinuxInput, installerWindowsInput, installerBinaryInput CommandInput) {
+func NewInstallerTextInputs() (installerLinuxInput, installerWindowsInput CommandInput, installerBinaryInput textinput.Model) {
 	installerLinuxInput = NewCommandInput(tuishared.PlaceholderInstallerLinux, tuishared.InputWidthNarrow)
 	installerWindowsInput = NewCommandInput(tuishared.PlaceholderInstallerWindows, tuishared.InputWidthNarrow)
-	installerBinaryInput = NewCommandInput(tuishared.PlaceholderInstallerBinary, tuishared.InputWidthNarrow)
+	installerBinaryInput = NewFormInput(tuishared.PlaceholderInstallerBinary, tuishared.CharLimitBinary, tuishared.InputWidthNarrow)
 	return installerLinuxInput, installerWindowsInput, installerBinaryInput
 }
 
@@ -120,10 +126,10 @@ func NewCustomTextInputs() (linuxInput, windowsInput CommandInput) {
 }
 
 // NewURLTextInputs creates URL and command inputs for both operating systems.
-func NewURLTextInputs() (linuxURL, linuxCommand, windowsURL, windowsCommand CommandInput) {
-	linuxURL = NewCommandInput("e.g., https://example.com/tool.tar.gz", tuishared.InputWidthNarrow)
+func NewURLTextInputs() (linuxURL textinput.Model, linuxCommand CommandInput, windowsURL textinput.Model, windowsCommand CommandInput) {
+	linuxURL = NewFormInput("e.g., https://example.com/tool.tar.gz", tuishared.CharLimitURL, tuishared.InputWidthNarrow)
 	linuxCommand = NewCommandInput("e.g., tar -xf {file}", tuishared.InputWidthNarrow)
-	windowsURL = NewCommandInput("e.g., https://example.com/tool.zip", tuishared.InputWidthNarrow)
+	windowsURL = NewFormInput("e.g., https://example.com/tool.zip", tuishared.CharLimitURL, tuishared.InputWidthNarrow)
 	windowsCommand = NewCommandInput("e.g., Expand-Archive {file}", tuishared.InputWidthNarrow)
 	return linuxURL, linuxCommand, windowsURL, windowsCommand
 }
@@ -314,7 +320,7 @@ func RenderInstallerPackageSection(
 	editingInstallerField bool,
 	installerLinuxInput CommandInput,
 	installerWindowsInput CommandInput,
-	installerBinaryInput CommandInput,
+	installerBinaryInput textinput.Model,
 ) string {
 	var b strings.Builder
 	prefix := tuishared.IndentSpaces
@@ -356,7 +362,7 @@ func RenderCustomPackageSection(focused, onItem, hasPackage bool, cursor int, ed
 }
 
 // RenderURLPackageSection renders the expandable URL download package.
-func RenderURLPackageSection(focused, onItem, hasPackage bool, cursor int, editing bool, linuxURL, linuxCommand, windowsURL, windowsCommand CommandInput) string {
+func RenderURLPackageSection(focused, onItem, hasPackage bool, cursor int, editing bool, linuxURL textinput.Model, linuxCommand CommandInput, windowsURL textinput.Model, windowsCommand CommandInput) string {
 	return renderPackageMethodSection(focused, onItem, hasPackage, cursor, editing, "url:", "[+ Add URL Download Package]", []packageMethodField{
 		{"Linux URL:     ", linuxURL}, {"Linux command: ", linuxCommand}, {"Windows URL:  ", windowsURL}, {"Windows command:", windowsCommand},
 	})
@@ -364,7 +370,7 @@ func RenderURLPackageSection(focused, onItem, hasPackage bool, cursor int, editi
 
 type packageMethodField struct {
 	label string
-	input CommandInput
+	input valueInput
 }
 
 func renderPackageMethodSection(focused, onItem, hasPackage bool, cursor int, editing bool, label, addText string, fields []packageMethodField) string {

@@ -22,6 +22,29 @@ func TestCommandInputPastePreservesTabsAndBackslashSequences(t *testing.T) {
 	}
 }
 
+func TestCommandInputTypedBackslashAndTRemainLiteral(t *testing.T) {
+	input := forms.NewCommandInput("", 80)
+	input.Focus()
+	for _, code := range []rune{'\\', 't'} {
+		updated, _ := input.Update(tea.KeyPressMsg{Text: string(code), Code: code})
+		input = updated
+	}
+	if got := input.Value(); got != `\t` {
+		t.Fatalf("typed value = %q, want literal \\t", got)
+	}
+}
+
+func TestCommandInputLoadedTabSurvivesUnrelatedEdit(t *testing.T) {
+	input := forms.NewCommandInput("", 80)
+	input.SetValue("before\tafter")
+	input.Focus()
+	input.SetCursor(input.Length())
+	updated, _ := input.Update(tea.KeyPressMsg{Text: "!", Code: '!'})
+	if got := updated.Value(); got != "before\tafter!" {
+		t.Fatalf("edited value = %q, want loaded tab preserved", got)
+	}
+}
+
 // makeInput is a test helper that sets a text input value and returns it.
 func makeInput(value string) textinput.Model {
 	ti := textinput.New()
@@ -502,7 +525,6 @@ func TestNewInstallerTextInputs(t *testing.T) {
 	}{
 		{"installerLinux", installerLinux, tuishared.PlaceholderInstallerLinux, 0},
 		{"installerWindows", installerWindows, tuishared.PlaceholderInstallerWindows, 0},
-		{"installerBinary", installerBinary, tuishared.PlaceholderInstallerBinary, 0},
 	}
 
 	for _, tt := range inputs {
@@ -514,6 +536,9 @@ func TestNewInstallerTextInputs(t *testing.T) {
 				t.Errorf("CharLimit = %d, want %d", tt.input.CharLimit, tt.charLimit)
 			}
 		})
+	}
+	if installerBinary.Placeholder != tuishared.PlaceholderInstallerBinary || installerBinary.CharLimit != tuishared.CharLimitBinary {
+		t.Fatalf("installer binary input has placeholder %q and limit %d", installerBinary.Placeholder, installerBinary.CharLimit)
 	}
 }
 

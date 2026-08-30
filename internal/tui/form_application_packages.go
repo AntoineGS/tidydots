@@ -241,6 +241,8 @@ func (m Model) updateApplicationInstallerFieldInput(msg tea.KeyPressMsg) (tea.Mo
 		input := m.getInstallerFieldInput()
 		if input != nil {
 			input.SetValue(m.applicationForm.OriginalValue)
+		} else if binary := m.applicationForm.GetInstallerFieldInput(); binary != nil {
+			binary.SetValue(m.applicationForm.OriginalValue)
 		}
 		m.applicationForm.EditingInstallerField = false
 		return m, nil
@@ -255,6 +257,8 @@ func (m Model) updateApplicationInstallerFieldInput(msg tea.KeyPressMsg) (tea.Mo
 	input := m.getInstallerFieldInput()
 	if input != nil {
 		*input, cmd = input.Update(msg)
+	} else if binary := m.applicationForm.GetInstallerFieldInput(); binary != nil {
+		*binary, cmd = binary.Update(msg)
 	}
 
 	m.applicationForm.Err = ""
@@ -266,5 +270,5 @@ func (m *Model) getInstallerFieldInput() *forms.CommandInput {
 	if m.applicationForm == nil {
 		return nil
 	}
-	return m.applicationForm.GetInstallerFieldInput()
+	return m.applicationForm.GetInstallerCommandFieldInput()
 }

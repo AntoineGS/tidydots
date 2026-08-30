@@ -31,6 +31,14 @@ func TestSubEntryFormPreservesSetupCommands(t *testing.T) {
 	if got.Check["linux"] != command || got.Run["linux"] != command {
 		t.Fatalf("setup command text was not preserved: check=%q run=%q", got.Check["linux"], got.Run["linux"])
 	}
+	path := t.TempDir() + "/tidydots.yaml"
+	if err := config.Save(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool", Entries: []config.SubEntry{got}}}}, path); err != nil {
+		t.Fatalf("config save failed: %v", err)
+	}
+	reloaded, err := config.Load(path)
+	if err != nil || reloaded.Applications[0].Entries[0].Check["linux"] != command || reloaded.Applications[0].Entries[0].Run["linux"] != command {
+		t.Fatalf("interactive setup command changed after config save/reload: err=%v", err)
+	}
 }
 
 func TestNewSubEntryForm_Empty(t *testing.T) {
