@@ -47,6 +47,9 @@ func (m Model) collectBatchRestoreItems() []batchRestoreItem {
 	var items []batchRestoreItem
 
 	for appIdx, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
 		name := app.Application.Name
 
 		// Whole app selected: every sub-entry is included.
@@ -83,7 +86,7 @@ func (m Model) collectBatchRestoreItems() []batchRestoreItem {
 // batchRestoreConfigsDoneMsg). Before this split, executeBatchRestore called
 // performRestoreSubEntry on every selected item with no filter, so each setup
 // entry failed as "Not a config entry" and inflated failCount.
-func (m Model) executeBatchRestore() tea.Cmd {
+func (m Model) executeBatchRestore(forceRender bool) tea.Cmd {
 	var (
 		configs []batchRestoreItem
 		setups  []setupRunItem
@@ -108,6 +111,10 @@ func (m Model) executeBatchRestore() tea.Cmd {
 
 	// Execute the config restores sequentially in the background.
 	return func() tea.Msg {
+		previous := m.Manager.ForceRender
+		m.Manager.ForceRender = forceRender
+		defer func() { m.Manager.ForceRender = previous }()
+
 		results := make([]ResultItem, 0, len(configs))
 		successCount := 0
 		failCount := 0
@@ -167,6 +174,9 @@ func (m Model) executeBatchInstall() tea.Cmd {
 	var packages []PackageItem
 
 	for _, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
 		if !m.selectedApps[app.Application.Name] {
 			continue
 		}
@@ -224,6 +234,9 @@ func (m Model) executeBatchDelete() tea.Cmd {
 	var items []deleteItem
 
 	for _, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
 		name := app.Application.Name
 
 		// Whole app selected: delete the application.

@@ -64,9 +64,10 @@ func TestNewModel(t *testing.T) {
 
 	model := NewModel(cfg, plat, false)
 
-	// Should have 2 applications (windows-only is excluded since it has no linux targets)
-	if len(model.Applications) != 2 {
-		t.Errorf("Expected 2 applications, got %d", len(model.Applications))
+	// The false application condition remains available as a filtered row for
+	// inspection when the machine filter is disabled.
+	if len(model.Applications) != 3 {
+		t.Errorf("Expected 3 applications, got %d", len(model.Applications))
 	}
 
 	// Should start at manage view (ScreenResults with OpList)

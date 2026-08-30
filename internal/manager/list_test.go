@@ -224,3 +224,29 @@ func TestList_SkipsGitEntries(t *testing.T) {
 		t.Error("Did not expect git-entry in output")
 	}
 }
+
+func TestList_EntryWhenOmitsExcludedEntries(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{Version: 3, BackupRoot: tmpDir, Applications: []config.Application{{Name: "app", Entries: []config.SubEntry{
+		{Name: "included", When: `{{ eq .Hostname "testhost" }}`, Backup: "./included", Targets: map[string]string{"linux": "~/.included"}},
+		{Name: "excluded", When: `{{ eq .Hostname "other" }}`, Backup: "./excluded", Targets: map[string]string{"linux": "~/.excluded"}},
+	}}}}
+	m := New(cfg, &platform.Platform{OS: platform.OSLinux, Hostname: "testhost", EnvVars: map[string]string{}})
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	listErr := m.List()
+	_ = w.Close()
+	os.Stdout = old
+	if listErr != nil {
+		t.Fatalf("List() error = %v", listErr)
+	}
+	var output bytes.Buffer
+	_, _ = output.ReadFrom(r)
+	if !strings.Contains(output.String(), "included") || strings.Contains(output.String(), "excluded") {
+		t.Fatalf("List() output = %q, want only included entry", output.String())
+	}
+}

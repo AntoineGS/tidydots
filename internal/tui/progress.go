@@ -58,7 +58,11 @@ func (m *Model) initApplicationItems() {
 
 		subItems := make([]SubEntryItem, 0, len(app.Entries))
 
-		for _, subEntry := range app.Entries {
+		entries := app.Entries
+		if isFiltered {
+			entries = nil
+		}
+		for _, subEntry := range config.FilterSubEntries(entries, m.Renderer) {
 			if !subEntryAppliesToOS(subEntry, m.Platform.OS) {
 				continue
 			}
@@ -81,7 +85,7 @@ func (m *Model) initApplicationItems() {
 		}
 
 		// Skip apps with no applicable entries AND no packages
-		if len(subItems) == 0 && !app.HasPackage() {
+		if len(subItems) == 0 && !app.HasPackage() && !isFiltered {
 			continue
 		}
 
@@ -416,7 +420,8 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.stateChecksPending() && (key.Matches(msg, ListKeys.Edit) ||
 		key.Matches(msg, ListKeys.AddApp) || key.Matches(msg, ListKeys.AddEntry) ||
 		key.Matches(msg, ListKeys.Delete) || key.Matches(msg, ListKeys.Install) ||
-		key.Matches(msg, ListKeys.Restore) || key.Matches(msg, ListKeys.Filter)) {
+		key.Matches(msg, ListKeys.Restore) || key.Matches(msg, ListKeys.ForceRestore) ||
+		key.Matches(msg, ListKeys.Filter)) {
 		return m, nil
 	}
 	if !listClean || !key.Matches(msg, ListKeys.GoTop) {
@@ -632,14 +637,18 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			appIdx, subIdx := m.getApplicationAtCursorFromTable()
 			if appIdx >= 0 {
 				if subIdx >= 0 {
-					// Edit SubEntry
-					m.initSubEntryForm(appIdx, subIdx)
+					if !m.Applications[appIdx].IsFiltered {
+						// Edit SubEntry
+						m.initSubEntryForm(appIdx, subIdx)
+					}
 				} else {
 					// Edit Application
 					m.initApplicationForm(appIdx)
 				}
 
-				return m, nil
+				if subIdx < 0 || !m.Applications[appIdx].IsFiltered {
+					return m, nil
+				}
 			}
 		}
 	case key.Matches(msg, ListKeys.AddApp):
@@ -660,6 +669,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, ListKeys.Delete):
 		// Ask for delete confirmation (only in List view)
 		if m.Operation == OpList {
+			m.pruneStaleSelections()
 			// Check if multi-select mode is active
 			if m.multiSelectActive {
 				// Show summary screen for batch delete
@@ -670,7 +680,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 			// Single-item delete (original behavior)
 			appIdx, subIdx := m.getApplicationAtCursorFromTable()
-			if appIdx >= 0 {
+			if appIdx >= 0 && (subIdx < 0 || !m.Applications[appIdx].IsFiltered) {
 				if subIdx >= 0 {
 					m.confirmingDeleteSubEntry = true
 				} else {
@@ -683,6 +693,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, ListKeys.Install):
 		// Install or Diff depending on context (only in List view)
 		if m.Operation == OpList {
+			m.pruneStaleSelections()
 			// Check if multi-select mode is active
 			if m.multiSelectActive {
 				// Show summary screen for batch install
@@ -717,7 +728,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 
 			// On an app row: install package (original behavior)
-			if appIdx >= 0 && subIdx < 0 {
+			if appIdx >= 0 && subIdx < 0 && !m.Applications[appIdx].IsFiltered {
 				app := m.Applications[appIdx]
 				if app.PkgInstalled != nil && !*app.PkgInstalled {
 					m.Operation = OpInstallPackages
@@ -739,6 +750,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, ListKeys.Restore):
 		// Restore selected SubEntry (only in List view for SubEntry rows)
 		if m.Operation == OpList {
+			m.pruneStaleSelections()
 			// Check if multi-select mode is active
 			if m.multiSelectActive {
 				// Show summary screen for batch restore
@@ -749,7 +761,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 			// Single-item restore (original behavior)
 			appIdx, subIdx := m.getApplicationAtCursorFromTable()
-			if appIdx >= 0 && subIdx >= 0 {
+			if appIdx >= 0 && subIdx >= 0 && !m.Applications[appIdx].IsFiltered {
 				// Restore single sub-entry
 				subItem := &m.Applications[appIdx].SubItems[subIdx]
 
@@ -758,6 +770,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				// the terminal over) instead of running inline here.
 				if subItem.SubEntry.IsSetup() {
 					m.results = nil
+					m.completedOperation = OpList
 					return m, m.startSetupRun([]setupRunItem{{
 						appIdx: appIdx,
 						subIdx: subIdx,
@@ -776,12 +789,14 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 					Success: success,
 					Message: message,
 				}}
+				m.completedOperation = OpList
 				m.showingResults = true
 				m.resultsScrollOffset = 0
-			} else if appIdx >= 0 && subIdx < 0 {
+			} else if appIdx >= 0 && subIdx < 0 && !m.Applications[appIdx].IsFiltered {
 				// Restore all sub-entries for this application: config entries
 				// inline, setup entries queued for the tea.Exec runner.
 				m.results = nil
+				m.completedOperation = OpList
 				for i := range m.Applications[appIdx].SubItems {
 					subItem := &m.Applications[appIdx].SubItems[i]
 					if subItem.SubEntry.IsSetup() || !subItem.SubEntry.IsConfig() {
@@ -808,6 +823,17 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		return m, nil
+	case key.Matches(msg, ListKeys.ForceRestore):
+		if m.Operation == OpList {
+			m.pruneStaleSelections()
+			if m.multiSelectActive {
+				m.summaryOperation = OpForceRestore
+				m.Screen = ScreenSummary
+				return m, nil
+			}
+			m.prepareCurrentRowSummary(OpForceRestore)
+		}
 		return m, nil
 	case key.Matches(msg, ListKeys.Toggle):
 		// Toggle selection and advance cursor (only in List view)
@@ -1031,6 +1057,7 @@ func (m Model) renderHelpForCurrentState() string {
 				MultiSelectKeys.Toggle,
 				MultiSelectKeys.Clear,
 				MultiSelectKeys.Restore,
+				MultiSelectKeys.ForceRestore,
 				MultiSelectKeys.Install,
 				MultiSelectKeys.Delete,
 				ListKeys.Refresh,
@@ -1052,6 +1079,7 @@ func (m Model) renderHelpForCurrentState() string {
 			ListKeys.Edit,
 			ListKeys.Delete,
 			ListKeys.Restore,
+			ListKeys.ForceRestore,
 			ListKeys.Refresh,
 		}
 

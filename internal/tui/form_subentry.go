@@ -18,6 +18,7 @@ type subEntryFieldType = forms.SubEntryFieldType
 const (
 	subFieldName         = forms.SubFieldName
 	subFieldIsSetup      = forms.SubFieldIsSetup
+	subFieldWhen         = forms.SubFieldWhen
 	subFieldLinux        = forms.SubFieldLinux
 	subFieldWindows      = forms.SubFieldWindows
 	subFieldLinuxCheck   = forms.SubFieldLinuxCheck
@@ -92,6 +93,7 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 	linuxTargetInput := newFormInput("e.g., ~/.config/nvim", CharLimitPath, InputWidthNarrow)
 	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", CharLimitPath, InputWidthNarrow)
 	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
+	whenInput := newFormInput(PlaceholderWhen, 0, InputWidthNarrow)
 	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
 	linuxCheckInput := newCommandInput("e.g., command -v foo", InputWidthNarrow)
 	linuxRunInput := newCommandInput("e.g., install foo", InputWidthNarrow)
@@ -106,6 +108,7 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 
 	if hasSub {
 		nameInput.SetValue(sub.Name)
+		whenInput.SetValue(sub.When)
 
 		if target, ok := sub.Targets["linux"]; ok {
 			linuxTargetInput.SetValue(target)
@@ -144,6 +147,7 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 
 	m.subEntryForm = &SubEntryForm{
 		NameInput:          nameInput,
+		WhenInput:          whenInput,
 		LinuxTargetInput:   linuxTargetInput,
 		WindowsTargetInput: windowsTargetInput,
 		LinuxCheckInput:    linuxCheckInput,
@@ -220,6 +224,14 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Handle manual text input mode (from "Type Path" menu option)
 	if m.subEntryForm.AddFileMode == ModeTextInput {
 		return m.updateSubEntryFileInput(msg)
+	}
+
+	if m.subEntryForm.WhenMode == forms.WhenModeChooser {
+		return m.updateSubEntryWhenChooser(msg)
+	}
+
+	if m.subEntryForm.EditingWhen {
+		return m.updateSubEntryWhenInput(msg)
 	}
 
 	// Handle editing a text field
@@ -331,6 +343,15 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, FormNavKeys.Edit):
 		// Enter edit mode for text fields
 		ft := m.getSubEntryFieldType()
+		if ft == subFieldWhen {
+			m.subEntryForm.OriginalValue = m.subEntryForm.WhenInput.Value()
+			if len(m.HostnameChoices) > 0 {
+				m.startSubEntryWhenChooser()
+			} else {
+				m.startSubEntryWhenTextEdit()
+			}
+			return m, nil
+		}
 
 		if m.isSubEntryTextInputField() {
 			m.enterSubEntryFieldEditMode()
@@ -588,6 +609,18 @@ func (m Model) viewSubEntryForm() string {
 	}
 	fmt.Fprintf(&b, "  %s  %s\n\n", entryTypeLabel, m.renderSubEntryToggleValue(subFieldIsSetup, entryType))
 
+	whenLabel := "When:"
+	if ft == subFieldWhen {
+		whenLabel = HelpKeyStyle.Render(whenLabel)
+	}
+	fmt.Fprintf(&b, "  %s\n", whenLabel)
+	if m.subEntryForm.WhenMode == forms.WhenModeChooser {
+		b.WriteString(m.renderSubEntryWhenChooser())
+	} else {
+		b.WriteString(renderWhenField(ft == subFieldWhen, m.subEntryForm.EditingWhen, m.subEntryForm.WhenInput))
+	}
+	b.WriteString("\n")
+
 	if m.subEntryForm.IsSetup {
 		b.WriteString(m.renderSubEntrySetupFields())
 	} else {
@@ -752,7 +785,7 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 	}
 
 	currentFt := m.getSubEntryFieldType()
-	isEditing := m.subEntryForm.EditingField && currentFt == fieldType
+	isEditing := (m.subEntryForm.EditingField || m.subEntryForm.EditingWhen) && currentFt == fieldType
 	isFocused := currentFt == fieldType
 
 	var input interface {
@@ -777,6 +810,8 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 		input = m.subEntryForm.WindowsRunInput
 	case subFieldBackup:
 		input = m.subEntryForm.BackupInput
+	case subFieldWhen:
+		input = m.subEntryForm.WhenInput
 	case subFieldIsSetup, subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy:
 		return placeholder
 	default:
@@ -807,6 +842,20 @@ func (m Model) renderSubEntryFormHelp() string {
 
 	ft := m.getSubEntryFieldType()
 
+	if m.subEntryForm.WhenMode == forms.WhenModeChooser {
+		selectBinding := key.NewBinding(
+			key.WithKeys("enter", "e"),
+			key.WithHelp("enter/e", "select"),
+		)
+		return RenderHelpFromBindings(m.width,
+			FormNavKeys.Up,
+			FormNavKeys.Down,
+			FormNavKeys.Toggle,
+			selectBinding,
+			FormNavKeys.Cancel,
+		)
+	}
+
 	if m.subEntryForm.AddingFile {
 		return RenderHelpFromBindings(m.width,
 			SearchKeys.Confirm,
@@ -818,6 +867,14 @@ func (m Model) renderSubEntryFormHelp() string {
 	if m.subEntryForm.EditingFile {
 		return RenderHelpFromBindings(m.width,
 			SearchKeys.Confirm,
+			TextEditKeys.SaveForm,
+			TextEditKeys.Cancel,
+		)
+	}
+
+	if m.subEntryForm.EditingWhen {
+		return RenderHelpFromBindings(m.width,
+			TextEditKeys.Confirm,
 			TextEditKeys.SaveForm,
 			TextEditKeys.Cancel,
 		)
@@ -916,6 +973,14 @@ func (m *Model) saveSubEntryForm() error {
 	subEntry, err := m.subEntryForm.BuildSubEntry()
 	if err != nil {
 		return err
+	}
+	if strings.TrimSpace(subEntry.When) != "" {
+		if m.Renderer == nil {
+			return errors.New("cannot validate when expression without a renderer")
+		}
+		if _, err := m.Renderer.RenderString("when", subEntry.When); err != nil {
+			return fmt.Errorf("invalid when expression: %w", err)
+		}
 	}
 
 	// Route to correct save operation

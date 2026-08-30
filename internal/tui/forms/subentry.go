@@ -18,6 +18,7 @@ type SubEntryFieldType int
 const (
 	SubFieldName SubEntryFieldType = iota
 	SubFieldIsSetup
+	SubFieldWhen
 	SubFieldLinux
 	SubFieldWindows
 	SubFieldLinuxCheck
@@ -62,6 +63,7 @@ type SubEntryForm struct {
 	// original spelling ("" or an explicit "symlink") rather than normalizing it.
 	Method             string
 	NameInput          textinput.Model
+	WhenInput          textinput.Model
 	LinuxTargetInput   textinput.Model
 	WindowsTargetInput textinput.Model
 	LinuxCheckInput    CommandInput
@@ -84,6 +86,10 @@ type SubEntryForm struct {
 	IsSetup            bool
 	ShowSuggestions    bool
 	EditingField       bool
+	EditingWhen        bool
+	WhenMode           WhenMode
+	HostnameCursor     int
+	SelectedHostnames  map[string]bool
 	AddingFile         bool
 	EditingFile        bool
 	IsSudo             bool
@@ -98,59 +104,61 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 
 	idx := f.FocusIndex
 
-	// Common fields: name (0), entry type (1)
+	// Common fields: name (0), entry type (1), when (2)
 	switch idx {
 	case 0:
 		return SubFieldName
 	case 1:
 		return SubFieldIsSetup
+	case 2:
+		return SubFieldWhen
 	}
 	if f.IsSetup {
 		switch idx {
-		case 2:
-			return SubFieldLinuxCheck
 		case 3:
-			return SubFieldLinuxRun
+			return SubFieldLinuxCheck
 		case 4:
-			return SubFieldWindowsCheck
+			return SubFieldLinuxRun
 		case 5:
-			return SubFieldWindowsRun
+			return SubFieldWindowsCheck
 		case 6:
+			return SubFieldWindowsRun
+		case 7:
 			return SubFieldIsSudo
 		}
 		return SubFieldName
 	}
-	if idx == 2 {
+	if idx == 3 {
 		return SubFieldLinux
 	}
-	if idx == 3 {
+	if idx == 4 {
 		return SubFieldWindows
 	}
 
-	// Config-specific fields start at index 3
+	// Config-specific fields start at index 5
 	if f.IsFolder {
-		// Folder mode: backup (3), isFolder (4), isSudo (5).
+		// Folder mode: backup (5), isFolder (6), isSudo (7).
 		// No copy toggle: copy mode is files-only (see ToggleFolderMode).
 		switch idx {
-		case 4:
-			return SubFieldBackup
 		case 5:
-			return SubFieldIsFolder
+			return SubFieldBackup
 		case 6:
+			return SubFieldIsFolder
+		case 7:
 			return SubFieldIsSudo
 		}
 	} else {
-		// Files mode: backup (3), isFolder (4), files (5), isSudo (6), isCopy (7)
+		// Files mode: backup (5), isFolder (6), files (7), isSudo (8), isCopy (9)
 		switch idx {
-		case 4:
-			return SubFieldBackup
 		case 5:
-			return SubFieldIsFolder
+			return SubFieldBackup
 		case 6:
-			return SubFieldFiles
+			return SubFieldIsFolder
 		case 7:
-			return SubFieldIsSudo
+			return SubFieldFiles
 		case 8:
+			return SubFieldIsSudo
+		case 9:
 			return SubFieldIsCopy
 		}
 	}
@@ -166,18 +174,18 @@ func (f *SubEntryForm) MaxIndex() int {
 	}
 
 	if f.IsSetup {
-		return 6
+		return 7
 	}
 
-	// Common fields: name, entry type, linux, windows = 4 fields (0-3)
-	// Config-specific fields start at 3
+	// Common fields: name, entry type, when, linux, windows = 5 fields (0-4)
+	// Config-specific fields start at 5
 	if f.IsFolder {
-		// Config folder: backup, isFolder, isSudo = 3 fields (3-5)
-		return 6
+		// Config folder: backup, isFolder, isSudo = 3 fields (5-7)
+		return 7
 	}
 
-	// Config files: backup, isFolder, files, isSudo, isCopy = 5 fields (3-7)
-	return 8
+	// Config files: backup, isFolder, files, isSudo, isCopy = 5 fields (5-9)
+	return 9
 }
 
 // ToggleFolderMode flips between folder and files mode.
@@ -205,7 +213,7 @@ func (f *SubEntryForm) IsTextInputField() bool {
 
 	ft := f.GetFieldType()
 	switch ft {
-	case SubFieldName, SubFieldLinux, SubFieldWindows, SubFieldBackup,
+	case SubFieldName, SubFieldWhen, SubFieldLinux, SubFieldWindows, SubFieldBackup,
 		SubFieldLinuxCheck, SubFieldLinuxRun, SubFieldWindowsCheck, SubFieldWindowsRun:
 		return true
 	case SubFieldIsSetup, SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy:
@@ -233,6 +241,7 @@ func (f *SubEntryForm) UpdateFocus() {
 	}
 
 	f.NameInput.Blur()
+	f.WhenInput.Blur()
 	f.LinuxTargetInput.Blur()
 	f.WindowsTargetInput.Blur()
 	f.LinuxCheckInput.Blur()
@@ -246,6 +255,8 @@ func (f *SubEntryForm) UpdateFocus() {
 	switch ft {
 	case SubFieldName:
 		f.NameInput.Focus()
+	case SubFieldWhen:
+		f.WhenInput.Focus()
 	case SubFieldLinux:
 		f.LinuxTargetInput.Focus()
 	case SubFieldWindows:
@@ -279,6 +290,10 @@ func (f *SubEntryForm) EnterFieldEditMode() {
 		f.OriginalValue = f.NameInput.Value()
 		f.NameInput.Focus()
 		f.NameInput.SetCursor(len(f.NameInput.Value()))
+	case SubFieldWhen:
+		f.OriginalValue = f.WhenInput.Value()
+		f.WhenInput.Focus()
+		f.WhenInput.SetCursor(len(f.WhenInput.Value()))
 	case SubFieldLinux:
 		f.OriginalValue = f.LinuxTargetInput.Value()
 		f.LinuxTargetInput.Focus()
@@ -322,6 +337,8 @@ func (f *SubEntryForm) CancelFieldEdit() {
 	switch ft {
 	case SubFieldName:
 		f.NameInput.SetValue(f.OriginalValue)
+	case SubFieldWhen:
+		f.WhenInput.SetValue(f.OriginalValue)
 	case SubFieldLinux:
 		f.LinuxTargetInput.SetValue(f.OriginalValue)
 	case SubFieldWindows:
@@ -397,7 +414,7 @@ func (f *SubEntryForm) buildSetupEntry(name string) (config.SubEntry, error) {
 	if len(run) == 0 {
 		return config.SubEntry{}, errors.New("at least one OS must have both setup check and run commands")
 	}
-	return config.SubEntry{Name: name, Check: check, Run: run, Sudo: f.IsSudo}, nil
+	return config.SubEntry{Name: name, When: strings.TrimSpace(f.WhenInput.Value()), Check: check, Run: run, Sudo: f.IsSudo}, nil
 }
 
 // buildMethod resolves the toggle back to a method string. Turning copy off
@@ -446,6 +463,7 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 	// built separately above and never appear in this branch.
 	subEntry := config.SubEntry{
 		Name:    name,
+		When:    strings.TrimSpace(f.WhenInput.Value()),
 		Targets: targets,
 		Sudo:    f.IsSudo,
 		Method:  f.buildMethod(),
@@ -477,6 +495,8 @@ func (f *SubEntryForm) BuildSubEntry() (config.SubEntry, error) {
 func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 	nameInput := NewFormInput("e.g., nvim-config", tuishared.CharLimitName, tuishared.InputWidthNarrow)
 	nameInput.SetValue(entry.Name)
+	whenInput := NewFormInput(tuishared.PlaceholderWhen, 0, tuishared.InputWidthNarrow)
+	whenInput.SetValue(entry.When)
 
 	linuxTargetInput := NewFormInput("e.g., ~/.config/nvim", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
 	if target, ok := entry.Targets["linux"]; ok {
@@ -501,6 +521,7 @@ func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 
 	return &SubEntryForm{
 		NameInput:          nameInput,
+		WhenInput:          whenInput,
 		LinuxTargetInput:   linuxTargetInput,
 		WindowsTargetInput: windowsTargetInput,
 		LinuxCheckInput:    linuxCheckInput,

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,6 +106,82 @@ applications:
 
 	if !cfg.Applications[2].Entries[0].Sudo {
 		t.Error("Applications[2].Entries[0].Sudo = false, want true")
+	}
+}
+
+func TestSubEntryWhenRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	configContent := `version: 3
+applications:
+  - name: launcher
+    entries:
+      - name: laptop-desktop
+        when: '{{ eq .Hostname "omarchbook" }}'
+        backup: ./Linux/os/applications/omarchbook
+        targets:
+          linux: ~/.local/share/applications/omarchbook
+`
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(configContent), 0600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got := cfg.Applications[0].Entries[0].When; got != `{{ eq .Hostname "omarchbook" }}` {
+		t.Errorf("SubEntry.When = %q, want hostname expression", got)
+	}
+
+	saved := filepath.Join(t.TempDir(), "saved.yaml")
+	if err := Save(cfg, saved); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	savedData, err := os.ReadFile(saved)
+	if err != nil {
+		t.Fatalf("read saved config: %v", err)
+	}
+	if !strings.Contains(string(savedData), `when: '{{ eq .Hostname "omarchbook" }}'`) {
+		t.Errorf("saved config omitted or changed SubEntry.When:\n%s", savedData)
+	}
+}
+
+func TestSubEntryWhenEmptyOmittedOnMarshal(t *testing.T) {
+	t.Parallel()
+
+	data, err := yaml.Marshal(SubEntry{Name: "always"})
+	if err != nil {
+		t.Fatalf("yaml.Marshal() error = %v", err)
+	}
+	if strings.Contains(string(data), "when:") {
+		t.Errorf("empty When was not omitted:\n%s", data)
+	}
+}
+
+func TestAggregateEntryHelpersFilterSubEntries(t *testing.T) {
+	t.Parallel()
+
+	entries := []SubEntry{
+		{Name: "first", Backup: "./first", When: "true"},
+		{Name: "second", Backup: "./second", When: "false"},
+		{Name: "setup", Run: map[string]string{"linux": "setup"}},
+	}
+	cfg := &Config{Applications: []Application{{Name: "app", Entries: entries}}}
+	original := append([]SubEntry(nil), cfg.Applications[0].Entries...)
+
+	renderer := &mappedWhenRenderer{results: map[string]string{"true": "true", "false": "false"}}
+	all := cfg.GetAllSubEntries(renderer)
+	if got := []string{all[0].Name, all[1].Name}; !reflect.DeepEqual(got, []string{"first", "setup"}) {
+		t.Errorf("GetAllSubEntries() names = %v, want [first setup]", got)
+	}
+	configs := cfg.GetAllConfigSubEntries(renderer)
+	if len(configs) != 1 || configs[0].Name != "first" {
+		t.Errorf("GetAllConfigSubEntries() = %#v, want only first", configs)
+	}
+	if !reflect.DeepEqual(cfg.Applications[0].Entries, original) {
+		t.Errorf("aggregate helpers mutated application entries")
 	}
 }
 

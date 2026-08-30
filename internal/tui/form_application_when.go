@@ -88,22 +88,5 @@ func (m Model) updateWhenChooser(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) renderWhenChooser() string {
 	f := m.applicationForm
-	var b strings.Builder
-	for i, hostname := range m.HostnameChoices {
-		prefix := "  "
-		if f.SelectedHostnames[hostname] {
-			prefix = "✓ "
-		}
-		line := prefix + hostname
-		if i == f.HostnameCursor {
-			line = SelectedMenuItemStyle.Render(line)
-		}
-		b.WriteString("  " + line + "\n")
-	}
-	line := "  Type expression"
-	if f.HostnameCursor == len(m.HostnameChoices) {
-		line = SelectedMenuItemStyle.Render(line)
-	}
-	b.WriteString("  " + line + "\n")
-	return b.String()
+	return renderHostnameOptions(m.HostnameChoices, f.HostnameCursor, f.SelectedHostnames)
 }

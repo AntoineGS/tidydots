@@ -62,6 +62,9 @@ func selectConfigTarget(
 		if selectedEntry == nil {
 			return nil, fmt.Errorf("entry %q not found in application %q", entryName, appName)
 		}
+		if !config.EvaluateWhen(selectedEntry.When, renderer) {
+			return nil, fmt.Errorf("entry %q in application %q does not match current conditions", entryName, appName)
+		}
 		if selectedEntry.IsSetup() && !allowSetup {
 			return nil, fmt.Errorf("entry %q in application %q is a setup entry and is not supported by this command", entryName, appName)
 		}

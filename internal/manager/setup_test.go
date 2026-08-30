@@ -243,6 +243,20 @@ func TestRestore_SetupEntryFailure_DoesNotAbortRestore(t *testing.T) {
 	}
 }
 
+func TestRestore_EntryWhenSkipsExcludedSetup(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	cfg := &config.Config{Version: 3, BackupRoot: "/repo", Applications: []config.Application{{Name: "app", Entries: []config.SubEntry{
+		{Name: "excluded-setup", When: `{{ eq .Hostname "other" }}`, Check: map[string]string{"linux": "check"}, Run: map[string]string{"linux": "run"}},
+	}}}}
+	m := New(cfg, &platform.Platform{OS: platform.OSLinux, Hostname: "testhost", EnvVars: map[string]string{}}).WithRunner(stub)
+	if err := m.Restore(); err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+	if len(shellCalls(stub)) != 0 {
+		t.Fatalf("Restore() ran excluded setup entry: %+v", shellCalls(stub))
+	}
+}
+
 // scriptedResponse is a single canned reply from scriptedRunner.
 type scriptedResponse struct {
 	err error

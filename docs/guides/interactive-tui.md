@@ -62,6 +62,8 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | `f` | Toggle filter (show/hide apps excluded by `when` expressions) |
 | `x` | Toggle the action filter (show only applications or entries needing work) |
 | `ctrl+r` | Refresh all package, config, template, and setup statuses |
+| `r` | Restore the selected application or entry, preserving rendered-template edits through the normal merge |
+| `R` | Force Restore the selected application or entry, always requiring confirmation and discarding rendered-template edits |
 | `ctrl+u` | Move up by half the visible table height |
 | `ctrl+d` | Move down by half the visible table height |
 | `gg` | Move to the first row |
@@ -94,7 +96,10 @@ Press a sort key to sort by that column. Press the same key again to reverse the
 
 Press `/` to enter search mode. Type to filter applications and entries by name, description, target paths, or backup paths. The list updates in real time as you type. Press `enter` to confirm or `esc` to exit search mode (your selections are preserved).
 
-Press `f` to toggle the filter. When enabled (the default), applications that do not match their `when` expression on the current machine are hidden. When disabled, all applications are shown regardless of `when` conditions.
+Press `f` to toggle the filter. When enabled (the default), applications excluded by
+their application-level `when` expression are hidden. When disabled, those applications
+are shown. Entries excluded by their own `when` are removed before table filtering and
+remain absent in either mode.
 
 Press `x` to toggle the action filter. It keeps applications with an uninstalled package and entries whose state needs attention (`Missing`, `Ready`, `Adopt`, `Needs setup`, `Outdated`, or `Modified`). The filter composes with search and the `f` platform filter. If enabling it would hide selected items, tidydots asks for confirmation; answer `y` to enable it or `n` to leave the current view and selections unchanged. Confirming does not clear selections.
 
@@ -168,7 +173,8 @@ With items selected, you can perform operations on all of them at once. Each bat
 
 | Key | Operation | Description |
 |-----|-----------|-------------|
-| `r` | Restore | Create symlinks for selected config entries, and run selected [setup entries](../configuration/setup.md) |
+| `r` | Restore | Create symlinks for selected config entries, and run selected [setup entries](../configuration/setup.md), preserving rendered-template edits through the normal merge |
+| `R` | Force Restore | Use the same selected application or entry scope as Restore, always show a confirmation, and discard manual edits to rendered-template files |
 | `i` | Install | Install packages for all selected applications |
 | `d` | Delete | Remove configs and packages for all selected items |
 
@@ -185,7 +191,7 @@ Browse and select the items you want to operate on. Use `tab` or `space` to togg
 
 **2. Summary screen**
 
-After pressing an operation key (`r`, `i`, or `d`), a summary screen appears showing exactly what will be changed. Review the list of operations, then:
+After pressing an operation key (`r`, `R`, `i`, or `d`), a summary screen appears showing exactly what will be changed. Restore (`r`) preserves manual edits to rendered templates through the normal merge. Force Restore (`R`) always asks for confirmation before proceeding and discards those edits. Review the list of operations, then:
 
 - Press `y` or `enter` to confirm and proceed
 - Press `n` or `esc` to cancel and return to the main screen
@@ -206,7 +212,7 @@ When the operation finishes, a popup overlay appears showing all results (succes
 1. Launch tidydots: `tidydots`
 2. Navigate to the applications you want to restore
 3. Press `tab` on each application to select it
-4. Press `r` to start batch restore
+4. Press `r` to start batch restore, or `R` for Force Restore when rendered-template edits should be discarded
 5. Review the summary of symlinks to be created
 6. Press `enter` to confirm
 7. Watch the progress bar as symlinks are created
@@ -257,12 +263,19 @@ Navigate to a config entry and press `e` to edit. Editable fields include:
 - **Files** -- specific file list (empty means entire folder)
 - **Sudo** -- toggle for elevated privileges
 - **Copy files** -- toggle for [`method: copy`](../configuration/configs.md#deployment-method), which deploys real files instead of symlinks
+- **When** -- optional Go-template condition for this individual entry
 
 The **Copy files** toggle only appears when an explicit file list is set, because copy mode is files-only. Switching an entry back to whole-folder mode therefore clears it.
 
+Focusing the sub-entry **When** field and pressing `enter` or `e` opens the same
+hostname chooser used for applications when hostnames are configured in the local app
+config. Use `space` or `tab` to select hosts and confirm to generate a condition, or
+choose **Type expression** for manual Go-template input. The generated condition is
+saved on that entry, so it combines with the parent application's condition.
+
 ### Edit a setup entry
 
-Navigate to an entry and press `e`, then toggle **Setup entry**. The form exposes paired `Check` and `Run` fields for Linux and Windows plus the `Sudo` toggle. Each OS must have both commands or neither, and at least one OS must be configured. Save writes the `check` and `run` maps to `tidydots.yaml`. A setup entry cannot also have backup or target fields. You can run it from the TUI with `r` and delete it with `d`.
+ Navigate to an entry and press `e`, then toggle **Setup entry**. The form exposes paired `Check` and `Run` fields for Linux and Windows, **Sudo**, and **When**. The **When** editor and hostname chooser work the same way as for config entries. Each OS must have both commands or neither, and at least one OS must be configured. Save writes the `check`, `run`, and optional `when` string to `tidydots.yaml`. A setup entry cannot also have backup or target fields. You can run it from the TUI with `r` and delete it with `d`.
 
 Check commands must remain read-only and fast because they run during every TUI state refresh; see [Setup Entries](../configuration/setup.md).
 

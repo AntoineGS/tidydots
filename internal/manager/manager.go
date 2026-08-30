@@ -158,7 +158,15 @@ func (m *Manager) checkContext() error {
 
 // GetApplications returns all filtered applications from the configuration.
 func (m *Manager) GetApplications() []config.Application {
-	return m.Config.GetFilteredApplicationsWithLogger(m.templateEngine, m.logger)
+	apps := m.Config.GetFilteredApplicationsWithLogger(m.templateEngine, m.logger)
+	result := make([]config.Application, 0, len(apps))
+	for _, app := range apps {
+		app.Entries = config.FilterSubEntriesWithLogger(app.Entries, m.templateEngine, m.logger)
+		if len(app.Entries) > 0 || app.HasPackage() {
+			result = append(result, app)
+		}
+	}
+	return result
 }
 
 // resolvePath expands templates, ~ and environment variables in paths and resolves

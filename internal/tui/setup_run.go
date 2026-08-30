@@ -211,11 +211,17 @@ func (m Model) handleSetupRunResult(msg setupRunMsg) (tea.Model, tea.Cmd) {
 	m.setupBatch = false
 
 	m.processing = false
+	if batch {
+		m.completedOperation = m.Operation
+	} else {
+		m.completedOperation = OpList
+	}
 	m.Screen = ScreenResults
 	m.Operation = OpList
 
 	if batch {
 		m.clearSelections()
+		m.clearTransientSummarySelection()
 	}
 
 	m.rebuildTable()

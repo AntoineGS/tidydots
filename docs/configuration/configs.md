@@ -7,6 +7,7 @@ A **SubEntry** (config entry) represents a single configuration that tidydots ma
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | yes | Entry identifier, unique within its application |
+| `when` | string | no | Go template expression that conditionally includes this entry |
 | `backup` | string | yes | Path in the dotfiles repo where config files are stored |
 | `targets` | map[string]string | yes | OS-specific target paths where files are deployed |
 | `files` | []string | no | Specific files to manage. Empty = entire folder |
@@ -23,6 +24,30 @@ When you run `tidydots restore`, for each config entry tidydots:
 4. If `files` is specified, only those specific files are symlinked (or copied)
 
 The result is that your system reads configuration from the target path, but the actual files live in your dotfiles repository.
+
+## Conditional Entries
+
+`when` is optional on every config entry, including the default symlink method and
+`method: copy`. It uses the same Go-template expressions and context as an
+[application `when`](applications.md#when-expressions). An entry is included only
+when **both** its application's `when` and its own `when` evaluate to `true`.
+
+```yaml
+entries:
+  - name: omarchbook .desktop files
+    when: '{{ eq .Hostname "omarchbook" }}'
+    backup: ./Linux/os/applications/omarchbook
+    targets:
+      linux: ~/.local/share/applications/omarchbook
+```
+
+This keeps the desktop files out of every machine except `omarchbook`, while other
+entries in the same application can still apply elsewhere. A false result or a
+template error excludes the entry before tidydots reads its `targets` or `backup`
+or performs any config operation. Excluded entries are also omitted from `list` and
+the TUI manage view. If you explicitly target one on the CLI, for example
+`tidydots restore os "omarchbook .desktop files"`, tidydots returns a conditions
+mismatch error instead of restoring it.
 
 ## Fields in Detail
 
@@ -119,6 +144,7 @@ By default, config entries are deployed as symlinks: the target path becomes a s
 entries:
   - name: "blacklist"
     method: copy
+    when: '{{ eq .Hostname "omarchbook" }}'
     files: ["blacklist-raydium.conf"]
     backup: "./Linux/modprobe"
     targets:

@@ -41,6 +41,97 @@ func TestSubEntryFormPreservesSetupCommands(t *testing.T) {
 	}
 }
 
+func TestSubEntryFormWhenRoundTrip(t *testing.T) {
+	const when = `{{ eq .Hostname "omarchbook" }}`
+	tests := []struct {
+		name  string
+		entry config.SubEntry
+	}{
+		{
+			name:  "config",
+			entry: config.SubEntry{Name: "config", Backup: "./config", Targets: map[string]string{"linux": "~/.config"}},
+		},
+		{
+			name:  "setup",
+			entry: config.SubEntry{Name: "setup", Check: map[string]string{"linux": "check"}, Run: map[string]string{"linux": "run"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := tt.entry
+			entry.When = when
+			form := forms.NewSubEntryForm(entry)
+			if got := form.WhenInput.Value(); got != when {
+				t.Fatalf("WhenInput = %q, want %q", got, when)
+			}
+			got, err := form.BuildSubEntry()
+			if err != nil {
+				t.Fatalf("BuildSubEntry() error = %v", err)
+			}
+			if got.When != when {
+				t.Errorf("When = %q, want %q", got.When, when)
+			}
+		})
+	}
+}
+
+func TestSubEntryFormLongWhenRoundTripForConfigAndSetup(t *testing.T) {
+	when := `{{/*` + strings.Repeat("x", 600) + `*/}}true`
+	tests := []struct {
+		name  string
+		entry config.SubEntry
+	}{
+		{
+			name:  "config",
+			entry: config.SubEntry{Name: "config", Backup: "./config", Targets: map[string]string{"linux": "~/.config"}},
+		},
+		{
+			name:  "setup",
+			entry: config.SubEntry{Name: "setup", Check: map[string]string{"linux": "check"}, Run: map[string]string{"linux": "run"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.entry.When = when
+			form := forms.NewSubEntryForm(tt.entry)
+			if got := form.WhenInput.Value(); got != when {
+				t.Fatalf("loaded When length=%d, want %d", len(got), len(when))
+			}
+			got, err := form.BuildSubEntry()
+			if err != nil {
+				t.Fatalf("BuildSubEntry() error = %v", err)
+			}
+			if got.When != when {
+				t.Fatalf("built When length=%d, want %d", len(got.When), len(when))
+			}
+			path := t.TempDir() + "/tidydots.yaml"
+			cfg := &config.Config{Version: 3, Applications: []config.Application{{Name: "tool", Entries: []config.SubEntry{got}}}}
+			if err := config.Save(cfg, path); err != nil {
+				t.Fatalf("config save failed: %v", err)
+			}
+			reloaded, err := config.Load(path)
+			if err != nil {
+				t.Fatalf("config reload failed: %v", err)
+			}
+			if got := reloaded.Applications[0].Entries[0].When; got != when {
+				t.Errorf("reloaded When length=%d, want %d", len(got), len(when))
+			}
+		})
+	}
+}
+
+func TestSubEntryFormWhenTrimsAndOmitsEmpty(t *testing.T) {
+	form := forms.NewSubEntryForm(config.SubEntry{Name: "config", Backup: "./config", Targets: map[string]string{"linux": "~/.config"}})
+	form.WhenInput.SetValue("  \t")
+	got, err := form.BuildSubEntry()
+	if err != nil {
+		t.Fatalf("BuildSubEntry() error = %v", err)
+	}
+	if got.When != "" {
+		t.Errorf("When = %q, want empty", got.When)
+	}
+}
+
 func TestNewSubEntryForm_Empty(t *testing.T) {
 	form := forms.NewSubEntryForm(config.SubEntry{})
 
@@ -509,40 +600,45 @@ func TestSubEntryForm_GetFieldType(t *testing.T) {
 			wantType:   forms.SubFieldName,
 		},
 		{
-			name:       "index_2_is_linux",
+			name:       "index_2_is_when",
 			focusIndex: 2,
+			wantType:   forms.SubFieldWhen,
+		},
+		{
+			name:       "index_3_is_linux",
+			focusIndex: 3,
 			wantType:   forms.SubFieldLinux,
 		},
 		{
-			name:       "index_3_is_windows",
-			focusIndex: 3,
+			name:       "index_4_is_windows",
+			focusIndex: 4,
 			wantType:   forms.SubFieldWindows,
 		},
 		{
-			name:       "index_4_is_backup",
-			focusIndex: 4,
+			name:       "index_5_is_backup",
+			focusIndex: 5,
 			wantType:   forms.SubFieldBackup,
 		},
 		{
-			name:       "index_5_is_isFolder",
-			focusIndex: 5,
+			name:       "index_6_is_isFolder",
+			focusIndex: 6,
 			wantType:   forms.SubFieldIsFolder,
 		},
 		{
-			name:       "index_6_in_folder_mode_is_sudo",
-			focusIndex: 6,
+			name:       "index_7_in_folder_mode_is_sudo",
+			focusIndex: 7,
 			isFolder:   true,
 			wantType:   forms.SubFieldIsSudo,
 		},
 		{
-			name:       "index_6_in_files_mode_is_files",
-			focusIndex: 6,
+			name:       "index_7_in_files_mode_is_files",
+			focusIndex: 7,
 			isFolder:   false,
 			wantType:   forms.SubFieldFiles,
 		},
 		{
-			name:       "index_7_in_files_mode_is_sudo",
-			focusIndex: 7,
+			name:       "index_8_in_files_mode_is_sudo",
+			focusIndex: 8,
 			isFolder:   false,
 			wantType:   forms.SubFieldIsSudo,
 		},
@@ -573,6 +669,28 @@ func TestSubEntryForm_GetFieldType(t *testing.T) {
 			t.Errorf("GetFieldType() on nil = %v, want SubFieldName", got)
 		}
 	})
+
+	t.Run("setup_indexes_keep_when_before_commands", func(t *testing.T) {
+		form := forms.NewSubEntryForm(config.SubEntry{
+			Name:  "setup",
+			Check: map[string]string{"linux": "check"},
+			Run:   map[string]string{"linux": "run"},
+		})
+		want := []forms.SubEntryFieldType{
+			forms.SubFieldName, forms.SubFieldIsSetup, forms.SubFieldWhen,
+			forms.SubFieldLinuxCheck, forms.SubFieldLinuxRun,
+			forms.SubFieldWindowsCheck, forms.SubFieldWindowsRun, forms.SubFieldIsSudo,
+		}
+		if form.MaxIndex() != len(want)-1 {
+			t.Fatalf("MaxIndex() = %d, want %d", form.MaxIndex(), len(want)-1)
+		}
+		for i, expected := range want {
+			form.FocusIndex = i
+			if got := form.GetFieldType(); got != expected {
+				t.Errorf("GetFieldType() at %d = %v, want %v", i, got, expected)
+			}
+		}
+	})
 }
 
 func TestSubEntryForm_MaxIndex(t *testing.T) {
@@ -584,12 +702,12 @@ func TestSubEntryForm_MaxIndex(t *testing.T) {
 		{
 			name:      "folder_mode_max_is_6",
 			isFolder:  true,
-			wantIndex: 6,
+			wantIndex: 7,
 		},
 		{
 			name:      "files_mode_max_is_8",
 			isFolder:  false,
-			wantIndex: 8,
+			wantIndex: 9,
 		},
 	}
 
@@ -622,12 +740,13 @@ func TestSubEntryForm_IsTextInputField(t *testing.T) {
 		want       bool
 	}{
 		{name: "name_is_text_input", focusIndex: 0, want: true},
-		{name: "linux_is_text_input", focusIndex: 2, want: true},
-		{name: "windows_is_text_input", focusIndex: 3, want: true},
-		{name: "backup_is_text_input", focusIndex: 4, want: true},
-		{name: "isFolder_is_not_text_input", focusIndex: 5, want: false},
-		{name: "files_is_not_text_input", focusIndex: 6, isFolder: false, want: false},
-		{name: "sudo_in_folder_mode_is_not_text_input", focusIndex: 6, isFolder: true, want: false},
+		{name: "when_is_text_input", focusIndex: 2, want: true},
+		{name: "linux_is_text_input", focusIndex: 3, want: true},
+		{name: "windows_is_text_input", focusIndex: 4, want: true},
+		{name: "backup_is_text_input", focusIndex: 5, want: true},
+		{name: "isFolder_is_not_text_input", focusIndex: 6, want: false},
+		{name: "files_is_not_text_input", focusIndex: 7, isFolder: false, want: false},
+		{name: "sudo_in_folder_mode_is_not_text_input", focusIndex: 7, isFolder: true, want: false},
 	}
 
 	for _, tt := range tests {
@@ -652,11 +771,12 @@ func TestSubEntryForm_IsToggleField(t *testing.T) {
 		want       bool
 	}{
 		{name: "name_is_not_toggle", focusIndex: 0, want: false},
-		{name: "linux_is_not_toggle", focusIndex: 2, want: false},
-		{name: "isFolder_is_toggle", focusIndex: 5, want: true},
-		{name: "sudo_in_folder_mode_is_toggle", focusIndex: 6, isFolder: true, want: true},
-		{name: "files_is_not_toggle", focusIndex: 6, isFolder: false, want: false},
-		{name: "sudo_in_files_mode_is_toggle", focusIndex: 7, isFolder: false, want: true},
+		{name: "when_is_not_toggle", focusIndex: 2, want: false},
+		{name: "linux_is_not_toggle", focusIndex: 3, want: false},
+		{name: "isFolder_is_toggle", focusIndex: 6, want: true},
+		{name: "sudo_in_folder_mode_is_toggle", focusIndex: 7, isFolder: true, want: true},
+		{name: "files_is_not_toggle", focusIndex: 7, isFolder: false, want: false},
+		{name: "sudo_in_files_mode_is_toggle", focusIndex: 8, isFolder: false, want: true},
 	}
 
 	for _, tt := range tests {

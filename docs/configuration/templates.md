@@ -244,6 +244,12 @@ If the template source has not changed (detected via SHA-256 hash comparison aga
 
 The `--force-render` flag bypasses the 3-way merge and overwrites the rendered file with the new template output, discarding any user edits.
 
+In the interactive TUI, this behavior is labeled **Force Restore** and is
+available with `R`. The normal `r` Restore action preserves rendered-template
+edits through the 3-way merge. Force Restore uses the same target scope as
+Restore, always asks for confirmation, and discards manual edits to rendered
+template files.
+
 ```bash
 tidydots restore --force-render
 ```

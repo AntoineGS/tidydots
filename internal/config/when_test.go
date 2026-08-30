@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -21,6 +22,18 @@ func (m *mockWhenRenderer) RenderString(_, _ string) (string, error) {
 	}
 
 	return m.result, nil
+}
+
+type mappedWhenRenderer struct {
+	results map[string]string
+	errOn   string
+}
+
+func (m *mappedWhenRenderer) RenderString(_, tmplStr string) (string, error) {
+	if tmplStr == m.errOn {
+		return "", fmt.Errorf("render failed")
+	}
+	return m.results[tmplStr], nil
 }
 
 func TestEvaluateWhen(t *testing.T) {
@@ -146,5 +159,65 @@ func TestEvaluateWhenWithLogger_SuccessDoesNotLog(t *testing.T) {
 	}
 	if buf.Len() != 0 {
 		t.Errorf("expected no log output on success, got %q", buf.String())
+	}
+}
+
+func TestFilterSubEntries(t *testing.T) {
+	t.Parallel()
+
+	entries := []SubEntry{
+		{Name: "empty"},
+		{Name: "true", When: "true"},
+		{Name: "false", When: "false"},
+		{Name: "error", When: "error"},
+	}
+	original := append([]SubEntry(nil), entries...)
+
+	tests := []struct {
+		name    string
+		results map[string]string
+		errOn   string
+		want    []string
+	}{
+		{name: "empty and true", results: map[string]string{"true": "true"}, want: []string{"empty", "true"}},
+		{name: "false", results: map[string]string{"true": "false", "false": "false"}, want: []string{"empty"}},
+		{name: "renderer error", results: map[string]string{"true": "false", "false": "false"}, errOn: "error", want: []string{"empty"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			renderer := &mappedWhenRenderer{
+				results: tt.results,
+				errOn:   tt.errOn,
+			}
+			got := FilterSubEntries(entries, renderer)
+			var names []string
+			for _, entry := range got {
+				names = append(names, entry.Name)
+			}
+			if !reflect.DeepEqual(names, tt.want) {
+				t.Errorf("FilterSubEntries() names = %v, want %v", names, tt.want)
+			}
+		})
+	}
+
+	if !reflect.DeepEqual(entries, original) {
+		t.Errorf("FilterSubEntries mutated input: got %#v, want %#v", entries, original)
+	}
+}
+
+func TestFilterSubEntriesWithLogger_LogsRenderErrors(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	entries := []SubEntry{{Name: "broken", When: "broken"}}
+
+	got := FilterSubEntriesWithLogger(entries, &mockWhenRenderer{err: fmt.Errorf("boom")}, logger)
+	if len(got) != 0 {
+		t.Fatalf("FilterSubEntriesWithLogger() returned %d entries, want 0", len(got))
+	}
+	if !strings.Contains(buf.String(), "when expression") {
+		t.Errorf("expected warning about when expression, log = %q", buf.String())
 	}
 }

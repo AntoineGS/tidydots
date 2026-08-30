@@ -23,6 +23,9 @@ func (m *Model) toggleAppSelection(appIdx int) {
 	}
 
 	app := m.Applications[appIdx]
+	if app.IsFiltered {
+		return
+	}
 	name := app.Application.Name
 
 	newState := !m.selectedApps[name]
@@ -46,6 +49,9 @@ func (m *Model) toggleAppSelection(appIdx int) {
 // toggleSubEntrySelection toggles the selection state of a single sub-entry within an application.
 func (m *Model) toggleSubEntrySelection(appIdx, subIdx int) {
 	if appIdx < 0 || appIdx >= len(m.Applications) {
+		return
+	}
+	if m.Applications[appIdx].IsFiltered {
 		return
 	}
 	if subIdx < 0 || subIdx >= len(m.Applications[appIdx].SubItems) {
@@ -73,6 +79,40 @@ func (m *Model) clearSelections() {
 	m.selectedApps = make(map[string]bool)
 	m.selectedSubEntries = make(map[subEntryKey]bool)
 	m.multiSelectActive = false
+}
+
+// prepareCurrentRowSummary selects the row under the cursor for a transient
+// summary operation without changing an existing multi-selection.
+func (m *Model) prepareCurrentRowSummary(operation Operation) bool {
+	appIdx, subIdx := m.getApplicationAtCursorFromTable()
+	if appIdx < 0 {
+		return false
+	}
+
+	app := m.Applications[appIdx]
+	if app.IsFiltered {
+		return false
+	}
+	if subIdx >= 0 {
+		m.selectedSubEntries[subEntryKey{app: app.Application.Name, sub: app.SubItems[subIdx].SubEntry.Name}] = true
+	} else {
+		m.selectedApps[app.Application.Name] = true
+	}
+	m.multiSelectActive = true
+	m.summaryTransientSelection = true
+	m.summaryOperation = operation
+	m.Screen = ScreenSummary
+	return true
+}
+
+// clearTransientSummarySelection removes only selections created for a
+// single-row summary, leaving ordinary multi-selection state untouched.
+func (m *Model) clearTransientSummarySelection() {
+	if !m.summaryTransientSelection {
+		return
+	}
+	m.clearSelections()
+	m.summaryTransientSelection = false
 }
 
 // updateMultiSelectActive updates the multiSelectActive flag based on current selections.
@@ -201,6 +241,13 @@ func (m *Model) pruneStaleSelections() {
 	liveSubs := make(map[subEntryKey]bool)
 
 	for _, app := range m.Applications {
+		if app.IsFiltered {
+			delete(m.selectedApps, app.Application.Name)
+			for _, sub := range app.SubItems {
+				delete(m.selectedSubEntries, subEntryKey{app: app.Application.Name, sub: sub.SubEntry.Name})
+			}
+			continue
+		}
 		name := app.Application.Name
 		liveApps[name] = true
 

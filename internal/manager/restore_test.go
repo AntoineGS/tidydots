@@ -286,6 +286,39 @@ func TestRestoreIntegration(t *testing.T) {
 	}
 }
 
+func TestRestore_EntryWhenSkipsExcludedConfigAndSetup(t *testing.T) {
+	t.Parallel()
+	skipIfNoSymlink(t)
+	tmpDir := t.TempDir()
+	backup := filepath.Join(tmpDir, "included")
+	if err := os.MkdirAll(backup, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backup, "config"), []byte("ok"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	includedTarget := filepath.Join(tmpDir, "included-target")
+	excludedTarget := filepath.Join(tmpDir, "excluded-target")
+	cfg := &config.Config{Version: 3, BackupRoot: tmpDir, Applications: []config.Application{{
+		Name: "app",
+		Entries: []config.SubEntry{
+			{Name: "included", When: `{{ eq .Hostname "testhost" }}`, Backup: "./included", Files: []string{"config"}, Targets: map[string]string{"linux": includedTarget}},
+			{Name: "excluded", When: `{{ eq .Hostname "other" }}`, Backup: "./excluded", Files: []string{"config"}, Targets: map[string]string{"linux": excludedTarget}},
+			{Name: "excluded-setup", When: `{{ eq .Hostname "other" }}`, Check: map[string]string{"linux": "check"}, Run: map[string]string{"linux": "run"}},
+		},
+	}}}
+	mgr := New(cfg, &platform.Platform{OS: platform.OSLinux, Hostname: "testhost", EnvVars: map[string]string{}})
+	if err := mgr.Restore(); err != nil {
+		t.Fatalf("Restore() error = %v", err)
+	}
+	if !testIsSymlink(filepath.Join(includedTarget, "config")) {
+		t.Fatal("included entry was not restored")
+	}
+	if testPathExists(excludedTarget) {
+		t.Fatal("excluded entry was restored")
+	}
+}
+
 func TestRestoreV3Application(t *testing.T) {
 	t.Parallel()
 	skipIfNoSymlink(t)

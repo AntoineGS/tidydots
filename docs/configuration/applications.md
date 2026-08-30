@@ -54,6 +54,13 @@ applications:
 
 The `when` field controls whether an application is included based on the current platform. It uses Go `text/template` syntax and must evaluate to exactly the string `"true"` for the application to be included.
 
+`when` is also available on each item in the application's `entries` array. An
+entry is included only when the application condition **and** the entry condition
+both match. This permits a shared application to contain machine-specific
+symlink, copy, or setup entries. Packages have no entry-level condition: the
+singular `package` definition remains application-level and is controlled only by
+the application's `when`.
+
 ### Template Context
 
 Templates have access to the following context variables:
@@ -129,6 +136,7 @@ The `entries` field is an array of [SubEntry](configs.md) objects. Each entry ei
 ```yaml
 entries:
   - name: "main-config"
+    when: '{{ eq .Hostname "omarchbook" }}'
     backup: "./nvim"
     targets:
       linux: "~/.config/nvim"
@@ -143,6 +151,11 @@ entries:
 ```
 
 See the [Configs](configs.md) reference for the full SubEntry schema, and [Setup](setup.md) for entries that run commands instead of deploying files.
+
+When either condition is false or cannot be rendered, tidydots hides the entry and
+skips it before resolving targets, reading backups, running setup checks or commands,
+or listing it. Explicitly targeting that entry on the CLI returns a conditions mismatch
+error rather than silently doing nothing.
 
 ## Package
 

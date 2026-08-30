@@ -20,6 +20,8 @@ func (m Model) viewSummary() string {
 		title = "📦  Install Packages - Confirmation"
 	case OpRestore:
 		title = "🔄  Restore Configs - Confirmation"
+	case OpForceRestore:
+		title = "Force Restore - Confirmation"
 	case OpDelete, OpList:
 		title = "🗑️  Delete Entries - Confirmation"
 	}
@@ -33,8 +35,14 @@ func (m Model) viewSummary() string {
 		b.WriteString(m.renderInstallSummary())
 	case OpRestore:
 		b.WriteString(m.renderHierarchicalSummary("restore"))
+	case OpForceRestore:
+		b.WriteString(m.renderHierarchicalSummary("restore"))
 	case OpDelete, OpList:
 		b.WriteString(m.renderHierarchicalSummary("delete"))
+	}
+	if m.summaryOperation == OpForceRestore {
+		b.WriteString("\n")
+		b.WriteString(WarningStyle.Render("Warning: Force Restore causes manual edits in .tmpl.rendered files to be discarded."))
 	}
 
 	// Help
@@ -57,6 +65,9 @@ func (m Model) renderInstallSummary() string {
 	// output in model order without collecting and sorting map keys.
 	selectedAppsWithPkg := 0
 	for _, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
 		if m.selectedApps[app.Application.Name] && app.PkgInstalled != nil && !*app.PkgInstalled {
 			selectedAppsWithPkg++
 		}
@@ -66,6 +77,9 @@ func (m Model) renderInstallSummary() string {
 	b.WriteString("\n\n")
 
 	for _, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
 		if !m.selectedApps[app.Application.Name] || app.PkgInstalled == nil || *app.PkgInstalled {
 			continue
 		}
@@ -116,6 +130,9 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 
 	// Show selected apps (expanded with sub-entries), in model order.
 	for _, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
 		if !m.selectedApps[app.Application.Name] {
 			continue
 		}
@@ -138,6 +155,9 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 
 	// Show standalone selected sub-entries (parent not selected), grouped by app.
 	for _, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
 		name := app.Application.Name
 		if m.selectedApps[name] {
 			continue
@@ -191,6 +211,7 @@ func (m Model) updateSummary(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, SummaryKeys.Cancel):
 		// Cancel - return to manage view
+		m.clearTransientSummarySelection()
 		m.Screen = ScreenResults
 		m.Operation = OpList
 		m.summaryDoublePress = ""
@@ -234,6 +255,7 @@ func (m Model) executeConfirmedOperation() (tea.Model, tea.Cmd) {
 	m.batchProgress = initBatchProgress()
 
 	// Reset progress counters
+	m.completedOperation = OpList
 	m.batchCurrentItem = ""
 	m.batchCurrentIndex = 0
 	m.batchTotalItems = 0
@@ -241,6 +263,7 @@ func (m Model) executeConfirmedOperation() (tea.Model, tea.Cmd) {
 	m.batchFailCount = 0
 
 	// Switch to progress screen
+	m.Operation = m.summaryOperation
 	m.Screen = ScreenProgress
 	m.processing = true
 	m.summaryDoublePress = ""
@@ -249,7 +272,9 @@ func (m Model) executeConfirmedOperation() (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch m.summaryOperation {
 	case OpRestore:
-		cmd = m.executeBatchRestore()
+		cmd = m.executeBatchRestore(false)
+	case OpForceRestore:
+		cmd = m.executeBatchRestore(true)
 	case OpInstallPackages:
 		cmd = m.executeBatchInstall()
 	case OpDelete:

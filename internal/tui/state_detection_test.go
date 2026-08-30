@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -9,6 +10,125 @@ import (
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
+
+func entryWhenConfig(t *testing.T) *config.Config {
+	t.Helper()
+	return &config.Config{
+		Version: 3,
+		Applications: []config.Application{
+			{
+				Name: "entry-filtered",
+				Entries: []config.SubEntry{
+					{
+						Name:    "included",
+						When:    `{{ eq .OS "linux" }}`,
+						Backup:  "./included",
+						Targets: map[string]string{"linux": t.TempDir()},
+					},
+					{
+						Name:    "excluded",
+						When:    `{{ eq .OS "windows" }}`,
+						Backup:  "./excluded",
+						Targets: map[string]string{"linux": t.TempDir()},
+					},
+				},
+			},
+			{
+				Name: "empty-after-entry-filter",
+				Entries: []config.SubEntry{{
+					Name:    "excluded-only",
+					When:    `{{ eq .OS "windows" }}`,
+					Backup:  "./excluded-only",
+					Targets: map[string]string{"linux": t.TempDir()},
+				}},
+			},
+			{
+				Name:    "package-only",
+				Package: &config.EntryPackage{Custom: map[string]string{"linux": "install package-only"}},
+			},
+		},
+	}
+}
+
+func TestNewModelEntryWhenExcludesEntriesEverywhere(t *testing.T) {
+	cfg := entryWhenConfig(t)
+	m := NewModel(cfg, linuxPlatform(), false)
+
+	var visible *ApplicationItem
+	for i := range m.Applications {
+		if m.Applications[i].Application.Name == "entry-filtered" {
+			visible = &m.Applications[i]
+		}
+		if m.Applications[i].Application.Name == "empty-after-entry-filter" {
+			t.Fatal("application with no package and no included entries was retained")
+		}
+	}
+	if visible == nil {
+		t.Fatal("entry-filtered application was omitted")
+	}
+	if got := len(visible.SubItems); got != 1 {
+		t.Fatalf("visible sub-items = %d, want 1", got)
+	}
+	if got := visible.SubItems[0].SubEntry.Name; got != "included" {
+		t.Fatalf("visible entry = %q, want included", got)
+	}
+	if got := len(cfg.Applications[0].Entries); got != 2 {
+		t.Fatalf("raw config entries = %d, want 2", got)
+	}
+
+	if got := m.pendingStateChecks; got != 2 {
+		t.Fatalf("initial state checks = %d, want 2 (one entry and one package)", got)
+	}
+	if _, got := m.checkSubEntryStatesCmd(); got != 1 {
+		t.Fatalf("sub-entry state checks = %d, want 1", got)
+	}
+
+	visible.Expanded = true
+	m.rebuildTable()
+	for _, row := range m.tableRows {
+		if strings.Contains(row.Data[0], "excluded") {
+			t.Fatalf("table row included excluded entry: %q", row.Data[0])
+		}
+	}
+	m.searchText = "excluded"
+	m.rebuildTable()
+	for _, row := range m.tableRows {
+		if strings.Contains(row.Data[0], "excluded") {
+			t.Fatalf("search row included excluded entry: %q", row.Data[0])
+		}
+	}
+
+	m.searchText = ""
+	m.rebuildTable()
+	appIdx := -1
+	for i := range m.Applications {
+		if m.Applications[i].Application.Name == "entry-filtered" {
+			appIdx = i
+			break
+		}
+	}
+	m.toggleAppSelection(appIdx)
+	if !m.selectedSubEntries[subEntryKey{app: "entry-filtered", sub: "included"}] {
+		t.Fatal("parent selection did not select included entry")
+	}
+	if m.selectedSubEntries[subEntryKey{app: "entry-filtered", sub: "excluded"}] {
+		t.Fatal("parent selection selected excluded entry")
+	}
+	items := m.collectBatchRestoreItems()
+	if len(items) != 1 || m.Applications[items[0].appIdx].SubItems[items[0].subIdx].SubEntry.Name != "included" {
+		t.Fatalf("batch restore items = %+v, want only included entry", items)
+	}
+
+	var packageOnly bool
+	for _, app := range m.Applications {
+		if app.Application.Name == "package-only" && len(app.SubItems) == 0 {
+			packageOnly = true
+		}
+	}
+	if !packageOnly {
+		t.Fatal("package-only application was not retained")
+	}
+}
 
 // collectMsgs runs a tea.Cmd and flattens any tea.BatchMsg it produces into
 // the individual messages returned by each dispatched sub-command. A nil cmd
@@ -170,13 +290,10 @@ func otherSetupSubEntry() config.SubEntry {
 
 // TestCheckLoadingSubEntryStatesCmd_ResolvesOnlyLoadingEntries is the
 // regression guard for the async resolver: it must dispatch exactly one
-// check per sub-entry still at StateLoading — including in filtered
-// (hidden) apps, since refreshApplicationStates and reinitPreservingState
-// touch every application regardless of filter state — and must leave
+// check per sub-entry still at StateLoading in an operational app, and must leave
 // already-resolved sub-entries untouched.
 func TestCheckLoadingSubEntryStatesCmd_ResolvesOnlyLoadingEntries(t *testing.T) {
 	stub := cmdexec.NewStubRunner()
-	stub.AddResult("sh", cmdexec.Result{ExitCode: 0}) // vicinae/enable-service check passes
 	stub.AddResult("sh", cmdexec.Result{ExitCode: 1}) // other/enable-other check fails
 
 	m := Model{
@@ -186,7 +303,7 @@ func TestCheckLoadingSubEntryStatesCmd_ResolvesOnlyLoadingEntries(t *testing.T) 
 		Applications: []ApplicationItem{
 			{
 				Application: config.Application{Name: "vicinae"},
-				IsFiltered:  true, // deliberately hidden: must still be resolved
+				IsFiltered:  true, // deliberately hidden: must never be resolved
 				SubItems: []SubEntryItem{
 					{AppName: "vicinae", SubEntry: setupSubEntry(), State: StateLoading},
 					{AppName: "vicinae", SubEntry: config.SubEntry{Name: "config-file", Backup: "cfg"}, State: StateLinked},
@@ -202,13 +319,13 @@ func TestCheckLoadingSubEntryStatesCmd_ResolvesOnlyLoadingEntries(t *testing.T) 
 	}
 
 	cmd, count := m.checkLoadingSubEntryStatesCmd()
-	if count != 2 {
-		t.Fatalf("checkLoadingSubEntryStatesCmd() count = %d, want 2 (one per StateLoading sub-entry, filtered or not)", count)
+	if count != 1 {
+		t.Fatalf("checkLoadingSubEntryStatesCmd() count = %d, want 1 (filtered apps are not operational)", count)
 	}
 
 	msgs := collectMsgs(cmd)
-	if len(msgs) != 2 {
-		t.Fatalf("dispatched %d message(s), want 2", len(msgs))
+	if len(msgs) != 1 {
+		t.Fatalf("dispatched %d message(s), want 1", len(msgs))
 	}
 
 	got := map[[2]int]PathState{}
@@ -220,9 +337,6 @@ func TestCheckLoadingSubEntryStatesCmd_ResolvesOnlyLoadingEntries(t *testing.T) 
 		got[[2]int{res.appIndex, res.subIndex}] = res.state
 	}
 
-	if state, resolved := got[[2]int{0, 0}]; !resolved || state != StateSetupOk {
-		t.Errorf("vicinae/enable-service resolved to (%v, resolved=%v), want (StateSetupOk, true)", state, resolved)
-	}
 	if state, resolved := got[[2]int{1, 0}]; !resolved || state != StateSetupNeeded {
 		t.Errorf("other/enable-other resolved to (%v, resolved=%v), want (StateSetupNeeded, true)", state, resolved)
 	}

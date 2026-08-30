@@ -447,7 +447,7 @@ func TestExecuteBatchRestore_DoesNotFailSetupEntries(t *testing.T) {
 	m.selectedSubEntries = map[subEntryKey]bool{{app: "vicinae", sub: "enable-service"}: true}
 	m.multiSelectActive = true
 
-	cmd := m.executeBatchRestore()
+	cmd := m.executeBatchRestore(false)
 	if cmd == nil {
 		t.Fatal("executeBatchRestore returned no command")
 	}
@@ -544,6 +544,24 @@ func TestHandleBatchRestoreConfigsDone_NoSetups_CompletesAsBefore(t *testing.T) 
 
 	if done.SuccessCount != 1 || done.FailCount != 0 {
 		t.Errorf("BatchCompleteMsg = %+v, want 1 success / 0 failures", done)
+	}
+}
+
+func TestHandleSetupRunResult_BatchCompletionClearsTransientSelection(t *testing.T) {
+	stub := cmdexec.NewStubRunner()
+	m := newSetupModel(t, stub, false)
+	m.pendingSetups = []setupRunItem{setupItemOf(m)}
+	m.currentSetupIndex = 0
+	m.setupBatch = true
+	m.summaryTransientSelection = true
+	m.multiSelectActive = true
+
+	updated, _ := m.handleSetupRunResult(setupRunMsg{
+		item: setupItemOf(m), success: true, message: "Setup complete",
+	})
+	got := updated.(Model)
+	if got.summaryTransientSelection {
+		t.Fatal("setup-ending completion left transient summary selection marked")
 	}
 }
 

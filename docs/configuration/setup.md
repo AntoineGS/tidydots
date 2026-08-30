@@ -24,6 +24,7 @@ the config is not enough — the unit must also be enabled:
         files: [settings.json]
 
       - name: enable-service
+        when: '{{ eq .Hostname "omarchbook" }}'
         check:
           linux: systemctl --user is-enabled --quiet vicinae.service
         run:
@@ -33,6 +34,14 @@ the config is not enough — the unit must also be enabled:
 On restore, tidydots runs the check. If the unit is already enabled the check exits 0 and
 nothing happens. If it is not, the run command executes, and the check runs a second time
 to confirm the change actually took effect.
+
+The optional entry-level `when` expression uses the same syntax as an
+[application condition](applications.md#when-expressions). Both the application and
+entry conditions must evaluate to `true` for this setup entry to apply. A false
+result or template error skips the entry **before** tidydots evaluates the OS maps,
+runs `check` (including a dry-run check), or runs `run`; it is also hidden from the
+TUI manage view. Explicitly targeting an excluded setup entry returns a conditions
+mismatch error.
 
 ## How it works
 
@@ -54,11 +63,17 @@ The TUI application form can create and edit setup entries. On the sub-entry for
 - `Check (linux)` and `Run (linux)`
 - `Check (windows)` and `Run (windows)`
 - `Sudo`
+- `When` — optional condition for this individual setup entry
 
 Each configured OS must have both a check and a run command, and at least one OS must be
 configured. The form refuses to save a partial pair or an entry with no configured OS.
 Setup entries cannot have `backup` or `targets`; choose the config-entry mode to edit those
 fields instead. Saving writes the resulting `check` and `run` maps to `tidydots.yaml`.
+
+For the **When** field, `enter` or `e` opens the hostname chooser when saved hostname
+choices are available in the local app config. Select hosts with `space` or `tab`, then
+confirm to generate an expression; choose **Type expression** to enter a Go-template
+condition manually.
 
 From the main TUI list, `r` runs the selected setup entry (or selected application's setup
 entries), while `x` includes entries whose check currently fails in the action filter. Setup
@@ -69,6 +84,7 @@ checks also run during TUI state detection, so keep them read-only and fast.
 | Field | Type | Description |
 | --- | --- | --- |
 | `name` | string | Required. Identifies the step in output and in the TUI. |
+| `when` | string | Optional. Go-template condition for this setup entry. |
 | `check` | map: OS → command | Required. Exit 0 means "already set up". |
 | `run` | map: OS → command | Required. Runs only when `check` fails. |
 | `sudo` | bool | Optional. Runs `run` with elevated privileges. `check` never uses sudo. |
@@ -83,7 +99,8 @@ enforced at load time.
 
 An absent OS key means the step does not apply there. The entry above has no `windows:`
 key, so it is skipped entirely on Windows. No `when:` clause is needed for this — though
-the application's own `when:` still gates the whole group.
+the application's own `when:` still gates the whole group. Use an entry-level `when:`
+when the step is restricted by context other than its OS map, such as hostname.
 
 ## Commands
 

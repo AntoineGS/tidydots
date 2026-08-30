@@ -460,6 +460,41 @@ func TestGetApplications(t *testing.T) {
 	}
 }
 
+func TestGetApplications_EntryWhenFiltersCopiesAndKeepsPackageApps(t *testing.T) {
+	t.Parallel()
+	target := filepath.Join(t.TempDir(), "target")
+	cfg := &config.Config{
+		Version: 3,
+		Applications: []config.Application{
+			{
+				Name: "mixed",
+				Entries: []config.SubEntry{
+					{Name: "included-config", When: `{{ eq .Hostname "testhost" }}`, Backup: "./included", Targets: map[string]string{"linux": target}},
+					{Name: "excluded-copy", When: `{{ eq .Hostname "other" }}`, Method: config.MethodCopy, Backup: "./excluded", Files: []string{"x"}, Targets: map[string]string{"linux": target}},
+					{Name: "excluded-setup", When: `{{ eq .Hostname "other" }}`, Check: map[string]string{"linux": "exit 1"}, Run: map[string]string{"linux": "touch marker"}},
+				},
+			},
+			{
+				Name:    "package-only",
+				Package: &config.EntryPackage{Managers: map[string]config.ManagerValue{"pacman": {PackageName: "pkg"}}},
+				Entries: []config.SubEntry{{Name: "excluded", When: `{{ eq .Hostname "other" }}`, Backup: "./excluded"}},
+			},
+		},
+	}
+	mgr := New(cfg, &platform.Platform{OS: platform.OSLinux, Hostname: "testhost"})
+
+	apps := mgr.GetApplications()
+	if len(apps) != 2 || len(apps[0].Entries) != 1 || apps[0].Entries[0].Name != "included-config" {
+		t.Fatalf("GetApplications() = %#v, want mixed with only included-config and package-only", apps)
+	}
+	if !apps[1].HasPackage() || len(apps[1].Entries) != 0 {
+		t.Fatalf("package-only application = %#v, want package retained and no entries", apps[1])
+	}
+	if len(cfg.Applications[0].Entries) != 3 || len(cfg.Applications[1].Entries) != 1 {
+		t.Fatal("GetApplications() mutated source config slices")
+	}
+}
+
 func TestGetPackageEntries(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{

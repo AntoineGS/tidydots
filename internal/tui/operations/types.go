@@ -24,6 +24,8 @@ const (
 	OpInstallPackages
 	// OpDelete is the delete entries operation
 	OpDelete
+	// OpForceRestore restores configs while discarding rendered-template edits.
+	OpForceRestore
 )
 
 // String returns the human-readable name of an Operation.
@@ -37,6 +39,8 @@ func (o Operation) String() string {
 		return "Install Packages"
 	case OpDelete:
 		return "Delete"
+	case OpForceRestore:
+		return "Force Restore"
 	}
 
 	return "Unknown"

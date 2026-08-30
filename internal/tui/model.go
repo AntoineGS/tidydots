@@ -47,6 +47,8 @@ const (
 	OpInstallPackages = tuiops.OpInstallPackages
 	// OpDelete is the delete entries operation
 	OpDelete = tuiops.OpDelete
+	// OpForceRestore restores configs while discarding rendered-template edits.
+	OpForceRestore = tuiops.OpForceRestore
 )
 
 // PathState is an alias for tuitable.PathState so that all existing code in
@@ -162,8 +164,10 @@ type Model struct {
 	multiSelectActive  bool                 // true when selections exist
 
 	// Summary screen state
-	summaryOperation   Operation // Which batch operation: restore, install, delete
-	summaryDoublePress string    // Track double-press state: "r", "i", or "d"
+	summaryOperation          Operation // Which batch operation: restore, install, delete
+	completedOperation        Operation // Operation represented by the current results
+	summaryDoublePress        string    // Track double-press state: "r", "i", or "d"
+	summaryTransientSelection bool      // Whether summary selections were created for the current row
 
 	// Setup entry execution state. Setup entries are subprocesses that may
 	// prompt for a sudo password, so they run one at a time through tea.Exec
@@ -369,6 +373,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pendingPackages = nil
 		m.currentPackageIndex = 0
 		m.Operation = OpList
+		m.completedOperation = OpList
 		m.Screen = ScreenResults
 		m.rebuildTable()
 		m.showingResults = true
@@ -404,6 +409,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Batch operation complete - show results
 		m.processing = false
 		m.results = msg.Results
+		m.completedOperation = m.Operation
 		m.Screen = ScreenResults
 		m.Operation = OpList
 
@@ -411,6 +417,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Clear selections after operation
 		m.clearSelections()
+		m.clearTransientSummarySelection()
 		m.showingResults = true
 		m.resultsScrollOffset = 0
 
@@ -500,6 +507,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.Screen == ScreenResults && m.Operation == OpList {
 			return m.updateResults(msg)
 		}
+		if m.Screen == ScreenSummary {
+			return m.updateSummary(msg)
+		}
 		// For other screens, ESC does nothing (use q to go back)
 		return m, nil
 	}
@@ -524,6 +534,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) hasLoadingItems() bool {
 	for i := range m.Applications {
 		app := &m.Applications[i]
+		if app.IsFiltered {
+			continue
+		}
 		if app.Application.HasPackage() && app.PkgInstalled == nil && app.PkgMethod != TypeNone {
 			return true
 		}

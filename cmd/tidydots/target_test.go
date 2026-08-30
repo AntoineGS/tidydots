@@ -105,6 +105,19 @@ func TestSelectConfigTarget_EntryIsScopedToApplication(t *testing.T) {
 	}
 }
 
+func TestSelectConfigTarget_IncludedEntryWithWhenIsSelected(t *testing.T) {
+	cfg := targetTestConfig()
+	cfg.Applications[0].Entries[0].When = `{{ eq .OS "linux" }}`
+	engine := tmpl.NewEngine(tmpl.NewContextFromPlatform(&platform.Platform{OS: platform.OSLinux}))
+	got, err := selectConfigTarget(cfg, engine, []string{"nvim", "config"}, false)
+	if err != nil {
+		t.Fatalf("selectConfigTarget() error = %v", err)
+	}
+	if len(got.Applications[0].Entries) != 1 || got.Applications[0].Entries[0].Name != "config" {
+		t.Fatalf("selected entries = %#v, want config", got.Applications[0].Entries)
+	}
+}
+
 func TestSelectConfigTarget_Errors(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -148,6 +161,25 @@ func TestSelectConfigTarget_EvaluatesWhenWithPlatformContext(t *testing.T) {
 	_, err := selectConfigTarget(cfg, engine, []string{"windows-only"}, true)
 	if err == nil || !strings.Contains(err.Error(), "does not match current conditions") {
 		t.Fatalf("selectConfigTarget() error = %v, want condition mismatch", err)
+	}
+}
+
+func TestSelectConfigTarget_ExcludedEntryReturnsConditionErrorBeforeSetupValidation(t *testing.T) {
+	cfg := targetTestConfig()
+	cfg.Applications[0].Entries = append(cfg.Applications[0].Entries, config.SubEntry{
+		Name:  "excluded-setup",
+		When:  `{{ eq .OS "windows" }}`,
+		Check: map[string]string{"linux": "check"},
+		Run:   map[string]string{"linux": "run"},
+	})
+
+	engine := tmpl.NewEngine(tmpl.NewContextFromPlatform(&platform.Platform{OS: platform.OSLinux}))
+	_, err := selectConfigTarget(cfg, engine, []string{"nvim", "excluded-setup"}, false)
+	if err == nil || err.Error() != `entry "excluded-setup" in application "nvim" does not match current conditions` {
+		t.Fatalf("selectConfigTarget() error = %v, want exact condition mismatch", err)
+	}
+	if len(cfg.Applications[0].Entries) != 3 {
+		t.Fatal("selectConfigTarget() mutated source entries")
 	}
 }
 

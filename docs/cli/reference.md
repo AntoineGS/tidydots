@@ -102,7 +102,14 @@ tidydots restore [app [entry]] [flags]
 
 ### Behavior
 
-Targeting an application restores all config and setup entries in that application. Targeting an entry restores only that entry. Excluded or unknown targets return errors. Targets cannot be combined with `--interactive`.
+Targeting an application restores all included config and setup entries in that
+application. Targeting an entry restores only that entry. Applications and entries
+are included only when their respective `when` expressions match; for an entry,
+both its parent application and entry conditions must match. A false condition or
+template error skips the entry before tidydots resolves its targets or backup, runs
+a setup `check`/`run`, or lists it. Explicitly targeting an excluded application or
+entry returns a conditions mismatch error. Targets cannot be combined with
+`--interactive`.
 
 For each config entry that matches the current OS and `when` conditions:
 
@@ -172,7 +179,7 @@ tidydots backup [app [entry]] [flags]
 
 For each config entry that matches the current OS and `when` conditions, copies the files from the target location into the backup path. This is the inverse of `restore` -- it captures the current state of your live configs into the repo.
 
-Targeting an application backs up all config entries in that application and skips setup entries. Directly targeting a setup entry returns an error. Unknown applications and entries return errors, as do applications excluded by current `when` conditions. Targets cannot be combined with `--interactive`.
+Targeting an application backs up all included config entries in that application and skips setup entries. Directly targeting a setup entry returns an error. Unknown applications and entries return errors, as do applications or entries excluded by current `when` conditions. Targets cannot be combined with `--interactive`.
 
 ### Examples
 
@@ -214,7 +221,7 @@ tidydots list [app [entry]] [flags]
 
 Lists every config entry that matches the current OS and `when` conditions, showing the backup path and the target path. This is useful for verifying your configuration and checking for broken symlinks.
 
-Targeting an application lists its config entries, skips its setup entries, and retains the application's package summary. Targeting an entry lists only that config entry and suppresses the package summary. Directly targeting a setup entry returns an error. Unknown applications and entries return errors, as do applications excluded by current `when` conditions.
+Targeting an application lists its included config entries, skips its setup entries, and retains the application's package summary. Targeting an entry lists only that config entry and suppresses the package summary. Directly targeting a setup entry returns an error. Unknown applications and entries return errors, as do applications or entries excluded by current `when` conditions.
 
 ### Examples
 
@@ -259,7 +266,7 @@ tidydots install [package-names...] [flags]
 
 ### Behavior
 
-1. Loads the configuration and filters packages by OS and `when` conditions.
+1. Loads the configuration and filters packages by OS and their application's `when` condition. Packages remain application-level and do not have entry-level conditions.
 2. Detects available package managers on the system.
 3. Selects the best manager for each package based on `default_manager` and `manager_priority` settings.
 4. Installs each package, reporting success or failure.

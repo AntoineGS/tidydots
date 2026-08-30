@@ -42,6 +42,7 @@ type ListKeyMap struct {
 	AddEntry     key.Binding
 	Delete       key.Binding
 	Restore      key.Binding
+	ForceRestore key.Binding
 	Install      key.Binding
 	Toggle       key.Binding
 	ShowDetail   key.Binding
@@ -132,6 +133,10 @@ var ListKeys = ListKeyMap{
 		key.WithKeys("r"),
 		key.WithHelp("r", "restore"),
 	),
+	ForceRestore: key.NewBinding(
+		key.WithKeys("R"),
+		key.WithHelp("R", "force restore"),
+	),
 	Install: key.NewBinding(
 		key.WithKeys("i"),
 		key.WithHelp("i", "install"),
@@ -160,11 +165,12 @@ var ListKeys = ListKeyMap{
 
 // MultiSelectKeyMap defines keybindings for the multi-select mode.
 type MultiSelectKeyMap struct {
-	Toggle  key.Binding
-	Clear   key.Binding
-	Restore key.Binding
-	Install key.Binding
-	Delete  key.Binding
+	Toggle       key.Binding
+	Clear        key.Binding
+	Restore      key.Binding
+	ForceRestore key.Binding
+	Install      key.Binding
+	Delete       key.Binding
 }
 
 // MultiSelectKeys are the keybindings for multi-select mode.
@@ -179,6 +185,10 @@ var MultiSelectKeys = MultiSelectKeyMap{
 	Restore: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "restore"),
+	),
+	ForceRestore: key.NewBinding(
+		key.WithKeys("R"),
+		key.WithHelp("R", "force restore"),
 	),
 	Install: key.NewBinding(
 		key.WithKeys("i"),

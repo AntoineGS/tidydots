@@ -1,11 +1,14 @@
 package tui
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
+	tmpl "github.com/AntoineGS/tidydots/internal/template"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
 )
 
@@ -146,6 +149,160 @@ func TestApplicationWhenHostnameChooserClearsOnEmptySelection(t *testing.T) {
 	m = updated.(Model)
 	if m.applicationForm.WhenMode != forms.WhenModeNone || m.applicationForm.WhenInput.Value() != "" {
 		t.Fatalf("empty chooser selection did not clear/close: mode=%v value=%q", m.applicationForm.WhenMode, m.applicationForm.WhenInput.Value())
+	}
+}
+
+func TestSubEntryWhenHostnameChooserAndCancel(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool"}}}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.Applications = []ApplicationItem{{Application: m.Config.Applications[0]}}
+	m.HostnameChoices = []string{"desktop", "laptop"}
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.FocusIndex = 2
+
+	updated, _ := m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeySpace})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if got := m.subEntryForm.WhenInput.Value(); got != `{{ eq .Hostname "desktop" }}` {
+		t.Fatalf("WhenInput = %q, want hostname expression", got)
+	}
+
+	m.subEntryForm.OriginalValue = m.subEntryForm.WhenInput.Value()
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyDown})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+	if got := m.subEntryForm.WhenInput.Value(); got != `{{ eq .Hostname "desktop" }}` {
+		t.Fatalf("chooser cancel changed WhenInput to %q", got)
+	}
+}
+
+func TestSubEntryWhenHostnameChooserSelectsMultipleInConfiguredOrder(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool"}}}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.Applications = []ApplicationItem{{Application: m.Config.Applications[0]}}
+	m.HostnameChoices = []string{"omarchbook", "desktop", "laptop"}
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.FocusIndex = 2
+	updated, _ := m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	for _, keyMsg := range []tea.KeyPressMsg{
+		{Code: tea.KeySpace},
+		{Code: tea.KeyDown},
+		{Code: tea.KeySpace},
+		{Code: tea.KeyEnter},
+	} {
+		updated, _ = m.updateSubEntryForm(keyMsg)
+		m = updated.(Model)
+	}
+	want := `{{ or (eq .Hostname "omarchbook") (eq .Hostname "desktop") }}`
+	if got := m.subEntryForm.WhenInput.Value(); got != want {
+		t.Fatalf("WhenInput = %q, want %q", got, want)
+	}
+}
+
+func TestSubEntryWhenChooserTypeExpressionEntersManualEdit(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool"}}}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.Applications = []ApplicationItem{{Application: m.Config.Applications[0]}}
+	m.HostnameChoices = []string{"desktop"}
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.FocusIndex = 2
+	updated, _ := m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyDown})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if !m.subEntryForm.EditingWhen || m.subEntryForm.WhenMode != forms.WhenModeNone {
+		t.Fatalf("type expression did not enter manual edit: editing=%v mode=%v", m.subEntryForm.EditingWhen, m.subEntryForm.WhenMode)
+	}
+}
+
+func TestSubEntryWhenChooserHelpUsesChooserBindings(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool"}}}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.Applications = []ApplicationItem{{Application: m.Config.Applications[0]}}
+	m.HostnameChoices = []string{"desktop"}
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.FocusIndex = 2
+	m.startSubEntryWhenChooser()
+	help := m.renderSubEntryFormHelp()
+	for _, want := range []string{"↑/k", "↓/j", "space", "enter/e", "esc", "select"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("chooser help %q does not contain %q", help, want)
+		}
+	}
+	if strings.Contains(help, "edit") {
+		t.Errorf("chooser help should not describe selection as editing: %q", help)
+	}
+}
+
+func TestSaveSubEntryAcceptsSproutWhenWithRuntimeRenderer(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool"}}}, &platform.Platform{OS: OSLinux}, false)
+	m.ConfigPath = t.TempDir() + "/tidydots.yaml"
+	m.Renderer = tmpl.NewEngine(tmpl.NewContextFromPlatform(m.Platform))
+	m.Applications = []ApplicationItem{{Application: m.Config.Applications[0]}}
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.NameInput.SetValue("sprout-entry")
+	m.subEntryForm.BackupInput.SetValue("./entry")
+	m.subEntryForm.LinuxTargetInput.SetValue("~/.entry")
+	m.subEntryForm.WhenInput.SetValue(`{{ "hello" | toUpper }}`)
+	if err := m.saveSubEntryForm(); err != nil {
+		t.Fatalf("valid Sprout expression rejected: %v", err)
+	}
+	if got := m.Config.Applications[0].Entries[0].When; got != `{{ "hello" | toUpper }}` {
+		t.Fatalf("stored When = %q, want Sprout expression", got)
+	}
+}
+
+func TestSubEntryWhenTextEditCancelRestoresOriginal(t *testing.T) {
+	const original = `{{ eq .OS "linux" }}`
+	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool"}}}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.Applications = []ApplicationItem{{Application: m.Config.Applications[0]}}
+	m.initSubEntryForm(0, -1)
+	m.subEntryForm.WhenInput.SetValue(original)
+	m.subEntryForm.FocusIndex = 2
+	updated, _ := m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+	if got := m.subEntryForm.WhenInput.Value(); got != original {
+		t.Fatalf("text cancel changed WhenInput to %q", got)
+	}
+}
+
+func TestSaveSubEntryRejectsMalformedWhenWithoutMutation(t *testing.T) {
+	configPath := t.TempDir() + "/tidydots.yaml"
+	original := &config.Config{Version: 3, Applications: []config.Application{{Name: "tool", Entries: []config.SubEntry{{Name: "entry", Backup: "./entry", Targets: map[string]string{"linux": "~/.entry"}}}}}}
+	if err := config.Save(original, configPath); err != nil {
+		t.Fatalf("initial config save failed: %v", err)
+	}
+	before, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read initial config: %v", err)
+	}
+	m := NewModel(original, &platform.Platform{OS: platform.OSLinux}, false)
+	m.ConfigPath = configPath
+	m.Renderer = whenSaveRenderer{}
+	m.Applications = []ApplicationItem{{Application: original.Applications[0], SubItems: []SubEntryItem{{SubEntry: original.Applications[0].Entries[0]}}}}
+	m.initSubEntryForm(0, 0)
+	m.subEntryForm.WhenInput.SetValue("{{ if }}")
+	if err := m.saveSubEntryForm(); err == nil {
+		t.Fatal("malformed expression was saved")
+	}
+	after, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read resulting config: %v", err)
+	}
+	if string(after) != string(before) {
+		t.Fatal("malformed save changed YAML")
+	}
+	if got := m.Config.Applications[0].Entries[0].When; got != "" {
+		t.Fatalf("malformed save mutated in-memory config: When=%q", got)
 	}
 }
 

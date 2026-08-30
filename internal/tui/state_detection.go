@@ -111,7 +111,7 @@ func (m Model) checkUncheckedPackageStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
 
 	for i, app := range m.Applications {
-		if !app.Application.HasPackage() || app.PkgInstalled != nil {
+		if app.IsFiltered || !app.Application.HasPackage() || app.PkgInstalled != nil {
 			continue
 		}
 		cmds = append(cmds, m.packageStateCheckCmd(i))
@@ -124,28 +124,9 @@ func (m Model) checkUncheckedPackageStatesCmd() (tea.Cmd, int) {
 // Called when the user toggles the filter off, revealing previously-hidden apps.
 // It also returns the number of checks dispatched so the caller can track pending work.
 func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
-	var cmds []tea.Cmd
-
-	for i, app := range m.Applications {
-		if !app.IsFiltered {
-			continue
-		}
-
-		// Package check (only if not already resolved)
-		if app.Application.HasPackage() && app.PkgInstalled == nil {
-			cmds = append(cmds, m.packageStateCheckCmd(i))
-		}
-
-		// Sub-entry state checks (only if still at StateLoading)
-		for j, sub := range app.SubItems {
-			if sub.State != StateLoading {
-				continue
-			}
-			cmds = append(cmds, m.subEntryStateCheckCmd(i, j))
-		}
-	}
-
-	return tea.Batch(cmds...), len(cmds)
+	// A false application condition is visibility-only when the filter is off.
+	// Its raw config remains editable, but it must never become operational.
+	return nil, 0
 }
 
 func (m Model) packageStateCheckCmd(appIndex int) tea.Cmd {
@@ -175,6 +156,9 @@ func (m Model) subEntryStateCheckCmd(appIndex, subIndex int) tea.Cmd {
 func (m *Model) refreshAllStates() tea.Cmd {
 	var cmds []tea.Cmd
 	for i := range m.Applications {
+		if m.Applications[i].IsFiltered {
+			continue
+		}
 		if m.Applications[i].Application.HasPackage() {
 			m.Applications[i].PkgInstalled = nil
 			cmds = append(cmds, m.packageStateCheckCmd(i))
@@ -197,6 +181,9 @@ func (m *Model) refreshPackageStates(packages []PackageItem) tea.Cmd {
 
 	cmds := make([]tea.Cmd, 0, len(names))
 	for i := range m.Applications {
+		if m.Applications[i].IsFiltered {
+			continue
+		}
 		if _, ok := names[m.Applications[i].Application.Name]; !ok || !m.Applications[i].Application.HasPackage() {
 			continue
 		}
@@ -216,10 +203,8 @@ func (m *Model) refreshPackageStates(packages []PackageItem) tea.Cmd {
 // command so results stream in individually, matching checkSubEntryStatesCmd
 // and checkFilteredStatesCmd.
 //
-// Unlike checkFilteredStatesCmd, this walks every application regardless of
-// filter state: callers such as refreshApplicationStates and
-// reinitPreservingState synchronously touch all apps, filtered or not, so a
-// filtered app's setup entries can just as easily end up at StateLoading.
+// Filtered applications are not operational, even when they are visible with
+// the machine filter disabled.
 //
 // Only setup entries are considered. StateLoading is also the zero value of
 // PathState, so a config entry whose initial async check from Init() has not
@@ -231,6 +216,9 @@ func (m Model) checkLoadingSubEntryStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
 
 	for i, app := range m.Applications {
+		if app.IsFiltered {
+			continue
+		}
 		for j, sub := range app.SubItems {
 			if !sub.SubEntry.IsSetup() || sub.State != StateLoading {
 				continue

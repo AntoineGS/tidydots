@@ -76,7 +76,7 @@ func TestSetupCommandKeypathPreservesEditedCommand(t *testing.T) {
 	m.Applications = []ApplicationItem{{Application: app, SubItems: []SubEntryItem{{SubEntry: entry}}}}
 	m.ConfigPath = t.TempDir() + "/tidydots.yaml"
 	m.initSubEntryForm(0, 0)
-	m.subEntryForm.FocusIndex = 2
+	m.subEntryForm.FocusIndex = 3
 	updated, _ := m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
 	m = updated.(Model)
 	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Text: "!", Code: '!'})

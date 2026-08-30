@@ -75,8 +75,8 @@ func TestRefreshAllStatesDispatchesEveryCheckAndPreservesUIState(t *testing.T) {
 
 	cmd := m.refreshAllStates()
 
-	if got := m.pendingStateChecks; got != 3 {
-		t.Fatalf("pendingStateChecks = %d, want 3", got)
+	if got := m.pendingStateChecks; got != 2 {
+		t.Fatalf("pendingStateChecks = %d, want 2", got)
 	}
 	if m.Applications[0].PkgInstalled != nil {
 		t.Fatal("package status was not invalidated")
@@ -88,8 +88,8 @@ func TestRefreshAllStatesDispatchesEveryCheckAndPreservesUIState(t *testing.T) {
 			}
 		}
 	}
-	if len(collectMsgs(cmd)) != 3 {
-		t.Fatal("refresh did not dispatch all hidden package and sub-entry checks")
+	if len(collectMsgs(cmd)) != 2 {
+		t.Fatal("refresh dispatched checks for a filtered application")
 	}
 
 	if m.tableCursor != wantCursor || m.scrollOffset != wantScroll || m.sortColumn != wantSort ||
@@ -159,8 +159,8 @@ func TestMachineFilteredDormantStatesDoNotBlockFilterRemoval(t *testing.T) {
 
 	next, cmd := m.Update(tea.KeyPressMsg{Code: 'f'})
 	updated := next.(Model)
-	if cmd == nil || updated.filterEnabled || updated.pendingStateChecks != 2 {
-		t.Fatalf("filter removal: enabled=%v pending=%d cmd nil=%v; want false, 2, false", updated.filterEnabled, updated.pendingStateChecks, cmd == nil)
+	if cmd != nil || updated.filterEnabled || updated.pendingStateChecks != 0 {
+		t.Fatalf("filter removal: enabled=%v pending=%d cmd nil=%v; want false, 0, true", updated.filterEnabled, updated.pendingStateChecks, cmd == nil)
 	}
 
 	for _, result := range collectMsgs(cmd) {
@@ -180,8 +180,8 @@ func TestMachineFilteredDormantStatesDoNotBlockManualRefresh(t *testing.T) {
 
 	next, cmd := m.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
 	updated := next.(Model)
-	if cmd == nil || updated.pendingStateChecks != 2 {
-		t.Fatalf("manual refresh: pending=%d cmd nil=%v; want 2, false", updated.pendingStateChecks, cmd == nil)
+	if cmd != nil || updated.pendingStateChecks != 0 {
+		t.Fatalf("manual refresh: pending=%d cmd nil=%v; want 0, true", updated.pendingStateChecks, cmd == nil)
 	}
 
 	for _, result := range collectMsgs(cmd) {
@@ -205,7 +205,6 @@ func dormantFilteredStateModel() Model {
 	m.pendingStateChecks = 0
 	m.Applications[0].IsFiltered = true
 	m.Applications[0].PkgInstalled = nil
-	m.Applications[0].SubItems[0].State = StateLoading
 	m.filterEnabled = true
 	m.rebuildTable()
 	return m

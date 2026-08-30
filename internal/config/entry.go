@@ -270,6 +270,7 @@ type SubEntry struct {
 	Check   map[string]string `yaml:"check,omitempty"` // os -> command; exit 0 means already set up
 	Run     map[string]string `yaml:"run,omitempty"`   // os -> command; runs only when check fails
 	Name    string            `yaml:"name"`
+	When    string            `yaml:"when,omitempty"`
 	Method  string            `yaml:"method,omitempty"` // "" | "symlink" (default) | "copy"
 	Backup  string            `yaml:"backup,omitempty"`
 	Files   []string          `yaml:"files,omitempty"`

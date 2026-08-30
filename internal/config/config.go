@@ -94,19 +94,39 @@ func (c *Config) GetFilteredApplicationsWithLogger(renderer PathRenderer, logger
 	return result
 }
 
+// FilterSubEntries returns sub-entries filtered by when expressions.
+// Silent on evaluation errors — prefer FilterSubEntriesWithLogger.
+func FilterSubEntries(entries []SubEntry, renderer PathRenderer) []SubEntry {
+	return FilterSubEntriesWithLogger(entries, renderer, nil)
+}
+
+// FilterSubEntriesWithLogger is like FilterSubEntries but logs when-expression
+// render errors at warn level to the supplied logger.
+func FilterSubEntriesWithLogger(entries []SubEntry, renderer PathRenderer, logger *slog.Logger) []SubEntry {
+	result := make([]SubEntry, 0, len(entries))
+	for _, entry := range entries {
+		if EvaluateWhenWithLogger(entry.When, renderer, logger) {
+			result = append(result, entry)
+		}
+	}
+	return result
+}
+
 // GetAllSubEntries returns all sub-entries from all applications filtered by when expressions
 func (c *Config) GetAllSubEntries(renderer PathRenderer) []SubEntry {
 	apps := c.GetFilteredApplications(renderer)
 
+	filteredEntries := make([][]SubEntry, len(apps))
 	// Count exact size to prevent slice growth
 	totalEntries := 0
-	for _, app := range apps {
-		totalEntries += len(app.Entries)
+	for i, app := range apps {
+		filteredEntries[i] = FilterSubEntries(app.Entries, renderer)
+		totalEntries += len(filteredEntries[i])
 	}
 
 	result := make([]SubEntry, 0, totalEntries)
-	for _, app := range apps {
-		result = append(result, app.Entries...)
+	for _, entries := range filteredEntries {
+		result = append(result, entries...)
 	}
 
 	return result
@@ -116,9 +136,11 @@ func (c *Config) GetAllSubEntries(renderer PathRenderer) []SubEntry {
 func (c *Config) GetAllConfigSubEntries(renderer PathRenderer) []SubEntry {
 	apps := c.GetFilteredApplications(renderer)
 
+	filteredEntries := make([][]SubEntry, len(apps))
 	totalEntries := 0
-	for _, app := range apps {
-		for _, entry := range app.Entries {
+	for i, app := range apps {
+		filteredEntries[i] = FilterSubEntries(app.Entries, renderer)
+		for _, entry := range filteredEntries[i] {
 			if entry.IsConfig() {
 				totalEntries++
 			}
@@ -126,8 +148,8 @@ func (c *Config) GetAllConfigSubEntries(renderer PathRenderer) []SubEntry {
 	}
 
 	result := make([]SubEntry, 0, totalEntries)
-	for _, app := range apps {
-		for _, entry := range app.Entries {
+	for _, entries := range filteredEntries {
+		for _, entry := range entries {
 			if entry.IsConfig() {
 				result = append(result, entry)
 			}

@@ -14,6 +14,7 @@ func TestOperationString(t *testing.T) {
 		{"OpList", OpList, "List"},
 		{"OpInstallPackages", OpInstallPackages, "Install Packages"},
 		{"OpDelete", OpDelete, "Delete"},
+		{"OpForceRestore", OpForceRestore, "Force Restore"},
 		{"unknown value", Operation(99), "Unknown"},
 	}
 
@@ -40,6 +41,9 @@ func TestOperationIota(t *testing.T) {
 	}
 	if OpDelete != 3 {
 		t.Errorf("OpDelete should be 3, got %d", OpDelete)
+	}
+	if OpForceRestore != OpDelete+1 {
+		t.Fatalf("OpForceRestore = %d, want %d", OpForceRestore, OpDelete+1)
 	}
 }
 

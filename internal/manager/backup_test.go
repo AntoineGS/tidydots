@@ -342,6 +342,41 @@ func TestBackupIntegration(t *testing.T) {
 	}
 }
 
+func TestBackup_EntryWhenSkipsExcludedConfig(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	includedTarget := filepath.Join(tmpDir, "included-target")
+	excludedTarget := filepath.Join(tmpDir, "excluded-target")
+	for _, dir := range []string{includedTarget, excludedTarget} {
+		if err := os.MkdirAll(dir, 0750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(includedTarget, "config"), []byte("included"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(excludedTarget, "config"), []byte("excluded"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Version: 3, BackupRoot: tmpDir, Applications: []config.Application{{
+		Name: "app",
+		Entries: []config.SubEntry{
+			{Name: "included", When: `{{ eq .Hostname "testhost" }}`, Backup: "./included-backup", Files: []string{"config"}, Targets: map[string]string{"linux": includedTarget}},
+			{Name: "excluded", When: `{{ eq .Hostname "other" }}`, Backup: "./excluded-backup", Files: []string{"config"}, Targets: map[string]string{"linux": excludedTarget}},
+		},
+	}}}
+	mgr := New(cfg, &platform.Platform{OS: platform.OSLinux, Hostname: "testhost", EnvVars: map[string]string{}})
+	if err := mgr.Backup(); err != nil {
+		t.Fatalf("Backup() error = %v", err)
+	}
+	if !testPathExists(filepath.Join(tmpDir, "included-backup", "config")) {
+		t.Fatal("included entry was not backed up")
+	}
+	if testPathExists(filepath.Join(tmpDir, "excluded-backup")) {
+		t.Fatal("excluded entry was backed up")
+	}
+}
+
 func TestBackupV3Application(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()

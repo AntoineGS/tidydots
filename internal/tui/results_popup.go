@@ -114,7 +114,11 @@ func (m Model) renderResultsPopup() string {
 
 	// Box with rounded border, primaryColor border, padding 1,2
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(primaryColor)
-	title := titleStyle.Render("Results")
+	titleText := "Results"
+	if m.completedOperation == OpForceRestore {
+		titleText = "Force Restore Results"
+	}
+	title := titleStyle.Render(titleText)
 
 	popup := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
