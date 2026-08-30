@@ -16,7 +16,30 @@ import (
 // expressions. Unlike textinput, it preserves newlines, tabs, and long values.
 type CommandInput struct {
 	textarea.Model
-	raw string
+}
+
+func encodeCommandText(value string) string {
+	return strings.NewReplacer(`\`, `\\`, "\t", `\t`).Replace(value)
+}
+
+func decodeCommandText(value string) string {
+	var b strings.Builder
+	for i := 0; i < len(value); i++ {
+		if value[i] == '\\' && i+1 < len(value) {
+			switch value[i+1] {
+			case '\\':
+				b.WriteByte('\\')
+				i++
+				continue
+			case 't':
+				b.WriteByte('\t')
+				i++
+				continue
+			}
+		}
+		b.WriteByte(value[i])
+	}
+	return b.String()
 }
 
 // NewCommandInput creates an unbounded command text area.
@@ -32,8 +55,10 @@ func NewCommandInput(placeholder string, width int) CommandInput {
 // Update applies a key or paste message and refreshes the lossless value.
 func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
 	var cmd tea.Cmd
+	if paste, ok := msg.(tea.PasteMsg); ok {
+		msg = tea.PasteMsg{Content: encodeCommandText(paste.Content)}
+	}
 	m.Model, cmd = m.Model.Update(msg)
-	m.raw = m.Model.Value()
 	return m, cmd
 }
 
@@ -43,12 +68,11 @@ func (m *CommandInput) SetCursor(column int) { m.SetCursorColumn(column) }
 // SetValue retains the original bytes because textarea normalizes tabs for
 // display. Updates made interactively are captured by Update above.
 func (m *CommandInput) SetValue(value string) {
-	m.raw = value
-	m.Model.SetValue(value)
+	m.Model.SetValue(encodeCommandText(value))
 }
 
 // Value returns the exact command text entered or loaded.
-func (m CommandInput) Value() string { return m.raw }
+func (m CommandInput) Value() string { return decodeCommandText(m.Model.Value()) }
 
 // DisplayPackageManagers is platform.KnownPackageManagers excluding "git"
 // (git is handled as a special case, not shown in the package manager form)

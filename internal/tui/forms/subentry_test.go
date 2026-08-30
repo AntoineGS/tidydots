@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
 	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
@@ -16,6 +17,13 @@ func TestSubEntryFormPreservesSetupCommands(t *testing.T) {
 		Check: map[string]string{"linux": command},
 		Run:   map[string]string{"linux": command},
 	})
+	form.LinuxCheckInput.Focus()
+	updated, _ := form.LinuxCheckInput.Update(tea.PasteMsg{Content: "!"})
+	form.LinuxCheckInput = updated
+	form.LinuxRunInput.Focus()
+	updated, _ = form.LinuxRunInput.Update(tea.PasteMsg{Content: "!"})
+	form.LinuxRunInput = updated
+	command += "!"
 	got, err := form.BuildSubEntry()
 	if err != nil {
 		t.Fatalf("BuildSubEntry() error = %v", err)

@@ -8,15 +8,6 @@ import (
 	"testing"
 )
 
-func TestValidateWhenExpression(t *testing.T) {
-	if err := ValidateWhenExpression(`{{ eq .Hostname "desktop" }}`); err != nil {
-		t.Fatalf("valid template rejected: %v", err)
-	}
-	if err := ValidateWhenExpression("{{ if }}"); err == nil {
-		t.Fatal("invalid template accepted")
-	}
-}
-
 // mockWhenRenderer is a simple PathRenderer for testing EvaluateWhen.
 // It renders templates by looking up values in its data map.
 type mockWhenRenderer struct {

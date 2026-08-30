@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
 )
@@ -124,13 +125,26 @@ func TestNewApplicationForm_LoadsPackageManagers(t *testing.T) {
 }
 
 func TestApplicationFormPreservesCommandText(t *testing.T) {
-	command := "#!/bin/sh\n\tprintf '%s' long\n" + strings.Repeat("x", 513)
+	command := "#!/bin/sh\n\tprintf '%s' literal\\t\n" + strings.Repeat("x", 513)
 	app := config.Application{Name: "tool", Package: &config.EntryPackage{
 		Custom:   map[string]string{"linux": command},
 		URL:      map[string]config.URLInstallSpec{"linux": {URL: "https://example.test/tool", Command: command}},
 		Managers: map[string]config.ManagerValue{"installer": {Installer: &config.InstallerPackage{Command: map[string]string{"linux": command}}}},
 	}}
 	form := forms.NewApplicationForm(app, true)
+	for name, input := range map[string]*forms.CommandInput{
+		"custom":    &form.CustomLinuxInput,
+		"URL":       &form.URLLinuxCommandInput,
+		"installer": &form.InstallerLinuxInput,
+	} {
+		input.Focus()
+		updated, _ := input.Update(tea.PasteMsg{Content: "!"})
+		*input = updated
+		if got := input.Value(); got != command+"!" {
+			t.Fatalf("%s command changed after update: got %q, want %q", name, got, command+"!")
+		}
+	}
+	command += "!"
 	if got := form.CustomLinuxInput.Value(); got != command {
 		t.Fatalf("custom command changed: got %q, want %q", got, command)
 	}
@@ -146,13 +160,6 @@ func TestApplicationFormPreservesCommandText(t *testing.T) {
 	}
 	if pkg.Custom["linux"] != command || pkg.URL["linux"].Command != command || pkg.Managers["installer"].Installer.Command["linux"] != command {
 		t.Fatal("command text was not preserved when building application")
-	}
-}
-
-func TestApplicationFormRejectsInvalidWhenTemplate(t *testing.T) {
-	form := forms.NewApplicationForm(config.Application{Name: "tool", When: "{{ if }}"}, true)
-	if _, _, _, _, err := form.BuildApplication(); err == nil {
-		t.Fatal("BuildApplication() accepted invalid when template")
 	}
 }
 

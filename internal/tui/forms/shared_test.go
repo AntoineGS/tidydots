@@ -3,11 +3,24 @@ package forms_test
 import (
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"charm.land/bubbles/v2/textinput"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
 	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
 )
+
+func TestCommandInputPastePreservesTabsAndBackslashSequences(t *testing.T) {
+	input := forms.NewCommandInput("", 80)
+	input.Focus()
+	const literal = `literal\t`
+	actual := "tab\t" + literal
+	updated, _ := input.Update(tea.PasteMsg{Content: actual})
+	if got := updated.Value(); got != actual {
+		t.Fatalf("paste value = %q, want %q", got, actual)
+	}
+}
 
 // makeInput is a test helper that sets a text input value and returns it.
 func makeInput(value string) textinput.Model {

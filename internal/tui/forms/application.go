@@ -2,7 +2,6 @@ package forms
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -301,9 +300,6 @@ func (f *ApplicationForm) BuildApplication() (name, description, when string, pk
 
 	// Build when expression and package
 	when = strings.TrimSpace(f.WhenInput.Value())
-	if err := config.ValidateWhenExpression(when); err != nil {
-		return "", "", "", nil, fmt.Errorf("invalid when expression: %w", err)
-	}
 	pkg = BuildPackageSpec(f.PackageManagers)
 
 	// Merge git package data

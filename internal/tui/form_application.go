@@ -1101,6 +1101,14 @@ func (m *Model) saveApplicationForm() error {
 	if err != nil {
 		return err
 	}
+	if strings.TrimSpace(when) != "" {
+		if m.Renderer == nil {
+			return errors.New("cannot validate when expression without a renderer")
+		}
+		if _, err := m.Renderer.RenderString("when", when); err != nil {
+			return fmt.Errorf("invalid when expression: %w", err)
+		}
+	}
 
 	// Save based on edit mode
 	if m.applicationForm.EditAppIdx >= 0 {

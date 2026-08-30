@@ -3,17 +3,7 @@ package config
 import (
 	"log/slog"
 	"strings"
-	"text/template"
 )
-
-// ValidateWhenExpression checks template syntax without evaluating it.
-func ValidateWhenExpression(when string) error {
-	if strings.TrimSpace(when) == "" {
-		return nil
-	}
-	_, err := template.New("when").Parse(when)
-	return err
-}
 
 // whenTrue is the rendered value a when expression must produce to match.
 const whenTrue = "true"
