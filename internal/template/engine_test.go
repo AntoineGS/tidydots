@@ -75,6 +75,11 @@ func TestRenderString(t *testing.T) {
 			want:     "hello",
 		},
 		{
+			name:     "sprout regex function supports pipelines",
+			template: `{{ "banana" | regexSplit "a" -1 }}`,
+			want:     "[b n n ]",
+		},
+		{
 			name:     "user field",
 			template: "user={{ .User }}",
 			want:     "user=testuser",

@@ -11,7 +11,7 @@ import (
 	"github.com/go-sprout/sprout/registry/conversion"
 	"github.com/go-sprout/sprout/registry/maps"
 	"github.com/go-sprout/sprout/registry/numeric"
-	"github.com/go-sprout/sprout/registry/regexp"
+	"github.com/go-sprout/sprout/registry/regex"
 	"github.com/go-sprout/sprout/registry/slices"
 	"github.com/go-sprout/sprout/registry/std"
 	sproutstrings "github.com/go-sprout/sprout/registry/strings"
@@ -39,7 +39,7 @@ func NewEngine(ctx *Context) *Engine {
 			conversion.NewRegistry(),
 			maps.NewRegistry(),
 			slices.NewRegistry(),
-			regexp.NewRegistry(),
+			regex.NewRegistry(),
 		),
 	)
 

@@ -53,9 +53,38 @@ tidydots uses [sprout](https://github.com/go-sprout/sprout) to provide a rich se
 | **conversion** | `toString`, `toInt`, `toFloat64`, `toBool` |
 | **maps** | `dict`, `get`, `set`, `hasKey`, `keys`, `values` |
 | **slices** | `list`, `first`, `last`, `append`, `has`, `uniq` |
-| **regexp** | `regexMatch`, `regexFind`, `regexReplaceAll` |
+| **regex** | `regexMatch`, `regexFind`, `regexReplaceAll` |
 
 For the full function reference, see the [sprout documentation](https://github.com/go-sprout/sprout).
+
+### Sprout 1.1 argument order
+
+tidydots uses Sprout 1.1's pipeline-oriented function signatures. Templates
+using Sprig argument order, including templates Sprout 1.0 accepted with
+warnings, must update these map and slice functions:
+
+`get`, `set`, `unset`, `hasKey`, `pick`, `omit`, `append`, `prepend`, `slice`, and `without`.
+
+Move the map or list to the end of a direct call, or use it as pipeline input:
+
+```text
+# Old
+{{ append $items "value" }}
+
+# Sprout 1.1
+{{ $items | append "value" }}
+```
+
+The `regexFindAll`, `regexSplit`, `regexReplaceAll`, and
+`regexReplaceAllLiteral` functions likewise take the input string last. Pipeline
+forms are the clearest migration:
+
+```text
+{{ $value | regexFindAll "pattern" -1 }}
+{{ $value | regexSplit "pattern" -1 }}
+{{ $value | regexReplaceAll "pattern" "replacement" }}
+{{ $value | regexReplaceAllLiteral "pattern" "replacement" }}
+```
 
 ### Template Examples
 
