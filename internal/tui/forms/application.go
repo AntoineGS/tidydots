@@ -42,7 +42,7 @@ type ApplicationForm struct {
 	DescriptionInput  textinput.Model
 	PackageNameInput  textinput.Model
 	NameInput         textinput.Model
-	WhenInput         CommandInput
+	WhenInput         textinput.Model
 	EditAppIdx        int
 	PackagesCursor    int
 	FocusIndex        int
@@ -448,7 +448,7 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 	descriptionInput := NewFormInput("e.g., Neovim text editor", tuishared.CharLimitDesc, tuishared.InputWidthNarrow)
 	descriptionInput.SetValue(app.Description)
 
-	whenInput := NewCommandInput(tuishared.PlaceholderWhen, tuishared.InputWidthWide)
+	whenInput := NewFormInput(tuishared.PlaceholderWhen, 0, tuishared.InputWidthWide)
 	whenInput.SetValue(app.When)
 
 	editAppIdx := -1

@@ -399,7 +399,7 @@ func renderPackageMethodSection(focused, onItem, hasPackage bool, cursor int, ed
 func RenderWhenField(
 	focused bool,
 	editing bool,
-	whenInput CommandInput,
+	whenInput textinput.Model,
 ) string {
 	prefix := tuishared.IndentSpaces
 

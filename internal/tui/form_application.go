@@ -47,7 +47,7 @@ func (m *Model) initApplicationForm(appIdx int) {
 
 	descriptionInput := newFormInput("e.g., Neovim text editor", CharLimitDesc, InputWidthNarrow)
 	packageNameInput := newFormInput(PlaceholderNeovim, CharLimitPkgName, InputWidthNarrow)
-	whenInput := newCommandInput(PlaceholderWhen, InputWidthWide)
+	whenInput := newFormInput(PlaceholderWhen, 0, InputWidthWide)
 
 	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
 	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
