@@ -1,6 +1,7 @@
 package forms_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -188,6 +189,63 @@ func TestNewApplicationForm_LoadsInstallerPackage(t *testing.T) {
 	}
 	if form.InstallerBinaryInput.Value() != "mytool" {
 		t.Errorf("InstallerBinaryInput = %q, want %q", form.InstallerBinaryInput.Value(), "mytool")
+	}
+}
+
+func TestApplicationForm_BuildApplicationPreservesAllPackageMethods(t *testing.T) {
+	want := &config.EntryPackage{
+		Managers: map[string]config.ManagerValue{
+			"pacman":    {PackageName: "neovim"},
+			"git":       {Git: &config.GitPackage{URL: "https://github.com/user/repo.git", Targets: map[string]string{"linux": "~/.local/share/app"}}},
+			"installer": {Installer: &config.InstallerPackage{Command: map[string]string{"linux": "make install"}, Binary: "mytool"}},
+		},
+		Custom: map[string]string{
+			"linux":   "cargo install ripgrep",
+			"windows": "cargo install ripgrep",
+		},
+		URL: map[string]config.URLInstallSpec{
+			"linux":   {URL: "https://example.com/tool.tar.gz", Command: "tar -xf {file}"},
+			"windows": {URL: "https://example.com/tool.zip", Command: "Expand-Archive {file}"},
+		},
+	}
+	form := forms.NewApplicationForm(config.Application{Name: "test", Package: want}, true)
+
+	_, _, _, got, err := form.BuildApplication()
+	if err != nil {
+		t.Fatalf("BuildApplication() unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("BuildApplication() package = %#v, want %#v", got, want)
+	}
+}
+
+func TestApplicationForm_URLPackageValidationRequiresURLAndCommandPerOS(t *testing.T) {
+	tests := []struct {
+		name       string
+		linuxURL   string
+		linuxCmd   string
+		windowsURL string
+		windowsCmd string
+		wantErr    bool
+	}{
+		{name: "complete", linuxURL: "https://example.com/linux", linuxCmd: "install {file}", windowsURL: "https://example.com/windows", windowsCmd: "install {file}"},
+		{name: "linux URL without command", linuxURL: "https://example.com/linux", windowsURL: "https://example.com/windows", windowsCmd: "install {file}", wantErr: true},
+		{name: "windows command without URL", linuxURL: "https://example.com/linux", linuxCmd: "install {file}", windowsCmd: "install {file}", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			form := forms.NewApplicationForm(config.Application{Name: "test"}, false)
+			form.HasURLPackage = true
+			form.URLLinuxInput.SetValue(tt.linuxURL)
+			form.URLLinuxCommandInput.SetValue(tt.linuxCmd)
+			form.URLWindowsInput.SetValue(tt.windowsURL)
+			form.URLWindowsCommandInput.SetValue(tt.windowsCmd)
+			_, _, _, _, err := form.BuildApplication()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("BuildApplication() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 

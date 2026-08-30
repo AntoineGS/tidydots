@@ -51,6 +51,8 @@ func (m *Model) initApplicationForm(appIdx int) {
 
 	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := newGitTextInputs()
 	installerLinuxInput, installerWindowsInput, installerBinaryInput := newInstallerTextInputs()
+	customLinuxInput, customWindowsInput := forms.NewCustomTextInputs()
+	urlLinuxInput, urlLinuxCommandInput, urlWindowsInput, urlWindowsCommandInput := forms.NewURLTextInputs()
 
 	depInput := newFormInput(PlaceholderDep, CharLimitDep, InputWidthNarrow)
 
@@ -59,6 +61,8 @@ func (m *Model) initApplicationForm(appIdx int) {
 	hasGitPackage := false
 	gitSudo := false
 	hasInstallerPackage := false
+	hasCustomPackage := false
+	hasURLPackage := false
 
 	if app != nil {
 		nameInput.SetValue(app.Name)
@@ -93,6 +97,26 @@ func (m *Model) initApplicationForm(appIdx int) {
 				}
 			}
 		}
+		if app.Package != nil {
+			if command, ok := app.Package.Custom[OSLinux]; ok {
+				hasCustomPackage = true
+				customLinuxInput.SetValue(command)
+			}
+			if command, ok := app.Package.Custom[OSWindows]; ok {
+				hasCustomPackage = true
+				customWindowsInput.SetValue(command)
+			}
+			if spec, ok := app.Package.URL[OSLinux]; ok {
+				hasURLPackage = true
+				urlLinuxInput.SetValue(spec.URL)
+				urlLinuxCommandInput.SetValue(spec.Command)
+			}
+			if spec, ok := app.Package.URL[OSWindows]; ok {
+				hasURLPackage = true
+				urlWindowsInput.SetValue(spec.URL)
+				urlWindowsCommandInput.SetValue(spec.Command)
+			}
+		}
 
 		// Load installer package if present
 		if app.Package != nil {
@@ -122,37 +146,47 @@ func (m *Model) initApplicationForm(appIdx int) {
 	}
 
 	m.applicationForm = &ApplicationForm{
-		NameInput:             nameInput,
-		DescriptionInput:      descriptionInput,
-		PackageManagers:       packageManagers,
-		PackagesCursor:        0,
-		EditingPackage:        false,
-		PackageNameInput:      packageNameInput,
-		LastPackageName:       "",
-		WhenInput:             whenInput,
-		FocusIndex:            0,
-		EditingField:          false,
-		OriginalValue:         "",
-		EditAppIdx:            configAppIdx,
-		Err:                   "",
-		GitURLInput:           gitURLInput,
-		GitBranchInput:        gitBranchInput,
-		GitLinuxInput:         gitLinuxInput,
-		GitWindowsInput:       gitWindowsInput,
-		GitFieldCursor:        -1,
-		HasGitPackage:         hasGitPackage,
-		GitSudo:               gitSudo,
-		InstallerLinuxInput:   installerLinuxInput,
-		InstallerWindowsInput: installerWindowsInput,
-		InstallerBinaryInput:  installerBinaryInput,
-		InstallerFieldCursor:  -1,
-		HasInstallerPackage:   hasInstallerPackage,
-		PackageDeps:           packageDeps,
-		DepsCursor:            0,
-		EditingDeps:           false,
-		EditingDepItem:        false,
-		DepsManagerKey:        "",
-		DepInput:              depInput,
+		NameInput:              nameInput,
+		DescriptionInput:       descriptionInput,
+		PackageManagers:        packageManagers,
+		PackagesCursor:         0,
+		EditingPackage:         false,
+		PackageNameInput:       packageNameInput,
+		LastPackageName:        "",
+		WhenInput:              whenInput,
+		FocusIndex:             0,
+		EditingField:           false,
+		OriginalValue:          "",
+		EditAppIdx:             configAppIdx,
+		Err:                    "",
+		GitURLInput:            gitURLInput,
+		GitBranchInput:         gitBranchInput,
+		GitLinuxInput:          gitLinuxInput,
+		GitWindowsInput:        gitWindowsInput,
+		GitFieldCursor:         -1,
+		HasGitPackage:          hasGitPackage,
+		GitSudo:                gitSudo,
+		InstallerLinuxInput:    installerLinuxInput,
+		InstallerWindowsInput:  installerWindowsInput,
+		InstallerBinaryInput:   installerBinaryInput,
+		InstallerFieldCursor:   -1,
+		HasInstallerPackage:    hasInstallerPackage,
+		CustomLinuxInput:       customLinuxInput,
+		CustomWindowsInput:     customWindowsInput,
+		CustomFieldCursor:      -1,
+		HasCustomPackage:       hasCustomPackage,
+		URLLinuxInput:          urlLinuxInput,
+		URLLinuxCommandInput:   urlLinuxCommandInput,
+		URLWindowsInput:        urlWindowsInput,
+		URLWindowsCommandInput: urlWindowsCommandInput,
+		URLFieldCursor:         -1,
+		HasURLPackage:          hasURLPackage,
+		PackageDeps:            packageDeps,
+		DepsCursor:             0,
+		EditingDeps:            false,
+		EditingDepItem:         false,
+		DepsManagerKey:         "",
+		DepInput:               depInput,
 	}
 
 	m.activeForm = FormApplication
@@ -195,6 +229,10 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.updateApplicationInstallerFieldInput(msg)
 	}
 
+	if m.applicationForm.EditingCustomField || m.applicationForm.EditingURLField {
+		return m.updateApplicationPackageMethodInput(msg)
+	}
+
 	// Handle editing a text field
 	if m.applicationForm.EditingField {
 		return m.updateApplicationFieldInput(msg)
@@ -217,6 +255,12 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.applicationForm.PackagesCursor == len(displayPackageManagers)+1 && m.applicationForm.InstallerFieldCursor >= 0 {
 			return m.updateApplicationInstallerFields(msg)
+		}
+		if m.applicationForm.PackagesCursor == len(displayPackageManagers)+2 && m.applicationForm.CustomFieldCursor >= 0 {
+			return m.updateApplicationCustomFields(msg)
+		}
+		if m.applicationForm.PackagesCursor == len(displayPackageManagers)+3 && m.applicationForm.URLFieldCursor >= 0 {
+			return m.updateApplicationURLFields(msg)
 		}
 		return m.updateApplicationPackagesList(msg)
 	}
@@ -361,7 +405,9 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 
 	gitItemIdx := len(displayPackageManagers)
 	installerItemIdx := len(displayPackageManagers) + 1
-	maxCursor := installerItemIdx // includes git and installer items at the end
+	customItemIdx := len(displayPackageManagers) + 2
+	urlItemIdx := len(displayPackageManagers) + 3
+	maxCursor := urlItemIdx
 
 	if m, cmd, handled := m.handleCommonKeys(msg); handled {
 		return m, cmd
@@ -380,6 +426,8 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 			// Reset field cursors when moving between items
 			m.applicationForm.GitFieldCursor = -1
 			m.applicationForm.InstallerFieldCursor = -1
+			m.applicationForm.CustomFieldCursor = -1
+			m.applicationForm.URLFieldCursor = -1
 		} else {
 			// Move to previous field
 			m.applicationForm.FocusIndex--
@@ -389,18 +437,20 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 
 	case key.Matches(msg, FormNavKeys.Down):
 		switch {
+		case m.applicationForm.PackagesCursor == gitItemIdx && m.applicationForm.HasGitPackage && m.applicationForm.GitFieldCursor == -1:
+			m.applicationForm.GitFieldCursor = 0
+		case m.applicationForm.PackagesCursor == installerItemIdx && m.applicationForm.HasInstallerPackage && m.applicationForm.InstallerFieldCursor == -1:
+			m.applicationForm.InstallerFieldCursor = 0
+		case m.applicationForm.PackagesCursor == customItemIdx && m.applicationForm.HasCustomPackage && m.applicationForm.CustomFieldCursor == -1:
+			m.applicationForm.CustomFieldCursor = 0
+		case m.applicationForm.PackagesCursor == urlItemIdx && m.applicationForm.HasURLPackage && m.applicationForm.URLFieldCursor == -1:
+			m.applicationForm.URLFieldCursor = 0
 		case m.applicationForm.PackagesCursor < maxCursor:
-			// Moving to next item - handle git sub-field entry
-			if m.applicationForm.PackagesCursor == gitItemIdx && m.applicationForm.HasGitPackage && m.applicationForm.GitFieldCursor == -1 {
-				m.applicationForm.GitFieldCursor = 0
-				return m, nil
-			}
 			m.applicationForm.PackagesCursor++
 			m.applicationForm.GitFieldCursor = -1
 			m.applicationForm.InstallerFieldCursor = -1
-		case m.applicationForm.PackagesCursor == installerItemIdx && m.applicationForm.HasInstallerPackage && m.applicationForm.InstallerFieldCursor == -1:
-			// Enter installer sub-fields (handled separately since installer is the last item, so packagesCursor == maxCursor)
-			m.applicationForm.InstallerFieldCursor = 0
+			m.applicationForm.CustomFieldCursor = -1
+			m.applicationForm.URLFieldCursor = -1
 		default:
 			// Move to next field
 			m.applicationForm.FocusIndex++
@@ -425,6 +475,8 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 		m.applicationForm.FocusIndex--
 		m.applicationForm.GitFieldCursor = -1
 		m.applicationForm.InstallerFieldCursor = -1
+		m.applicationForm.CustomFieldCursor = -1
+		m.applicationForm.URLFieldCursor = -1
 		m.updateApplicationFormFocus()
 		return m, nil
 
@@ -478,6 +530,18 @@ func (m Model) handlePackagesListActivate(gitItemIdx, installerItemIdx int) (tea
 		m.applicationForm.InstallerFieldCursor = InstallerFieldLinux
 		return m, nil
 	}
+	customItemIdx := len(displayPackageManagers) + 2
+	if m.applicationForm.PackagesCursor == customItemIdx {
+		m.applicationForm.HasCustomPackage = true
+		m.applicationForm.CustomFieldCursor = 0
+		return m, nil
+	}
+	urlItemIdx := len(displayPackageManagers) + 3
+	if m.applicationForm.PackagesCursor == urlItemIdx {
+		m.applicationForm.HasURLPackage = true
+		m.applicationForm.URLFieldCursor = 0
+		return m, nil
+	}
 	// Edit the selected package manager's package name
 	if m.applicationForm.PackagesCursor < 0 || m.applicationForm.PackagesCursor >= len(displayPackageManagers) {
 		return m, nil
@@ -518,6 +582,26 @@ func (m Model) handlePackagesListDelete(gitItemIdx, installerItemIdx int) (tea.M
 		m.applicationForm.InstallerLinuxInput.SetValue("")
 		m.applicationForm.InstallerWindowsInput.SetValue("")
 		m.applicationForm.InstallerBinaryInput.SetValue("")
+		m.applicationForm.Err = ""
+		return m, nil
+	}
+	customItemIdx := len(displayPackageManagers) + 2
+	if m.applicationForm.PackagesCursor == customItemIdx && m.applicationForm.CustomFieldCursor == -1 {
+		m.applicationForm.HasCustomPackage = false
+		m.applicationForm.CustomFieldCursor = -1
+		m.applicationForm.CustomLinuxInput.SetValue("")
+		m.applicationForm.CustomWindowsInput.SetValue("")
+		m.applicationForm.Err = ""
+		return m, nil
+	}
+	urlItemIdx := len(displayPackageManagers) + 3
+	if m.applicationForm.PackagesCursor == urlItemIdx && m.applicationForm.URLFieldCursor == -1 {
+		m.applicationForm.HasURLPackage = false
+		m.applicationForm.URLFieldCursor = -1
+		m.applicationForm.URLLinuxInput.SetValue("")
+		m.applicationForm.URLLinuxCommandInput.SetValue("")
+		m.applicationForm.URLWindowsInput.SetValue("")
+		m.applicationForm.URLWindowsCommandInput.SetValue("")
 		m.applicationForm.Err = ""
 		return m, nil
 	}
@@ -803,6 +887,10 @@ func (m Model) viewApplicationForm() string {
 			m.applicationForm.InstallerWindowsInput,
 			m.applicationForm.InstallerBinaryInput,
 		))
+		onCustomItem := ft == appFieldPackages && m.applicationForm.PackagesCursor == len(displayPackageManagers)+2
+		b.WriteString(renderCustomPackageSection(ft == appFieldPackages, onCustomItem, m.applicationForm.HasCustomPackage, m.applicationForm.CustomFieldCursor, m.applicationForm.EditingCustomField, m.applicationForm.CustomLinuxInput, m.applicationForm.CustomWindowsInput))
+		onURLItem := ft == appFieldPackages && m.applicationForm.PackagesCursor == len(displayPackageManagers)+3
+		b.WriteString(renderURLPackageSection(ft == appFieldPackages, onURLItem, m.applicationForm.HasURLPackage, m.applicationForm.URLFieldCursor, m.applicationForm.EditingURLField, m.applicationForm.URLLinuxInput, m.applicationForm.URLLinuxCommandInput, m.applicationForm.URLWindowsInput, m.applicationForm.URLWindowsCommandInput))
 	}
 	b.WriteString("\n")
 
@@ -945,6 +1033,26 @@ func (m Model) renderApplicationFormHelp() string {
 				return RenderHelpFromBindings(m.width, addBinding, FormNavKeys.Save)
 			}
 			if m.applicationForm.InstallerFieldCursor == -1 {
+				return RenderHelpFromBindings(m.width, FormNavKeys.Delete, FormNavKeys.Save)
+			}
+			return RenderHelpFromBindings(m.width, FormNavKeys.Edit, FormNavKeys.Save)
+		}
+		if m.applicationForm.PackagesCursor == len(displayPackageManagers)+2 {
+			if !m.applicationForm.HasCustomPackage {
+				addBinding := key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "add"))
+				return RenderHelpFromBindings(m.width, addBinding, FormNavKeys.Save)
+			}
+			if m.applicationForm.CustomFieldCursor == -1 {
+				return RenderHelpFromBindings(m.width, FormNavKeys.Delete, FormNavKeys.Save)
+			}
+			return RenderHelpFromBindings(m.width, FormNavKeys.Edit, FormNavKeys.Save)
+		}
+		if m.applicationForm.PackagesCursor == len(displayPackageManagers)+3 {
+			if !m.applicationForm.HasURLPackage {
+				addBinding := key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "add"))
+				return RenderHelpFromBindings(m.width, addBinding, FormNavKeys.Save)
+			}
+			if m.applicationForm.URLFieldCursor == -1 {
 				return RenderHelpFromBindings(m.width, FormNavKeys.Delete, FormNavKeys.Save)
 			}
 			return RenderHelpFromBindings(m.width, FormNavKeys.Edit, FormNavKeys.Save)

@@ -138,6 +138,33 @@ func TestApplicationForm_Validation(t *testing.T) {
 	}
 }
 
+func TestApplicationForm_DeletePackageMethodSections(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.initApplicationForm(-1)
+	m.applicationForm.FocusIndex = 2
+	m.applicationForm.HasCustomPackage = true
+	m.applicationForm.CustomLinuxInput.SetValue("make install")
+	m.applicationForm.HasURLPackage = true
+	m.applicationForm.URLLinuxInput.SetValue("https://example.com/tool")
+	m.applicationForm.URLLinuxCommandInput.SetValue("install {file}")
+
+	customIdx := len(displayPackageManagers) + 2
+	m.applicationForm.PackagesCursor = customIdx
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyDelete})
+	m = updated.(Model)
+	if m.applicationForm.HasCustomPackage || m.applicationForm.CustomLinuxInput.Value() != "" {
+		t.Error("deleting custom package should clear its section")
+	}
+
+	urlIdx := len(displayPackageManagers) + 3
+	m.applicationForm.PackagesCursor = urlIdx
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyDelete})
+	m = updated.(Model)
+	if m.applicationForm.HasURLPackage || m.applicationForm.URLLinuxInput.Value() != "" || m.applicationForm.URLLinuxCommandInput.Value() != "" {
+		t.Error("deleting URL package should clear its section")
+	}
+}
+
 func TestApplicationForm_EditMode(t *testing.T) {
 	app := config.Application{
 		Name:        "test",

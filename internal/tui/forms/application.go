@@ -70,6 +70,22 @@ type ApplicationForm struct {
 	EditingInstallerField bool // true when editing an installer text field
 	HasInstallerPackage   bool // true when installer package is configured/expanded
 
+	// Custom package fields
+	CustomLinuxInput   textinput.Model
+	CustomWindowsInput textinput.Model
+	CustomFieldCursor  int
+	EditingCustomField bool
+	HasCustomPackage   bool
+
+	// URL download package fields
+	URLLinuxInput          textinput.Model
+	URLLinuxCommandInput   textinput.Model
+	URLWindowsInput        textinput.Model
+	URLWindowsCommandInput textinput.Model
+	URLFieldCursor         int
+	EditingURLField        bool
+	HasURLPackage          bool
+
 	// Package dependency fields
 	PackageDeps    map[string][]string // manager -> deps list
 	DepsCursor     int                 // cursor within deps list
@@ -84,8 +100,12 @@ func (f *ApplicationForm) ResetCursors() {
 	f.PackagesCursor = 0
 	f.GitFieldCursor = -1
 	f.InstallerFieldCursor = -1
+	f.CustomFieldCursor = -1
+	f.URLFieldCursor = -1
 	f.EditingGitField = false
 	f.EditingInstallerField = false
+	f.EditingCustomField = false
+	f.EditingURLField = false
 	f.EditingPackage = false
 	f.EditingDeps = false
 	f.EditingDepItem = false
@@ -155,6 +175,39 @@ func (f *ApplicationForm) GetInstallerFieldInput() *textinput.Model {
 		return &f.InstallerWindowsInput
 	case tuishared.InstallerFieldBinary:
 		return &f.InstallerBinaryInput
+	default:
+		return nil
+	}
+}
+
+// GetCustomFieldInput returns the current custom command input.
+func (f *ApplicationForm) GetCustomFieldInput() *textinput.Model {
+	if f == nil {
+		return nil
+	}
+	if f.CustomFieldCursor == 0 {
+		return &f.CustomLinuxInput
+	}
+	if f.CustomFieldCursor == 1 {
+		return &f.CustomWindowsInput
+	}
+	return nil
+}
+
+// GetURLFieldInput returns the current URL package input.
+func (f *ApplicationForm) GetURLFieldInput() *textinput.Model {
+	if f == nil {
+		return nil
+	}
+	switch f.URLFieldCursor {
+	case 0:
+		return &f.URLLinuxInput
+	case 1:
+		return &f.URLLinuxCommandInput
+	case 2:
+		return &f.URLWindowsInput
+	case 3:
+		return &f.URLWindowsCommandInput
 	default:
 		return nil
 	}
@@ -291,6 +344,29 @@ func (f *ApplicationForm) BuildApplication() (name, description, when string, pk
 		}
 	}
 
+	pkg = MergeCustomPackage(pkg, f.HasCustomPackage, f.CustomLinuxInput, f.CustomWindowsInput)
+
+	if f.HasCustomPackage && strings.TrimSpace(f.CustomLinuxInput.Value()) == "" && strings.TrimSpace(f.CustomWindowsInput.Value()) == "" {
+		return "", "", "", nil, errors.New("custom package requires at least one command (Linux or Windows)")
+	}
+
+	pkg = MergeURLPackage(pkg, f.HasURLPackage, f.URLLinuxInput, f.URLLinuxCommandInput, f.URLWindowsInput, f.URLWindowsCommandInput)
+
+	if f.HasURLPackage {
+		for _, os := range []struct {
+			name, url, command string
+		}{
+			{tuishared.OSLinux, f.URLLinuxInput.Value(), f.URLLinuxCommandInput.Value()},
+			{tuishared.OSWindows, f.URLWindowsInput.Value(), f.URLWindowsCommandInput.Value()},
+		} {
+			if strings.TrimSpace(os.url) != "" || strings.TrimSpace(os.command) != "" {
+				if strings.TrimSpace(os.url) == "" || strings.TrimSpace(os.command) == "" {
+					return "", "", "", nil, errors.New("URL package requires both URL and command for " + os.name)
+				}
+			}
+		}
+	}
+
 	// Merge deps into package managers
 	if pkg != nil && len(f.PackageDeps) > 0 {
 		for manager, deps := range f.PackageDeps {
@@ -334,6 +410,8 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 
 	gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsInput := NewGitTextInputs()
 	installerLinuxInput, installerWindowsInput, installerBinaryInput := NewInstallerTextInputs()
+	customLinuxInput, customWindowsInput := NewCustomTextInputs()
+	urlLinuxInput, urlLinuxCommandInput, urlWindowsInput, urlWindowsCommandInput := NewURLTextInputs()
 
 	// Load package managers (only string-based managers, skip git and installer)
 	packageManagers := make(map[string]string)
@@ -370,6 +448,8 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 
 	// Load installer package if present
 	hasInstallerPackage := false
+	hasCustomPackage := false
+	hasURLPackage := false
 
 	if app.Package != nil {
 		if installerVal, ok := app.Package.Managers[tuishared.TypeInstaller]; ok && installerVal.IsInstaller() {
@@ -381,6 +461,24 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 				installerWindowsInput.SetValue(cmd)
 			}
 			installerBinaryInput.SetValue(installerVal.Installer.Binary)
+		}
+		if command, ok := app.Package.Custom[tuishared.OSLinux]; ok {
+			hasCustomPackage = true
+			customLinuxInput.SetValue(command)
+		}
+		if command, ok := app.Package.Custom[tuishared.OSWindows]; ok {
+			hasCustomPackage = true
+			customWindowsInput.SetValue(command)
+		}
+		if spec, ok := app.Package.URL[tuishared.OSLinux]; ok {
+			hasURLPackage = true
+			urlLinuxInput.SetValue(spec.URL)
+			urlLinuxCommandInput.SetValue(spec.Command)
+		}
+		if spec, ok := app.Package.URL[tuishared.OSWindows]; ok {
+			hasURLPackage = true
+			urlWindowsInput.SetValue(spec.URL)
+			urlWindowsCommandInput.SetValue(spec.Command)
 		}
 	}
 
@@ -400,28 +498,38 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 	depInput := NewFormInput(tuishared.PlaceholderDep, tuishared.CharLimitDep, tuishared.InputWidthNarrow)
 
 	return &ApplicationForm{
-		NameInput:             nameInput,
-		DescriptionInput:      descriptionInput,
-		WhenInput:             whenInput,
-		PackageManagers:       packageManagers,
-		EditAppIdx:            editAppIdx,
-		GitURLInput:           gitURLInput,
-		GitBranchInput:        gitBranchInput,
-		GitLinuxInput:         gitLinuxInput,
-		GitWindowsInput:       gitWindowsInput,
-		GitFieldCursor:        -1,
-		HasGitPackage:         hasGitPackage,
-		GitSudo:               gitSudo,
-		InstallerLinuxInput:   installerLinuxInput,
-		InstallerWindowsInput: installerWindowsInput,
-		InstallerBinaryInput:  installerBinaryInput,
-		InstallerFieldCursor:  -1,
-		HasInstallerPackage:   hasInstallerPackage,
-		PackageDeps:           packageDeps,
-		DepsCursor:            0,
-		EditingDeps:           false,
-		EditingDepItem:        false,
-		DepsManagerKey:        "",
-		DepInput:              depInput,
+		NameInput:              nameInput,
+		DescriptionInput:       descriptionInput,
+		WhenInput:              whenInput,
+		PackageManagers:        packageManagers,
+		EditAppIdx:             editAppIdx,
+		GitURLInput:            gitURLInput,
+		GitBranchInput:         gitBranchInput,
+		GitLinuxInput:          gitLinuxInput,
+		GitWindowsInput:        gitWindowsInput,
+		GitFieldCursor:         -1,
+		HasGitPackage:          hasGitPackage,
+		GitSudo:                gitSudo,
+		InstallerLinuxInput:    installerLinuxInput,
+		InstallerWindowsInput:  installerWindowsInput,
+		InstallerBinaryInput:   installerBinaryInput,
+		InstallerFieldCursor:   -1,
+		HasInstallerPackage:    hasInstallerPackage,
+		CustomLinuxInput:       customLinuxInput,
+		CustomWindowsInput:     customWindowsInput,
+		CustomFieldCursor:      -1,
+		HasCustomPackage:       hasCustomPackage,
+		URLLinuxInput:          urlLinuxInput,
+		URLLinuxCommandInput:   urlLinuxCommandInput,
+		URLWindowsInput:        urlWindowsInput,
+		URLWindowsCommandInput: urlWindowsCommandInput,
+		URLFieldCursor:         -1,
+		HasURLPackage:          hasURLPackage,
+		PackageDeps:            packageDeps,
+		DepsCursor:             0,
+		EditingDeps:            false,
+		EditingDepItem:         false,
+		DepsManagerKey:         "",
+		DepInput:               depInput,
 	}
 }

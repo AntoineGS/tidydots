@@ -48,6 +48,22 @@ func NewInstallerTextInputs() (installerLinuxInput, installerWindowsInput, insta
 	return installerLinuxInput, installerWindowsInput, installerBinaryInput
 }
 
+// NewCustomTextInputs creates the two custom command inputs.
+func NewCustomTextInputs() (linuxInput, windowsInput textinput.Model) {
+	linuxInput = NewFormInput("e.g., cargo install ...", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	windowsInput = NewFormInput("e.g., scoop install ...", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	return linuxInput, windowsInput
+}
+
+// NewURLTextInputs creates URL and command inputs for both operating systems.
+func NewURLTextInputs() (linuxURL, linuxCommand, windowsURL, windowsCommand textinput.Model) {
+	linuxURL = NewFormInput("e.g., https://example.com/tool.tar.gz", tuishared.CharLimitURL, tuishared.InputWidthNarrow)
+	linuxCommand = NewFormInput("e.g., tar -xf {file}", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	windowsURL = NewFormInput("e.g., https://example.com/tool.zip", tuishared.CharLimitURL, tuishared.InputWidthNarrow)
+	windowsCommand = NewFormInput("e.g., Expand-Archive {file}", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	return linuxURL, linuxCommand, windowsURL, windowsCommand
+}
+
 // RenderPackagesSection renders the packages list with editing state
 // focused indicates if the packages section is currently focused
 // packageManagers is the map of manager -> package name
@@ -262,6 +278,47 @@ func RenderInstallerPackageSection(
 	return b.String()
 }
 
+// RenderCustomPackageSection renders the expandable custom command package.
+func RenderCustomPackageSection(focused, onItem, hasPackage bool, cursor int, editing bool, linux, windows textinput.Model) string {
+	return renderPackageMethodSection(focused, onItem, hasPackage, cursor, editing, "custom", "[+ Add Custom Package]", []packageMethodField{
+		{"Linux:   ", linux}, {"Windows: ", windows},
+	})
+}
+
+// RenderURLPackageSection renders the expandable URL download package.
+func RenderURLPackageSection(focused, onItem, hasPackage bool, cursor int, editing bool, linuxURL, linuxCommand, windowsURL, windowsCommand textinput.Model) string {
+	return renderPackageMethodSection(focused, onItem, hasPackage, cursor, editing, "url:", "[+ Add URL Download Package]", []packageMethodField{
+		{"Linux URL:     ", linuxURL}, {"Linux command: ", linuxCommand}, {"Windows URL:  ", windowsURL}, {"Windows command:", windowsCommand},
+	})
+}
+
+type packageMethodField struct {
+	label string
+	input textinput.Model
+}
+
+func renderPackageMethodSection(focused, onItem, hasPackage bool, cursor int, editing bool, label, addText string, fields []packageMethodField) string {
+	var b strings.Builder
+	prefix := tuishared.IndentSpaces
+	if !hasPackage {
+		if focused && onItem {
+			fmt.Fprintf(&b, "%s%s\n", prefix, tuishared.SelectedMenuItemStyle.Render(addText))
+		} else {
+			fmt.Fprintf(&b, "%s%s\n", prefix, tuishared.MutedTextStyle.Render(addText))
+		}
+		return b.String()
+	}
+	if focused && onItem && cursor == -1 {
+		fmt.Fprintf(&b, "%s%s\n", prefix, tuishared.SelectedMenuItemStyle.Render(label))
+	} else {
+		fmt.Fprintf(&b, "%s%s\n", prefix, label)
+	}
+	for i, field := range fields {
+		b.WriteString(RenderGitField(field.label, field.input, focused && onItem && cursor >= 0, cursor == i, editing && cursor == i))
+	}
+	return b.String()
+}
+
 // RenderWhenField renders the when expression text field
 func RenderWhenField(
 	focused bool,
@@ -390,6 +447,60 @@ func MergeInstallerPackage(
 
 	pkg.Managers[tuishared.TypeInstaller] = config.ManagerValue{Installer: installerPkg}
 
+	return pkg
+}
+
+// MergeCustomPackage merges OS-specific custom commands into an EntryPackage.
+func MergeCustomPackage(pkg *config.EntryPackage, hasCustom bool, linuxInput, windowsInput textinput.Model) *config.EntryPackage {
+	if !hasCustom {
+		return pkg
+	}
+	linux, windows := strings.TrimSpace(linuxInput.Value()), strings.TrimSpace(windowsInput.Value())
+	if linux == "" && windows == "" {
+		if pkg != nil {
+			pkg.Custom = nil
+		}
+		return pkg
+	}
+	if pkg == nil {
+		pkg = &config.EntryPackage{Managers: make(map[string]config.ManagerValue)}
+	}
+	pkg.Custom = make(map[string]string)
+	if linux != "" {
+		pkg.Custom[tuishared.OSLinux] = linux
+	}
+	if windows != "" {
+		pkg.Custom[tuishared.OSWindows] = windows
+	}
+	return pkg
+}
+
+// MergeURLPackage merges OS-specific URL install specs into an EntryPackage.
+func MergeURLPackage(pkg *config.EntryPackage, hasURL bool, linuxURL, linuxCommand, windowsURL, windowsCommand textinput.Model) *config.EntryPackage {
+	if !hasURL {
+		return pkg
+	}
+	values := []struct {
+		os, url, command string
+	}{
+		{tuishared.OSLinux, strings.TrimSpace(linuxURL.Value()), strings.TrimSpace(linuxCommand.Value())},
+		{tuishared.OSWindows, strings.TrimSpace(windowsURL.Value()), strings.TrimSpace(windowsCommand.Value())},
+	}
+	if values[0].url == "" && values[0].command == "" && values[1].url == "" && values[1].command == "" {
+		if pkg != nil {
+			pkg.URL = nil
+		}
+		return pkg
+	}
+	if pkg == nil {
+		pkg = &config.EntryPackage{Managers: make(map[string]config.ManagerValue)}
+	}
+	pkg.URL = make(map[string]config.URLInstallSpec)
+	for _, value := range values {
+		if value.url != "" || value.command != "" {
+			pkg.URL[value.os] = config.URLInstallSpec{URL: value.url, Command: value.command}
+		}
+	}
 	return pkg
 }
 

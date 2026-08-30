@@ -17,6 +17,8 @@ var (
 	renderDepsSection             = forms.RenderDepsSection
 	renderGitPackageSection       = forms.RenderGitPackageSection
 	renderInstallerPackageSection = forms.RenderInstallerPackageSection
+	renderCustomPackageSection    = forms.RenderCustomPackageSection
+	renderURLPackageSection       = forms.RenderURLPackageSection
 	renderWhenField               = forms.RenderWhenField
 	buildPackageSpec              = forms.BuildPackageSpec
 	mergeGitPackage               = forms.MergeGitPackage

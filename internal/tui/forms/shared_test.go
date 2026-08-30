@@ -337,6 +337,45 @@ func TestMergeInstallerPackage(t *testing.T) {
 	})
 }
 
+func TestMergeCustomPackage(t *testing.T) {
+	result := forms.MergeCustomPackage(nil, true, makeInput("cargo install ripgrep"), makeInput("cargo install ripgrep"))
+	if result == nil {
+		t.Fatal("expected non-nil package")
+	}
+	if result.Custom[tuishared.OSLinux] != "cargo install ripgrep" || result.Custom[tuishared.OSWindows] != "cargo install ripgrep" {
+		t.Errorf("Custom = %#v, want commands for both OSes", result.Custom)
+	}
+
+	result = forms.MergeCustomPackage(result, true, makeInput(""), makeInput(""))
+	if _, ok := result.Custom[tuishared.OSLinux]; ok {
+		t.Error("empty Linux custom command should be removed")
+	}
+	if _, ok := result.Custom[tuishared.OSWindows]; ok {
+		t.Error("empty Windows custom command should be removed")
+	}
+	if result.Custom != nil {
+		t.Errorf("Custom = %#v, want nil after removing all commands", result.Custom)
+	}
+}
+
+func TestMergeURLPackage(t *testing.T) {
+	result := forms.MergeURLPackage(nil, true, makeInput("https://example.com/linux"), makeInput("install {file}"), makeInput("https://example.com/windows"), makeInput("install {file}"))
+	if result == nil {
+		t.Fatal("expected non-nil package")
+	}
+	if result.URL[tuishared.OSLinux].URL != "https://example.com/linux" || result.URL[tuishared.OSLinux].Command != "install {file}" {
+		t.Errorf("URL[linux] = %#v", result.URL[tuishared.OSLinux])
+	}
+	if result.URL[tuishared.OSWindows].URL != "https://example.com/windows" || result.URL[tuishared.OSWindows].Command != "install {file}" {
+		t.Errorf("URL[windows] = %#v", result.URL[tuishared.OSWindows])
+	}
+
+	result = forms.MergeURLPackage(result, true, makeInput(""), makeInput(""), makeInput(""), makeInput(""))
+	if result.URL != nil {
+		t.Errorf("URL = %#v, want nil after removing all specs", result.URL)
+	}
+}
+
 func TestBuildTargetsFromInputs(t *testing.T) {
 	tests := []struct {
 		name           string
