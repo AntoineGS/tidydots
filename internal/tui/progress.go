@@ -848,12 +848,11 @@ func (m Model) canRefreshAllStates() bool {
 		!m.showingDetail &&
 		!m.showingResults &&
 		m.pendingStateChecks == 0 &&
-		!m.hasLoadingItems() &&
 		!m.processing
 }
 
 func (m Model) stateChecksPending() bool {
-	return m.pendingStateChecks > 0 || m.hasLoadingItems()
+	return m.pendingStateChecks > 0
 }
 
 func (m Model) viewResults() string {

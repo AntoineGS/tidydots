@@ -154,6 +154,63 @@ func TestRefreshBlocksMutatingAndRedispatchingActionsUntilResultsDrain(t *testin
 	}
 }
 
+func TestMachineFilteredDormantStatesDoNotBlockFilterRemoval(t *testing.T) {
+	m := dormantFilteredStateModel()
+
+	next, cmd := m.Update(tea.KeyPressMsg{Code: 'f'})
+	updated := next.(Model)
+	if cmd == nil || updated.filterEnabled || updated.pendingStateChecks != 2 {
+		t.Fatalf("filter removal: enabled=%v pending=%d cmd nil=%v; want false, 2, false", updated.filterEnabled, updated.pendingStateChecks, cmd == nil)
+	}
+
+	for _, result := range collectMsgs(cmd) {
+		got, nextCmd := updated.Update(result)
+		updated = got.(Model)
+		if nextCmd != nil {
+			t.Fatal("filtered state result unexpectedly dispatched another command")
+		}
+	}
+	if updated.pendingStateChecks != 0 {
+		t.Fatalf("filtered checks did not drain: pending=%d", updated.pendingStateChecks)
+	}
+}
+
+func TestMachineFilteredDormantStatesDoNotBlockManualRefresh(t *testing.T) {
+	m := dormantFilteredStateModel()
+
+	next, cmd := m.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	updated := next.(Model)
+	if cmd == nil || updated.pendingStateChecks != 2 {
+		t.Fatalf("manual refresh: pending=%d cmd nil=%v; want 2, false", updated.pendingStateChecks, cmd == nil)
+	}
+
+	for _, result := range collectMsgs(cmd) {
+		got, nextCmd := updated.Update(result)
+		updated = got.(Model)
+		if nextCmd != nil {
+			t.Fatal("manual refresh result unexpectedly dispatched another command")
+		}
+	}
+	if updated.pendingStateChecks != 0 {
+		t.Fatalf("manual refresh checks did not drain: pending=%d", updated.pendingStateChecks)
+	}
+}
+
+func dormantFilteredStateModel() Model {
+	pkg := &config.EntryPackage{Managers: map[string]config.ManagerValue{}}
+	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{
+		Name: "windows-only", When: `{{ eq .OS "windows" }}`, Package: pkg,
+		Entries: []config.SubEntry{{Name: "config", Backup: "./config", Targets: map[string]string{"linux": "/tmp/config"}}},
+	}}}, &platform.Platform{OS: platform.OSLinux, EnvVars: map[string]string{}}, false)
+	m.pendingStateChecks = 0
+	m.Applications[0].IsFiltered = true
+	m.Applications[0].PkgInstalled = nil
+	m.Applications[0].SubItems[0].State = StateLoading
+	m.filterEnabled = true
+	m.rebuildTable()
+	return m
+}
+
 func TestUpdateResultsCtrlRRefreshesStatuses(t *testing.T) {
 	pkg := &config.EntryPackage{Managers: map[string]config.ManagerValue{
 		"git": {Git: &config.GitPackage{URL: "https://example.com/tool.git", Targets: map[string]string{"linux": t.TempDir()}}},
@@ -181,6 +238,7 @@ func TestCanRefreshAllStates(t *testing.T) {
 		{name: "clean list", want: true},
 		{name: "pending checks", setup: func(m *Model) { m.pendingStateChecks = 1 }},
 		{name: "loading items", setup: func(m *Model) {
+			m.pendingStateChecks = 1
 			m.Applications = []ApplicationItem{{SubItems: []SubEntryItem{{State: StateLoading}}}}
 		}},
 		{name: "processing", setup: func(m *Model) { m.processing = true }},
