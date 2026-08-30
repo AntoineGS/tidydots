@@ -42,6 +42,28 @@ func (m Model) updateApplicationCustomFields(msg tea.KeyPressMsg) (tea.Model, te
 			input.Focus()
 			input.SetCursor(len(input.Value()))
 		}
+	case key.Matches(msg, FormNavKeys.TabNext):
+		m.applicationForm.FocusIndex++
+		if m.applicationForm.FocusIndex > 3 {
+			m.applicationForm.FocusIndex = 0
+		}
+		m.applicationForm.PackagesCursor = 0
+		m.applicationForm.GitFieldCursor = -1
+		m.applicationForm.InstallerFieldCursor = -1
+		m.applicationForm.CustomFieldCursor = -1
+		m.applicationForm.URLFieldCursor = -1
+		m.updateApplicationFormFocus()
+	case key.Matches(msg, FormNavKeys.TabPrev):
+		m.applicationForm.FocusIndex--
+		if m.applicationForm.FocusIndex < 0 {
+			m.applicationForm.FocusIndex = 3
+		}
+		m.applicationForm.PackagesCursor = 0
+		m.applicationForm.GitFieldCursor = -1
+		m.applicationForm.InstallerFieldCursor = -1
+		m.applicationForm.CustomFieldCursor = -1
+		m.applicationForm.URLFieldCursor = -1
+		m.updateApplicationFormFocus()
 	case key.Matches(msg, FormNavKeys.Save):
 		return m.saveApplicationFormAndExit()
 	}
@@ -84,6 +106,28 @@ func (m Model) updateApplicationURLFields(msg tea.KeyPressMsg) (tea.Model, tea.C
 			input.Focus()
 			input.SetCursor(len(input.Value()))
 		}
+	case key.Matches(msg, FormNavKeys.TabNext):
+		m.applicationForm.FocusIndex++
+		if m.applicationForm.FocusIndex > 3 {
+			m.applicationForm.FocusIndex = 0
+		}
+		m.applicationForm.PackagesCursor = 0
+		m.applicationForm.GitFieldCursor = -1
+		m.applicationForm.InstallerFieldCursor = -1
+		m.applicationForm.CustomFieldCursor = -1
+		m.applicationForm.URLFieldCursor = -1
+		m.updateApplicationFormFocus()
+	case key.Matches(msg, FormNavKeys.TabPrev):
+		m.applicationForm.FocusIndex--
+		if m.applicationForm.FocusIndex < 0 {
+			m.applicationForm.FocusIndex = 3
+		}
+		m.applicationForm.PackagesCursor = 0
+		m.applicationForm.GitFieldCursor = -1
+		m.applicationForm.InstallerFieldCursor = -1
+		m.applicationForm.CustomFieldCursor = -1
+		m.applicationForm.URLFieldCursor = -1
+		m.updateApplicationFormFocus()
 	case key.Matches(msg, FormNavKeys.Save):
 		return m.saveApplicationFormAndExit()
 	}

@@ -165,6 +165,97 @@ func TestApplicationForm_DeletePackageMethodSections(t *testing.T) {
 	}
 }
 
+func TestApplicationForm_CustomPackageInteraction(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.initApplicationForm(-1)
+	m.applicationForm.FocusIndex = 2
+	m.applicationForm.PackagesCursor = len(displayPackageManagers) + 2
+	m.applicationForm.HasCustomPackage = true
+	m.applicationForm.CustomFieldCursor = 0
+	m.applicationForm.CustomLinuxInput.SetValue("old command")
+
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if !m.applicationForm.EditingCustomField {
+		t.Fatal("enter should start custom field editing")
+	}
+	m.applicationForm.CustomLinuxInput.SetValue("canceled command")
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+	if got := m.applicationForm.CustomLinuxInput.Value(); got != "old command" {
+		t.Errorf("escape restored %q, want %q", got, "old command")
+	}
+
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	m.applicationForm.CustomLinuxInput.SetValue("confirmed command")
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if m.applicationForm.EditingCustomField || m.applicationForm.CustomLinuxInput.Value() != "confirmed command" {
+		t.Error("enter should retain the confirmed custom command")
+	}
+
+	m.applicationForm.CustomFieldCursor = 1
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
+	m = updated.(Model)
+	if m.applicationForm.FocusIndex != 1 || m.applicationForm.CustomFieldCursor != -1 {
+		t.Errorf("shift-tab from custom section = focus %d, cursor %d; want focus 1, cursor -1", m.applicationForm.FocusIndex, m.applicationForm.CustomFieldCursor)
+	}
+
+	m.applicationForm.FocusIndex = 2
+	m.applicationForm.PackagesCursor = len(displayPackageManagers) + 2
+	m.applicationForm.CustomFieldCursor = 1
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(Model)
+	if m.applicationForm.FocusIndex != 3 || m.applicationForm.CustomFieldCursor != -1 || m.applicationForm.PackagesCursor != 0 {
+		t.Errorf("tab from custom section = focus %d, cursor %d, package cursor %d; want focus 3, cursor -1, package cursor 0", m.applicationForm.FocusIndex, m.applicationForm.CustomFieldCursor, m.applicationForm.PackagesCursor)
+	}
+}
+
+func TestApplicationForm_URLPackageInteraction(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.initApplicationForm(-1)
+	m.applicationForm.FocusIndex = 2
+	m.applicationForm.PackagesCursor = len(displayPackageManagers) + 3
+	m.applicationForm.HasURLPackage = true
+	m.applicationForm.URLFieldCursor = 0
+	m.applicationForm.URLLinuxInput.SetValue("https://old.example/tool")
+
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	m.applicationForm.URLLinuxInput.SetValue("https://cancelled.example/tool")
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+	if got := m.applicationForm.URLLinuxInput.Value(); got != "https://old.example/tool" {
+		t.Errorf("escape restored %q, want original URL", got)
+	}
+
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	m.applicationForm.URLLinuxInput.SetValue("https://confirmed.example/tool")
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if m.applicationForm.EditingURLField || m.applicationForm.URLLinuxInput.Value() != "https://confirmed.example/tool" {
+		t.Error("enter should retain the confirmed URL")
+	}
+
+	m.applicationForm.URLFieldCursor = 3
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(Model)
+	if m.applicationForm.FocusIndex != 3 || m.applicationForm.URLFieldCursor != -1 || m.applicationForm.PackagesCursor != 0 {
+		t.Errorf("tab from URL section = focus %d, cursor %d, package cursor %d; want focus 3, cursor -1, package cursor 0", m.applicationForm.FocusIndex, m.applicationForm.URLFieldCursor, m.applicationForm.PackagesCursor)
+	}
+
+	m.applicationForm.FocusIndex = 2
+	m.applicationForm.PackagesCursor = len(displayPackageManagers) + 3
+	m.applicationForm.URLFieldCursor = 0
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
+	m = updated.(Model)
+	if m.applicationForm.FocusIndex != 1 || m.applicationForm.URLFieldCursor != -1 {
+		t.Errorf("shift-tab from URL section = focus %d, cursor %d; want focus 1, cursor -1", m.applicationForm.FocusIndex, m.applicationForm.URLFieldCursor)
+	}
+}
+
 func TestApplicationForm_EditMode(t *testing.T) {
 	app := config.Application{
 		Name:        "test",
