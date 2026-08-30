@@ -55,7 +55,7 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | `↓` / `j` | Move down |
 | `←` / `h` | Collapse application row |
 | `→` / `l` / `enter` | Expand application row (show sub-entries) |
-| `e` | Edit selected application or config entry ([setup entries](../configuration/setup.md) are edited in `tidydots.yaml`) |
+| `e` | Edit the selected application, config entry, or setup entry in the TUI |
 | `esc` | Go back or cancel (see [priority](#clearing-selections)) |
 | `tab` / `space` | Toggle selection |
 | `/` | Search and filter |
