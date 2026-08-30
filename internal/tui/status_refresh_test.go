@@ -116,6 +116,35 @@ func TestUpdateResultsCtrlRRefreshesStatuses(t *testing.T) {
 	}
 }
 
+func TestCanRefreshAllStates(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(*Model)
+		want  bool
+	}{
+		{name: "clean list", want: true},
+		{name: "pending checks", setup: func(m *Model) { m.pendingStateChecks = 1 }},
+		{name: "loading items", setup: func(m *Model) {
+			m.Applications = []ApplicationItem{{SubItems: []SubEntryItem{{State: StateLoading}}}}
+		}},
+		{name: "processing", setup: func(m *Model) { m.processing = true }},
+		{name: "searching", setup: func(m *Model) { m.searching = true }},
+		{name: "showing results", setup: func(m *Model) { m.showingResults = true }},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := Model{Operation: OpList}
+			if tc.setup != nil {
+				tc.setup(&m)
+			}
+			if got := m.canRefreshAllStates(); got != tc.want {
+				t.Fatalf("canRefreshAllStates() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestUpdateResultsCtrlRIgnoredWhenBusy(t *testing.T) {
 	cases := []struct {
 		name string

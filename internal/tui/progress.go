@@ -419,7 +419,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case key.Matches(msg, ListKeys.Refresh):
-		if listClean && m.pendingStateChecks == 0 && !m.hasLoadingItems() && !m.processing {
+		if m.canRefreshAllStates() {
 			return m, m.refreshAllStates()
 		}
 		return m, nil
@@ -830,6 +830,20 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m Model) canRefreshAllStates() bool {
+	return m.Operation == OpList &&
+		!m.searching &&
+		!m.confirmingDeleteApp &&
+		!m.confirmingDeleteSubEntry &&
+		!m.confirmingFilterToggle &&
+		!m.confirmingActionFilter &&
+		!m.showingDetail &&
+		!m.showingResults &&
+		m.pendingStateChecks == 0 &&
+		!m.hasLoadingItems() &&
+		!m.processing
 }
 
 func (m Model) viewResults() string {
