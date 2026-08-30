@@ -125,10 +125,7 @@ func (m *Model) fixTreeCharacters() {
 // initTableModel initializes the table data and cursor
 func (m *Model) initTableModel() {
 	// Flatten hierarchical data with current search
-	filtered := m.getSearchedApplications()
-	if m.actionFilterEnabled {
-		filtered = filterActionableApplications(filtered)
-	}
+	filtered := m.getFilteredApplications()
 
 	// Sort applications before flattening (only if sort column applies to apps)
 	if m.sortColumn == SortColumnName || m.sortColumn == SortColumnStatus {
@@ -162,6 +159,16 @@ func (m *Model) initTableModel() {
 			m.tableCursor = 0
 		}
 	}
+}
+
+// getFilteredApplications applies view filters in their display order while
+// retaining a cloned list for sorting and flattening.
+func (m Model) getFilteredApplications() []ApplicationItem {
+	filtered := m.getSearchedApplications()
+	if m.actionFilterEnabled {
+		filtered = filterActionableApplications(filtered)
+	}
+	return filtered
 }
 
 // rebuildTable rebuilds the table with current data (after expand/collapse or search changes)

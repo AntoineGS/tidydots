@@ -75,3 +75,140 @@ func TestVimMotionPaging(t *testing.T) {
 		t.Errorf("G scroll = %d, want %d", m.scrollOffset, want)
 	}
 }
+
+func TestVimMotionPaging_EmptyTableKeepsCursorAndScrollZero(t *testing.T) {
+	m := Model{Operation: OpList, Screen: ScreenResults, height: 24, tableRows: nil}
+
+	for _, msg := range []tea.KeyPressMsg{
+		{Code: 'd', Mod: tea.ModCtrl},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Code: 'G', Text: "G"},
+		{Code: 'g', Text: "g"},
+		{Code: 'g', Text: "g"},
+	} {
+		updated, _ := m.Update(msg)
+		m = updated.(Model)
+		if m.tableCursor != 0 || m.scrollOffset != 0 {
+			t.Fatalf("key %q moved empty table to cursor=%d scroll=%d", msg.Text, m.tableCursor, m.scrollOffset)
+		}
+	}
+}
+
+func TestVimMotionPaging_OneRowAndRepeatedPagingClamp(t *testing.T) {
+	m := Model{
+		Operation:   OpList,
+		Screen:      ScreenResults,
+		height:      24,
+		tableRows:   []TableRow{{AppName: "one"}},
+		tableCursor: 0,
+	}
+
+	for i := 0; i < 3; i++ {
+		updated, _ := m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
+		m = updated.(Model)
+		updated, _ = m.Update(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+		m = updated.(Model)
+	}
+
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
+	m = updated.(Model)
+	if m.tableCursor != 0 || m.scrollOffset != 0 {
+		t.Errorf("one-row motions ended at cursor=%d scroll=%d", m.tableCursor, m.scrollOffset)
+	}
+}
+
+func TestVimMotionPaging_ModalAndSearchIsolation(t *testing.T) {
+	m := Model{
+		Operation:              OpList,
+		Screen:                 ScreenResults,
+		height:                 24,
+		tableRows:              []TableRow{{AppName: "one"}, {AppName: "two"}},
+		Platform:               linuxPlatform(),
+		confirmingFilterToggle: true,
+		tableCursor:            1,
+	}
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
+	m = updated.(Model)
+	if m.tableCursor != 1 || m.pendingG {
+		t.Errorf("motion entered confirmation modal: cursor=%d pendingG=%t", m.tableCursor, m.pendingG)
+	}
+
+	m.confirmingFilterToggle = false
+	m.searching = true
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
+	m = updated.(Model)
+	if m.pendingG {
+		t.Errorf("motion entered search input: pendingG=%t", m.pendingG)
+	}
+}
+
+func actionFilterSelectionModel() Model {
+	app := ApplicationItem{
+		Application: config.Application{Name: "selected"},
+		SubItems: []SubEntryItem{{
+			AppName:  "selected",
+			SubEntry: config.SubEntry{Name: "linked", Targets: map[string]string{"linux": "~/linked"}},
+			State:    StateLinked,
+			Index:    0,
+		}},
+	}
+	m := Model{
+		Applications:       []ApplicationItem{app},
+		Platform:           linuxPlatform(),
+		Operation:          OpList,
+		Screen:             ScreenResults,
+		filterEnabled:      false,
+		selectedApps:       map[string]bool{"selected": true},
+		selectedSubEntries: make(map[subEntryKey]bool),
+		multiSelectActive:  true,
+		height:             24,
+		width:              100,
+	}
+	m.rebuildTable()
+	return m
+}
+
+func TestActionFilterConfirmationCancelKeepsFilterDisabled(t *testing.T) {
+	m := actionFilterSelectionModel()
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	m = updated.(Model)
+	if !m.confirmingActionFilter || m.actionFilterEnabled {
+		t.Fatalf("x should open action-filter confirmation: confirming=%t enabled=%t", m.confirmingActionFilter, m.actionFilterEnabled)
+	}
+
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
+	m = updated.(Model)
+	if m.confirmingActionFilter || m.actionFilterEnabled || !m.selectedApps["selected"] {
+		t.Errorf("cancel changed state: confirming=%t enabled=%t selected=%t", m.confirmingActionFilter, m.actionFilterEnabled, m.selectedApps["selected"])
+	}
+}
+
+func TestActionFilterConfirmationPreservesBatchSelections(t *testing.T) {
+	m := actionFilterSelectionModel()
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	m = updated.(Model)
+
+	if m.confirmingActionFilter || !m.actionFilterEnabled || !m.selectedApps["selected"] || !m.multiSelectActive {
+		t.Errorf("confirm did not preserve batch selection: confirming=%t enabled=%t selected=%t active=%t", m.confirmingActionFilter, m.actionFilterEnabled, m.selectedApps["selected"], m.multiSelectActive)
+	}
+	if len(m.tableRows) != 0 {
+		t.Errorf("action filter should hide the linked-only selected app, got %d rows", len(m.tableRows))
+	}
+}
+
+func TestActionFilterConfirmationBlocksMotions(t *testing.T) {
+	m := actionFilterSelectionModel()
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
+	m = updated.(Model)
+	if !m.confirmingActionFilter || m.tableCursor != 0 || m.pendingG {
+		t.Errorf("motion escaped action-filter modal: confirming=%t cursor=%d pendingG=%t", m.confirmingActionFilter, m.tableCursor, m.pendingG)
+	}
+}

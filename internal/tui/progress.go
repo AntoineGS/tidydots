@@ -307,6 +307,24 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle action filter toggle confirmation. Unlike the machine filter,
+	// action filtering preserves selections after confirmation.
+	if m.Operation == OpList && m.confirmingActionFilter {
+		switch {
+		case key.Matches(msg, ConfirmKeys.Yes):
+			m.confirmingActionFilter = false
+			m.actionFilterHiddenCount = 0
+			m.actionFilterEnabled = true
+			m.rebuildTable()
+			return m, nil
+		case key.Matches(msg, ConfirmKeys.No):
+			m.confirmingActionFilter = false
+			m.actionFilterHiddenCount = 0
+			return m, nil
+		}
+		return m, nil
+	}
+
 	// Handle delete confirmation
 	if m.Operation == OpList && (m.confirmingDeleteApp || m.confirmingDeleteSubEntry) {
 		switch {
@@ -417,6 +435,9 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if len(m.tableRows) > 0 {
 				m.tableCursor = len(m.tableRows) - 1
 				m.updateScrollOffset()
+			} else {
+				m.tableCursor = 0
+				m.scrollOffset = 0
 			}
 		}
 		return m, nil
@@ -435,6 +456,11 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, ListKeys.HalfPageDown):
 		if listClean {
+			if len(m.tableRows) == 0 {
+				m.tableCursor = 0
+				m.scrollOffset = 0
+				return m, nil
+			}
 			movement := m.computeMaxVisibleRows() / 2
 			if movement < 1 {
 				movement = 1
@@ -518,6 +544,14 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, ListKeys.ActionFilter):
 		if listClean {
+			if !m.actionFilterEnabled && m.multiSelectActive {
+				hiddenCount := m.countHiddenActionSelections()
+				if hiddenCount > 0 {
+					m.confirmingActionFilter = true
+					m.actionFilterHiddenCount = hiddenCount
+					return m, nil
+				}
+			}
 			m.actionFilterEnabled = !m.actionFilterEnabled
 			m.rebuildTable()
 		}
@@ -928,6 +962,15 @@ func (m Model) renderHelpForCurrentState() string {
 			m.filterToggleHiddenCount, itemText)
 		return WarningStyle.Render(prompt)
 
+	case m.confirmingActionFilter:
+		itemText := "item(s)"
+		if m.actionFilterHiddenCount == 1 {
+			itemText = "item"
+		}
+		prompt := fmt.Sprintf("Enabling action filter will hide %d selected %s. Continue? (y/n)",
+			m.actionFilterHiddenCount, itemText)
+		return WarningStyle.Render(prompt)
+
 	case m.searching:
 		return RenderHelpFromBindings(m.width,
 			SearchKeys.Confirm,
@@ -1034,12 +1077,11 @@ func (m Model) viewListTable() string {
 	highlightedX := lipgloss.NewStyle().Foreground(accentColor).Bold(true).Render("x")
 	if m.actionFilterEnabled {
 		visibleCount := 0
-		for _, app := range m.getSearchedApplications() {
-			if app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled || slices.ContainsFunc(app.SubItems, func(sub SubEntryItem) bool {
-				return stateSeverity(sub.State) > 0
-			}) {
-				visibleCount++
+		for _, app := range m.getFilteredApplications() {
+			if m.filterEnabled && app.IsFiltered {
+				continue
 			}
+			visibleCount++
 		}
 		filterBanner += "  " + highlightedX + fmt.Sprintf(" action filter: on (%d apps)", visibleCount)
 	} else {

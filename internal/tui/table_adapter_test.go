@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	"charm.land/lipgloss/v2"
@@ -166,6 +167,12 @@ func TestFilterActionableApplications(t *testing.T) {
 				{SubEntry: config.SubEntry{Name: "loading"}, State: StateLoading, Index: 0},
 			},
 		},
+		{
+			Application: config.Application{Name: "unknown"},
+			SubItems: []SubEntryItem{
+				{SubEntry: config.SubEntry{Name: "unknown"}, State: PathState(999), Index: 0},
+			},
+		},
 	}
 
 	filtered := filterActionableApplications(apps)
@@ -186,6 +193,29 @@ func TestFilterActionableApplications(t *testing.T) {
 	}
 	if apps[1].SubItems[0].State != StateLinked || len(apps[1].SubItems) != 2 {
 		t.Error("action filtering must not mutate the source applications")
+	}
+}
+
+func TestActionFilterBannerCountMatchesVisibleApplications(t *testing.T) {
+	missing := false
+	m := Model{
+		Applications: []ApplicationItem{
+			{Application: config.Application{Name: "visible", Package: &config.EntryPackage{}}, PkgInstalled: &missing},
+			{Application: config.Application{Name: "machine-filtered", Package: &config.EntryPackage{}}, PkgInstalled: &missing, IsFiltered: true},
+		},
+		Platform:            linuxPlatform(),
+		Operation:           OpList,
+		Screen:              ScreenResults,
+		actionFilterEnabled: true,
+		filterEnabled:       true,
+		height:              24,
+		width:               120,
+	}
+	m.rebuildTable()
+
+	view := m.viewListTable()
+	if !strings.Contains(view, "action filter: on (1 apps)") {
+		t.Fatalf("action-filter banner did not match visible application rows:\n%s", view)
 	}
 }
 

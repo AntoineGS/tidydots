@@ -135,6 +135,32 @@ func (m *Model) countHiddenSelections() int {
 	return count
 }
 
+// countHiddenActionSelections returns selected items that action filtering
+// would remove, without considering items already hidden by machine filtering.
+func (m *Model) countHiddenActionSelections() int {
+	count := 0
+	for _, app := range m.Applications {
+		if m.filterEnabled && app.IsFiltered {
+			continue
+		}
+
+		name := app.Application.Name
+		appActionable := app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled
+		for _, sub := range app.SubItems {
+			if stateSeverity(sub.State) > 0 {
+				appActionable = true
+			}
+			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] && stateSeverity(sub.State) == 0 {
+				count++
+			}
+		}
+		if m.selectedApps[name] && !appActionable {
+			count++
+		}
+	}
+	return count
+}
+
 // clearHiddenSelections removes selections for apps where IsFiltered=true.
 // Called after toggling filter ON to keep selections in sync with visible items.
 func (m *Model) clearHiddenSelections() {

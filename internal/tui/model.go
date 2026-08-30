@@ -140,6 +140,8 @@ type Model struct {
 	confirmingDeleteApp      bool
 	confirmingFilterToggle   bool // true when showing filter toggle confirmation
 	filterToggleHiddenCount  int  // count of selections that would be hidden
+	confirmingActionFilter   bool // true when showing action filter confirmation
+	actionFilterHiddenCount  int  // count of selections that would be hidden
 	showingDetail            bool
 	showingResults           bool
 	resultsScrollOffset      int
