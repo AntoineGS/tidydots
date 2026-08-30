@@ -355,25 +355,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Message: msg.Message,
 		})
 
-		// Update installed status if installation succeeded
-		if msg.Success {
-			installed := true
-
-			for i := range m.Applications {
-				if m.Applications[i].Application.Name == msg.Package.Name && m.Applications[i].PkgInstalled != nil {
-					m.Applications[i].PkgInstalled = &installed
-
-					break
-				}
-			}
-		}
-
 		m.currentPackageIndex++
 
 		// Check if there are more packages to install
 		if m.currentPackageIndex < len(m.pendingPackages) {
 			return m, m.installNextPackage()
 		}
+
+		completedPackages := m.pendingPackages
 
 		// All done - return to List view
 		m.processing = false
@@ -385,7 +374,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.showingResults = true
 		m.resultsScrollOffset = 0
 
-		return m, nil
+		return m, m.refreshPackageStates(completedPackages)
 
 	case OperationCompleteMsg:
 		m.processing = false
@@ -417,20 +406,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.results = msg.Results
 		m.Screen = ScreenResults
 		m.Operation = OpList
-
-		// Update installed status for successful installs
-		installed := true
-		for _, result := range msg.Results {
-			if result.Success {
-				for i := range m.Applications {
-					if m.Applications[i].Application.Name == result.Name && m.Applications[i].PkgInstalled != nil {
-						m.Applications[i].PkgInstalled = &installed
-
-						break
-					}
-				}
-			}
-		}
 
 		m.rebuildTable()
 

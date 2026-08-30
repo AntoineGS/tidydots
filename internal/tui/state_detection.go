@@ -74,23 +74,12 @@ func (m Model) countInitialStateChecks() int {
 // It also returns the number of checks dispatched so the caller can track pending work.
 func (m Model) checkPackageStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
-	osType := m.Platform.OS
 
 	for i, app := range m.Applications {
 		if app.IsFiltered || !app.Application.HasPackage() {
 			continue
 		}
-		appIndex := i
-		pkg := app.Application.Package
-		name := app.Application.Name
-		cmds = append(cmds, func() tea.Msg {
-			method := getPackageInstallMethodFromPackage(pkg, osType)
-			installed := false
-			if method != TypeNone {
-				installed = isPackageInstalledFromPackage(pkg, method, name, osType)
-			}
-			return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
-		})
+		cmds = append(cmds, m.packageStateCheckCmd(i))
 	}
 
 	return tea.Batch(cmds...), len(cmds)
@@ -129,23 +118,12 @@ func (m Model) checkSubEntryStatesCmd() (tea.Cmd, int) {
 // It also returns the number of checks dispatched so the caller can track pending work.
 func (m Model) checkUncheckedPackageStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
-	osType := m.Platform.OS
 
 	for i, app := range m.Applications {
 		if !app.Application.HasPackage() || app.PkgInstalled != nil {
 			continue
 		}
-		appIndex := i
-		pkg := app.Application.Package
-		name := app.Application.Name
-		cmds = append(cmds, func() tea.Msg {
-			method := getPackageInstallMethodFromPackage(pkg, osType)
-			installed := false
-			if method != TypeNone {
-				installed = isPackageInstalledFromPackage(pkg, method, name, osType)
-			}
-			return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
-		})
+		cmds = append(cmds, m.packageStateCheckCmd(i))
 	}
 
 	return tea.Batch(cmds...), len(cmds)
@@ -156,7 +134,6 @@ func (m Model) checkUncheckedPackageStatesCmd() (tea.Cmd, int) {
 // It also returns the number of checks dispatched so the caller can track pending work.
 func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
-	osType := m.Platform.OS
 	plat := m.Platform
 	cfg := m.Config
 	mgr := m.Manager
@@ -168,17 +145,7 @@ func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 
 		// Package check (only if not already resolved)
 		if app.Application.HasPackage() && app.PkgInstalled == nil {
-			appIndex := i
-			pkg := app.Application.Package
-			name := app.Application.Name
-			cmds = append(cmds, func() tea.Msg {
-				method := getPackageInstallMethodFromPackage(pkg, osType)
-				installed := false
-				if method != TypeNone {
-					installed = isPackageInstalledFromPackage(pkg, method, name, osType)
-				}
-				return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
-			})
+			cmds = append(cmds, m.packageStateCheckCmd(i))
 		}
 
 		// Sub-entry state checks (only if still at StateLoading)
@@ -197,6 +164,40 @@ func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 	}
 
 	return tea.Batch(cmds...), len(cmds)
+}
+
+func (m Model) packageStateCheckCmd(appIndex int) tea.Cmd {
+	app := m.Applications[appIndex]
+	pkg := app.Application.Package
+	name := app.Application.Name
+	osType := m.Platform.OS
+	return func() tea.Msg {
+		method := getPackageInstallMethodFromPackage(pkg, osType)
+		installed := false
+		if method != TypeNone {
+			installed = isPackageInstalledFromPackage(pkg, method, name, osType)
+		}
+		return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
+	}
+}
+
+func (m *Model) refreshPackageStates(packages []PackageItem) tea.Cmd {
+	names := make(map[string]struct{}, len(packages))
+	for _, pkg := range packages {
+		names[pkg.Name] = struct{}{}
+	}
+
+	cmds := make([]tea.Cmd, 0, len(names))
+	for i := range m.Applications {
+		if _, ok := names[m.Applications[i].Application.Name]; !ok || !m.Applications[i].Application.HasPackage() {
+			continue
+		}
+		m.Applications[i].PkgInstalled = nil
+		cmds = append(cmds, m.packageStateCheckCmd(i))
+	}
+	m.pendingStateChecks += len(cmds)
+	m.rebuildTable()
+	return tea.Batch(cmds...)
 }
 
 // checkLoadingSubEntryStatesCmd returns a tea.Cmd that resolves sub-entry
