@@ -290,19 +290,19 @@ func (f *SubEntryForm) EnterFieldEditMode() {
 	case SubFieldLinuxCheck:
 		f.OriginalValue = f.LinuxCheckInput.Value()
 		f.LinuxCheckInput.Focus()
-		f.LinuxCheckInput.SetCursor(len(f.LinuxCheckInput.Value()))
+		f.LinuxCheckInput.MoveCursorToEnd()
 	case SubFieldLinuxRun:
 		f.OriginalValue = f.LinuxRunInput.Value()
 		f.LinuxRunInput.Focus()
-		f.LinuxRunInput.SetCursor(len(f.LinuxRunInput.Value()))
+		f.LinuxRunInput.MoveCursorToEnd()
 	case SubFieldWindowsCheck:
 		f.OriginalValue = f.WindowsCheckInput.Value()
 		f.WindowsCheckInput.Focus()
-		f.WindowsCheckInput.SetCursor(len(f.WindowsCheckInput.Value()))
+		f.WindowsCheckInput.MoveCursorToEnd()
 	case SubFieldWindowsRun:
 		f.OriginalValue = f.WindowsRunInput.Value()
 		f.WindowsRunInput.Focus()
-		f.WindowsRunInput.SetCursor(len(f.WindowsRunInput.Value()))
+		f.WindowsRunInput.MoveCursorToEnd()
 	case SubFieldBackup:
 		f.OriginalValue = f.BackupInput.Value()
 		f.BackupInput.Focus()

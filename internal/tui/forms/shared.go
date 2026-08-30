@@ -3,6 +3,7 @@ package forms
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/textinput"
@@ -68,8 +69,20 @@ func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
 	return m, cmd
 }
 
-// SetCursor retains the textinput-compatible cursor API.
-func (m *CommandInput) SetCursor(column int) { m.SetCursorColumn(column) }
+// SetCursor retains the textinput-compatible cursor API while treating column
+// as an offset in decoded text. The common end-of-value case must skip the
+// extra escape characters stored in the textarea.
+func (m *CommandInput) SetCursor(column int) {
+	if column >= utf8.RuneCountInString(m.Value()) {
+		m.MoveCursorToEnd()
+		return
+	}
+	m.SetCursorColumn(column)
+}
+
+// MoveCursorToEnd moves to the end of the encoded editor value, regardless of
+// how many escape characters represent the decoded command.
+func (m *CommandInput) MoveCursorToEnd() { m.MoveToEnd() }
 
 // SetValue retains the original bytes because textarea normalizes tabs for
 // display. Updates made interactively are captured by Update above.

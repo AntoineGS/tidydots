@@ -40,7 +40,7 @@ func (m Model) updateApplicationCustomFields(msg tea.KeyPressMsg) (tea.Model, te
 			m.applicationForm.EditingCustomField = true
 			m.applicationForm.OriginalValue = input.Value()
 			input.Focus()
-			input.SetCursor(len(input.Value()))
+			input.MoveCursorToEnd()
 		}
 	case key.Matches(msg, FormNavKeys.TabNext):
 		m.applicationForm.FocusIndex++
@@ -104,7 +104,11 @@ func (m Model) updateApplicationURLFields(msg tea.KeyPressMsg) (tea.Model, tea.C
 			m.applicationForm.EditingURLField = true
 			m.applicationForm.OriginalValue = input.Value()
 			input.Focus()
-			input.SetCursor(len(input.Value()))
+			if command := m.applicationForm.GetURLCommandFieldInput(); command != nil {
+				command.MoveCursorToEnd()
+			} else {
+				input.SetCursor(len(input.Value()))
+			}
 		}
 	case key.Matches(msg, FormNavKeys.TabNext):
 		m.applicationForm.FocusIndex++

@@ -189,7 +189,12 @@ func (m Model) updateApplicationInstallerFields(msg tea.KeyPressMsg) (tea.Model,
 			m.applicationForm.EditingInstallerField = true
 			m.applicationForm.OriginalValue = input.Value()
 			input.Focus()
-			input.SetCursor(len(input.Value()))
+			input.MoveCursorToEnd()
+		} else if binary := m.applicationForm.GetInstallerFieldInput(); binary != nil {
+			m.applicationForm.EditingInstallerField = true
+			m.applicationForm.OriginalValue = binary.Value()
+			binary.Focus()
+			binary.SetCursor(len(binary.Value()))
 		}
 		return m, nil
 

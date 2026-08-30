@@ -9,6 +9,62 @@ import (
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
 )
 
+func TestApplicationCommandEditUsesDecodedEnd(t *testing.T) {
+	const original = "printf '\\t'\n\twith-tab"
+	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool", Package: &config.EntryPackage{Custom: map[string]string{"linux": original}}}}}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.Applications = []ApplicationItem{{Application: m.Config.Applications[0]}}
+	m.ConfigPath = t.TempDir() + "/tidydots.yaml"
+	m.initApplicationForm(0)
+	m.applicationForm.FocusIndex = 2
+	m.applicationForm.PackagesCursor = len(displayPackageManagers) + 2
+	m.applicationForm.CustomFieldCursor = 0
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Text: "!", Code: '!'})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if got := m.applicationForm.CustomLinuxInput.Value(); got != original+"!" {
+		t.Fatalf("edited command = %q, want %q", got, original+"!")
+	}
+	if err := m.saveApplicationForm(); err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+	reloaded, err := config.Load(m.ConfigPath)
+	if err != nil || reloaded.Applications[0].Package.Custom["linux"] != original+"!" {
+		t.Fatalf("reloaded command = %q, err=%v", reloaded.Applications[0].Package.Custom["linux"], err)
+	}
+}
+
+func TestInstallerBinaryEditConfirmAndCancel(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.initApplicationForm(-1)
+	m.applicationForm.HasInstallerPackage = true
+	m.applicationForm.InstallerBinaryInput.SetValue("old-bin")
+	m.applicationForm.FocusIndex = 2
+	m.applicationForm.PackagesCursor = len(displayPackageManagers) + 1
+	m.applicationForm.InstallerFieldCursor = InstallerFieldBinary
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+	if m.applicationForm.InstallerBinaryInput.Value() != "old-bin" {
+		t.Fatalf("cancel did not restore binary: %q", m.applicationForm.InstallerBinaryInput.Value())
+	}
+	m.applicationForm.InstallerFieldCursor = InstallerFieldBinary
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Text: "!", Code: '!'})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if m.applicationForm.InstallerBinaryInput.Value() != "old-bin!" {
+		t.Fatalf("confirm did not retain binary: %q", m.applicationForm.InstallerBinaryInput.Value())
+	}
+}
+
 func TestBuildHostnameWhen(t *testing.T) {
 	tests := []struct {
 		hosts []string
