@@ -174,6 +174,10 @@ package:
 !!! warning "Security"
     Custom commands execute arbitrary shell commands from your configuration file. Only use configurations you trust.
 
+#### Editing custom packages in the TUI
+
+The application form shows **Custom** as a package method below the standard managers. Press `enter` on it to add the section, then edit the Linux and Windows command fields. At least one command is required. Removing the section clears both OS values. The form validates this requirement when saving.
+
 ### URL Downloads
 
 Download a file from a URL and run an install command against it.
@@ -205,6 +209,10 @@ package:
 
 !!! warning "Security"
     URL downloads execute content from external sources. Only use URLs you trust.
+
+#### Editing URL packages in the TUI
+
+The application form shows **URL download** below Custom. Each OS has two fields: the download URL and the command to run after downloading. Both fields must be supplied for an OS if either is present. Use `{file}` in the command to refer to the temporary downloaded file. Removing the section clears all URL and command values. The form rejects incomplete OS specifications when saving.
 
 ## Supported Package Managers
 

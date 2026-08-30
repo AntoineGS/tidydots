@@ -46,6 +46,24 @@ to confirm the change actually took effect.
 
 Step 5 catches a script that exits 0 without doing its job.
 
+## Editing in the TUI
+
+The TUI application form can create and edit setup entries. On the sub-entry form, enable
+**Setup entry** to replace config fields with these command pairs:
+
+- `Check (linux)` and `Run (linux)`
+- `Check (windows)` and `Run (windows)`
+- `Sudo`
+
+Each configured OS must have both a check and a run command, and at least one OS must be
+configured. The form refuses to save a partial pair or an entry with no configured OS.
+Setup entries cannot have `backup` or `targets`; choose the config-entry mode to edit those
+fields instead. Saving writes the resulting `check` and `run` maps to `tidydots.yaml`.
+
+From the main TUI list, `r` runs the selected setup entry (or selected application's setup
+entries), while `x` includes entries whose check currently fails in the action filter. Setup
+checks also run during TUI state detection, so keep them read-only and fast.
+
 ## Fields
 
 | Field | Type | Description |

@@ -100,8 +100,8 @@ It supports backup and restore operations using symlinks, with support for
 both Windows and Linux systems.
 
 Configuration is stored in two places:
-  ~/.config/tidydots/config.yaml  - Points to your configurations repo
-  <repo>/tidydots.yaml            - Defines paths to manage
+  ~/.config/tidydots/config.yaml  - Local app metadata and repo path
+  <repo>/tidydots.yaml            - Version 3 configuration and paths to manage
 
 Run 'tidydots init <path>' to set up the app configuration.
 Run without arguments to start the interactive TUI.
@@ -134,6 +134,24 @@ tidydots works on:
 - **Linux** -- All major distributions (Arch, Ubuntu, Fedora, etc.)
 - **macOS** -- Via Homebrew; uses the `linux` OS key internally for target paths
 - **Windows** -- With symlink/junction support
+
+## Local app configuration
+
+The app configuration at `~/.config/tidydots/config.yaml` points to the repository that
+contains `tidydots.yaml`. It may also contain hostname choices used by the TUI's **When**
+chooser:
+
+```yaml
+config_dir: ~/.dotfiles
+hostnames:
+  - desktop
+  - laptop
+```
+
+`hostnames` is local UI metadata. It is not a field in the `tidydots.yaml` v3 schema and is
+not copied into the repository configuration. When selected in the TUI, the choices generate
+Go-template expressions such as `{{ eq .Hostname "desktop" }}` for one host or
+`{{ or (eq .Hostname "desktop") (eq .Hostname "laptop") }}` for multiple hosts.
 
 ## Next steps
 

@@ -60,6 +60,11 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | `tab` / `space` | Toggle selection |
 | `/` | Search and filter |
 | `f` | Toggle filter (show/hide apps excluded by `when` expressions) |
+| `x` | Toggle the action filter (show only applications or entries needing work) |
+| `ctrl+u` | Move up by half the visible table height |
+| `ctrl+d` | Move down by half the visible table height |
+| `gg` | Move to the first row |
+| `G` | Move to the last row |
 | `s` / `ctrl+s` | Save changes |
 | `i` | Context-sensitive: install package (on app row) or view diff (on modified entry) |
 | `m` | Show results from the last operation |
@@ -81,7 +86,7 @@ Press a sort key to sort by that column. Press the same key again to reverse the
 | Key | Sort by |
 |-----|---------|
 | `n` | Name |
-| `s` | Status |
+| `t` | Status |
 | `p` | Path |
 
 ### Search and filter
@@ -89,6 +94,10 @@ Press a sort key to sort by that column. Press the same key again to reverse the
 Press `/` to enter search mode. Type to filter applications and entries by name, description, target paths, or backup paths. The list updates in real time as you type. Press `enter` to confirm or `esc` to exit search mode (your selections are preserved).
 
 Press `f` to toggle the filter. When enabled (the default), applications that do not match their `when` expression on the current machine are hidden. When disabled, all applications are shown regardless of `when` conditions.
+
+Press `x` to toggle the action filter. It keeps applications with an uninstalled package and entries whose state needs attention (`Missing`, `Ready`, `Adopt`, `Needs setup`, `Outdated`, or `Modified`). The filter composes with search and the `f` platform filter. If enabling it would hide selected items, tidydots asks for confirmation; answer `y` to enable it or `n` to leave the current view and selections unchanged. Confirming does not clear selections.
+
+The paging and jump motions operate only on the clean main list, not while search or a confirmation dialog is active. `gg` is a two-key sequence: press `g` twice. A single `g` waits for the second key and any other key cancels that pending sequence. Empty and one-row tables remain clamped safely.
 
 ### Mouse support
 
@@ -209,6 +218,18 @@ Navigate to an application row and press `e` to open the edit screen. You can mo
 - **Description** -- optional description text
 - **When** -- conditional expression for machine filtering
 
+If hostname choices are configured in the local app config, focusing **When** and pressing `enter` or `e` opens a chooser. Use `space` or `tab` to select one or more hosts, then `enter` or `e` on a selected host to generate the expression. The chooser also provides **Type expression** for manual Go-template input. For example, selecting `desktop` generates:
+
+```yaml
+when: '{{ eq .Hostname "desktop" }}'
+```
+
+Selecting `desktop` and `laptop` generates:
+
+```yaml
+when: '{{ or (eq .Hostname "desktop") (eq .Hostname "laptop") }}'
+```
+
 ### Editing package dependencies
 
 When editing an application's packages section, you can manage dependencies for any standard package manager:
@@ -236,8 +257,17 @@ Navigate to a config entry and press `e` to edit. Editable fields include:
 
 The **Copy files** toggle only appears when an explicit file list is set, because copy mode is files-only. Switching an entry back to whole-folder mode therefore clears it.
 
-!!! note "Setup entries are not editable in the TUI"
-    A [setup entry](../configuration/setup.md) is defined by its `check` and `run` commands, and the entry form has no fields for them. Pressing `e` on a setup entry therefore does nothing but tell you so: edit its commands in `tidydots.yaml` directly. (You can still run a setup entry from the TUI with `r`, and delete it with `d`.)
+### Edit a setup entry
+
+Navigate to an entry and press `e`, then toggle **Setup entry**. The form exposes paired `Check` and `Run` fields for Linux and Windows plus the `Sudo` toggle. Each OS must have both commands or neither, and at least one OS must be configured. Save writes the `check` and `run` maps to `tidydots.yaml`. A setup entry cannot also have backup or target fields. You can run it from the TUI with `r` and delete it with `d`.
+
+Check commands must remain read-only and fast because they run during every TUI state refresh; see [Setup Entries](../configuration/setup.md).
+
+### Edit custom and URL packages
+
+In an application's **Packages** section, move below the standard managers to **Custom** or **URL download** and press `enter` to add or open that section. Use `↑/k` and `↓/j` to move through its fields, `e` or `enter` to edit a text field, and `enter` to confirm the text. `esc` cancels the current field edit; `s` or `ctrl+s` saves the application form. Press `d`, `delete`, or `backspace` on the section row to remove the complete custom or URL section and its values.
+
+Custom packages require at least one Linux or Windows command. URL packages require both a URL and an install command for each OS where either value is supplied; use `{file}` in the command for the downloaded file path. Invalid partial sections are rejected when saving rather than written to the repository.
 
 ### File picker
 
