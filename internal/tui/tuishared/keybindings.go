@@ -31,6 +31,7 @@ type ListKeyMap struct {
 	SortByStatus key.Binding
 	SortByPath   key.Binding
 	Filter       key.Binding
+	Refresh      key.Binding
 	ActionFilter key.Binding
 	HalfPageUp   key.Binding
 	HalfPageDown key.Binding
@@ -86,6 +87,10 @@ var ListKeys = ListKeyMap{
 	Filter: key.NewBinding(
 		key.WithKeys("f"),
 		key.WithHelp("f", "filter"),
+	),
+	Refresh: key.NewBinding(
+		key.WithKeys("ctrl+r"),
+		key.WithHelp("ctrl+r", "refresh"),
 	),
 	ActionFilter: key.NewBinding(
 		key.WithKeys("x"),

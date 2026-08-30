@@ -61,6 +61,7 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | `/` | Search and filter |
 | `f` | Toggle filter (show/hide apps excluded by `when` expressions) |
 | `x` | Toggle the action filter (show only applications or entries needing work) |
+| `ctrl+r` | Refresh all package, config, template, and setup statuses |
 | `ctrl+u` | Move up by half the visible table height |
 | `ctrl+d` | Move down by half the visible table height |
 | `gg` | Move to the first row |
@@ -96,6 +97,8 @@ Press `/` to enter search mode. Type to filter applications and entries by name,
 Press `f` to toggle the filter. When enabled (the default), applications that do not match their `when` expression on the current machine are hidden. When disabled, all applications are shown regardless of `when` conditions.
 
 Press `x` to toggle the action filter. It keeps applications with an uninstalled package and entries whose state needs attention (`Missing`, `Ready`, `Adopt`, `Needs setup`, `Outdated`, or `Modified`). The filter composes with search and the `f` platform filter. If enabling it would hide selected items, tidydots asks for confirmation; answer `y` to enable it or `n` to leave the current view and selections unchanged. Confirming does not clear selections.
+
+Package status is automatically rechecked after installs. Press `ctrl+r` on the clean main list to manually refresh all package, config, template, and setup statuses. The refresh preserves filters, selections, expansion, and cursor position; existing loading indicators show progress while statuses are rechecked.
 
 The paging and jump motions operate only on the clean main list, not while search or a confirmation dialog is active. `gg` is a two-key sequence: press `g` twice. A single `g` waits for the second key and any other key cancels that pending sequence. Empty and one-row tables remain clamped safely.
 

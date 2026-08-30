@@ -91,22 +91,13 @@ func (m Model) checkPackageStatesCmd() (tea.Cmd, int) {
 // It also returns the number of checks dispatched so the caller can track pending work.
 func (m Model) checkSubEntryStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
-	plat := m.Platform
-	cfg := m.Config
-	mgr := m.Manager
 
 	for i, app := range m.Applications {
 		if app.IsFiltered {
 			continue
 		}
-		for j, sub := range app.SubItems {
-			appIndex := i
-			subIndex := j
-			subItem := sub
-			cmds = append(cmds, func() tea.Msg {
-				state := detectSubEntryStateStatic(subItem, plat, cfg, mgr)
-				return stateCheckResultMsg{appIndex: appIndex, subIndex: subIndex, state: state}
-			})
+		for j := range app.SubItems {
+			cmds = append(cmds, m.subEntryStateCheckCmd(i, j))
 		}
 	}
 
@@ -134,9 +125,6 @@ func (m Model) checkUncheckedPackageStatesCmd() (tea.Cmd, int) {
 // It also returns the number of checks dispatched so the caller can track pending work.
 func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
-	plat := m.Platform
-	cfg := m.Config
-	mgr := m.Manager
 
 	for i, app := range m.Applications {
 		if !app.IsFiltered {
@@ -153,13 +141,7 @@ func (m Model) checkFilteredStatesCmd() (tea.Cmd, int) {
 			if sub.State != StateLoading {
 				continue
 			}
-			appIndex := i
-			subIndex := j
-			subItem := sub
-			cmds = append(cmds, func() tea.Msg {
-				state := detectSubEntryStateStatic(subItem, plat, cfg, mgr)
-				return stateCheckResultMsg{appIndex: appIndex, subIndex: subIndex, state: state}
-			})
+			cmds = append(cmds, m.subEntryStateCheckCmd(i, j))
 		}
 	}
 
@@ -179,6 +161,32 @@ func (m Model) packageStateCheckCmd(appIndex int) tea.Cmd {
 		}
 		return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
 	}
+}
+
+func (m Model) subEntryStateCheckCmd(appIndex, subIndex int) tea.Cmd {
+	subItem := m.Applications[appIndex].SubItems[subIndex]
+	plat, cfg, mgr := m.Platform, m.Config, m.Manager
+	return func() tea.Msg {
+		state := detectSubEntryStateStatic(subItem, plat, cfg, mgr)
+		return stateCheckResultMsg{appIndex: appIndex, subIndex: subIndex, state: state}
+	}
+}
+
+func (m *Model) refreshAllStates() tea.Cmd {
+	var cmds []tea.Cmd
+	for i := range m.Applications {
+		if m.Applications[i].Application.HasPackage() {
+			m.Applications[i].PkgInstalled = nil
+			cmds = append(cmds, m.packageStateCheckCmd(i))
+		}
+		for j := range m.Applications[i].SubItems {
+			m.Applications[i].SubItems[j].State = StateLoading
+			cmds = append(cmds, m.subEntryStateCheckCmd(i, j))
+		}
+	}
+	m.pendingStateChecks += len(cmds)
+	m.rebuildTable()
+	return tea.Batch(cmds...)
 }
 
 func (m *Model) refreshPackageStates(packages []PackageItem) tea.Cmd {
@@ -221,22 +229,13 @@ func (m *Model) refreshPackageStates(packages []PackageItem) tea.Cmd {
 // It also returns the number of checks dispatched so the caller can track pending work.
 func (m Model) checkLoadingSubEntryStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
-	plat := m.Platform
-	cfg := m.Config
-	mgr := m.Manager
 
 	for i, app := range m.Applications {
 		for j, sub := range app.SubItems {
 			if !sub.SubEntry.IsSetup() || sub.State != StateLoading {
 				continue
 			}
-			appIndex := i
-			subIndex := j
-			subItem := sub
-			cmds = append(cmds, func() tea.Msg {
-				state := detectSubEntryStateStatic(subItem, plat, cfg, mgr)
-				return stateCheckResultMsg{appIndex: appIndex, subIndex: subIndex, state: state}
-			})
+			cmds = append(cmds, m.subEntryStateCheckCmd(i, j))
 		}
 	}
 

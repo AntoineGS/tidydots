@@ -418,6 +418,11 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
+	case key.Matches(msg, ListKeys.Refresh):
+		if listClean && m.pendingStateChecks == 0 && !m.hasLoadingItems() && !m.processing {
+			return m, m.refreshAllStates()
+		}
+		return m, nil
 	case key.Matches(msg, ListKeys.GoTop):
 		if listClean {
 			if m.pendingG {
@@ -1005,6 +1010,7 @@ func (m Model) renderHelpForCurrentState() string {
 				MultiSelectKeys.Restore,
 				MultiSelectKeys.Install,
 				MultiSelectKeys.Delete,
+				ListKeys.Refresh,
 				ListKeys.ActionFilter,
 				SharedKeys.Quit,
 			)
@@ -1023,6 +1029,7 @@ func (m Model) renderHelpForCurrentState() string {
 			ListKeys.Edit,
 			ListKeys.Delete,
 			ListKeys.Restore,
+			ListKeys.Refresh,
 		}
 
 		// Show context-sensitive "i" help

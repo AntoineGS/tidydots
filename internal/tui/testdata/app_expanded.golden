@@ -17,4 +17,4 @@
 
 
   / search  x actions  ctrl+u half page up  ctrl+d half page down  gg top  G bottom  Add app
-  add entry  edit  delete  restore  install  quit
+  add entry  edit  delete  restore  ctrl+r refresh  install  quit

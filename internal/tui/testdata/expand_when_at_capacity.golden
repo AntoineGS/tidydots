@@ -38,9 +38,9 @@
   │ ▶ app-29           │ Unknown            │ 4 entries         │                   │                                                              │
   │ ▶ app-30           │ Unknown            │ 4 entries         │                   │                                                              │
   │ ▶ app-31           │ Unknown            │ 4 entries         │                   │                                                              │
-  │ ▶ app-32           │ Unknown            │ 4 entries         │                   │                                                              │
-  │ ↓ 4 more below     │                    │                   │                   │                                                              │
+  │ ↓ 5 more below     │                    │                   │                   │                                                              │
   └────────────────────┴────────────────────┴───────────────────┴───────────────────┴──────────────────────────────────────────────────────────────┘
 
 
-  / search  x actions  ctrl+u half page up  ctrl+d half page down  gg top  G bottom  Add app  add entry  edit  delete  restore  install  quit
+  / search  x actions  ctrl+u half page up  ctrl+d half page down  gg top  G bottom  Add app  add entry  edit  delete  restore  ctrl+r refresh
+  install  quit
