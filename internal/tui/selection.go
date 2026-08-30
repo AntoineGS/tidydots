@@ -150,12 +150,24 @@ func (m *Model) countHiddenActionSelections() int {
 			if stateSeverity(sub.State) > 0 {
 				appActionable = true
 			}
+		}
+
+		if m.selectedApps[name] {
+			if !appActionable {
+				count++
+			}
+			for _, sub := range app.SubItems {
+				if stateSeverity(sub.State) == 0 {
+					count++
+				}
+			}
+			continue
+		}
+
+		for _, sub := range app.SubItems {
 			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] && stateSeverity(sub.State) == 0 {
 				count++
 			}
-		}
-		if m.selectedApps[name] && !appActionable {
-			count++
 		}
 	}
 	return count

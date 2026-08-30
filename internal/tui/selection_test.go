@@ -291,6 +291,63 @@ func TestCountHiddenSelections(t *testing.T) {
 	})
 }
 
+func TestCountHiddenActionSelectionsFollowsBatchSelectionSemantics(t *testing.T) {
+	missing := false
+	actionable := StateMissing
+	linked := StateLinked
+	tests := []struct {
+		name       string
+		subs       []SubEntryItem
+		apps       map[string]bool
+		explicit   map[subEntryKey]bool
+		wantHidden int
+	}{
+		{
+			name:       "selected app with missing package and linked children",
+			subs:       []SubEntryItem{{SubEntry: config.SubEntry{Name: "one"}, State: linked}, {SubEntry: config.SubEntry{Name: "two"}, State: linked}},
+			apps:       map[string]bool{"app": true},
+			wantHidden: 2,
+		},
+		{
+			name:       "selected app with actionable and hidden children",
+			subs:       []SubEntryItem{{SubEntry: config.SubEntry{Name: "needed"}, State: actionable}, {SubEntry: config.SubEntry{Name: "linked"}, State: linked}},
+			apps:       map[string]bool{"app": true},
+			wantHidden: 1,
+		},
+		{
+			name:       "standalone child selection",
+			subs:       []SubEntryItem{{SubEntry: config.SubEntry{Name: "linked"}, State: linked}},
+			explicit:   map[subEntryKey]bool{{app: "app", sub: "linked"}: true},
+			wantHidden: 1,
+		},
+		{
+			name:       "parent and explicit child overlap",
+			subs:       []SubEntryItem{{SubEntry: config.SubEntry{Name: "linked"}, State: linked}},
+			apps:       map[string]bool{"app": true},
+			explicit:   map[subEntryKey]bool{{app: "app", sub: "linked"}: true},
+			wantHidden: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := Model{
+				Applications: []ApplicationItem{{
+					Application:  config.Application{Name: "app", Package: &config.EntryPackage{}},
+					PkgInstalled: &missing,
+					SubItems:     tt.subs,
+				}},
+				filterEnabled:      false,
+				selectedApps:       tt.apps,
+				selectedSubEntries: tt.explicit,
+			}
+			if got := m.countHiddenActionSelections(); got != tt.wantHidden {
+				t.Errorf("countHiddenActionSelections() = %d, want %d", got, tt.wantHidden)
+			}
+		})
+	}
+}
+
 func TestClearHiddenSelections(t *testing.T) {
 	m := Model{
 		Applications: []ApplicationItem{

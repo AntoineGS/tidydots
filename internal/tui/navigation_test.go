@@ -20,6 +20,9 @@ func TestVimMotionPaging(t *testing.T) {
 	m.height = 20
 	m.viewHeight = 10
 	m.Applications[0].Expanded = true
+	m.selectedApps = map[string]bool{"app": true}
+	m.selectedSubEntries = map[subEntryKey]bool{{app: "app", sub: "a"}: true}
+	m.multiSelectActive = true
 	m.rebuildTable()
 	maxVisible := m.computeMaxVisibleRows()
 	if len(m.tableRows) <= maxVisible {
@@ -73,6 +76,9 @@ func TestVimMotionPaging(t *testing.T) {
 	}
 	if want := len(m.tableRows) - maxVisible; m.scrollOffset != want {
 		t.Errorf("G scroll = %d, want %d", m.scrollOffset, want)
+	}
+	if !m.selectedApps["app"] || !m.selectedSubEntries[subEntryKey{app: "app", sub: "a"}] {
+		t.Error("navigation motions must not mutate multi-select state")
 	}
 }
 
