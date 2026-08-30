@@ -10,18 +10,19 @@ import (
 // filterActionableApplications returns a cloned application list containing
 // only package-missing apps and sub-entries that need an action. The source
 // list is never changed because it is also used for stable cursor resolution.
-func filterActionableApplications(apps []ApplicationItem) []ApplicationItem {
+func filterActionableApplications(apps []ApplicationItem, includeLoading bool) []ApplicationItem {
 	filtered := make([]ApplicationItem, 0, len(apps))
 	for _, app := range apps {
 		packageActionable := app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled
 		appCopy := app
 		appCopy.SubItems = make([]SubEntryItem, 0, len(app.SubItems))
 		for _, sub := range app.SubItems {
-			if stateSeverity(sub.State) > 0 {
+			if stateSeverity(sub.State) > 0 || includeLoading && sub.State == StateLoading {
 				appCopy.SubItems = append(appCopy.SubItems, sub)
 			}
 		}
-		if packageActionable || len(appCopy.SubItems) > 0 {
+		packageLoading := app.Application.HasPackage() && app.PkgInstalled == nil
+		if packageActionable || packageLoading && includeLoading || len(appCopy.SubItems) > 0 {
 			filtered = append(filtered, appCopy)
 		}
 	}

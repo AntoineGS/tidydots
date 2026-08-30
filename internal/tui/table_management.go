@@ -166,7 +166,7 @@ func (m *Model) initTableModel() {
 func (m Model) getFilteredApplications() []ApplicationItem {
 	filtered := m.getSearchedApplications()
 	if m.actionFilterEnabled {
-		filtered = filterActionableApplications(filtered)
+		filtered = filterActionableApplications(filtered, m.stateChecksPending())
 	}
 	return filtered
 }

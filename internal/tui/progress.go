@@ -413,6 +413,12 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	// Helper to check if we're in a clean list state (no modals/search)
 	listClean := m.Operation == OpList && !m.searching && !m.confirmingDeleteApp && !m.confirmingDeleteSubEntry && !m.showingDetail
+	if m.stateChecksPending() && (key.Matches(msg, ListKeys.Edit) ||
+		key.Matches(msg, ListKeys.AddApp) || key.Matches(msg, ListKeys.AddEntry) ||
+		key.Matches(msg, ListKeys.Delete) || key.Matches(msg, ListKeys.Install) ||
+		key.Matches(msg, ListKeys.Restore) || key.Matches(msg, ListKeys.Filter)) {
+		return m, nil
+	}
 	if !listClean || !key.Matches(msg, ListKeys.GoTop) {
 		m.pendingG = false
 	}
@@ -844,6 +850,10 @@ func (m Model) canRefreshAllStates() bool {
 		m.pendingStateChecks == 0 &&
 		!m.hasLoadingItems() &&
 		!m.processing
+}
+
+func (m Model) stateChecksPending() bool {
+	return m.pendingStateChecks > 0 || m.hasLoadingItems()
 }
 
 func (m Model) viewResults() string {

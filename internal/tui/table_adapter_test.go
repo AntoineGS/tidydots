@@ -175,7 +175,7 @@ func TestFilterActionableApplications(t *testing.T) {
 		},
 	}
 
-	filtered := filterActionableApplications(apps)
+	filtered := filterActionableApplications(apps, false)
 	if got, want := len(filtered), 3; got != want {
 		t.Fatalf("got %d applications, want %d", got, want)
 	}
@@ -237,7 +237,7 @@ func TestFilterActionableApplications_ComposesWithSearch(t *testing.T) {
 
 	m := Model{Applications: apps, searchText: "match", actionFilterEnabled: true}
 	searched := m.getSearchedApplications()
-	filtered := filterActionableApplications(searched)
+	filtered := filterActionableApplications(searched, false)
 
 	if got, want := len(filtered), 2; got != want {
 		t.Fatalf("got %d applications, want %d", got, want)

@@ -38,10 +38,10 @@ func TestRefreshAllStatesDispatchesEveryCheckAndPreservesUIState(t *testing.T) {
 	m.pendingStateChecks = 0
 	for i := range m.Applications {
 		m.Applications[i].PkgMethod = TypeGit
-		installed := true
+		installed := false
 		m.Applications[i].PkgInstalled = &installed
 		for j := range m.Applications[i].SubItems {
-			m.Applications[i].SubItems[j].State = StateLinked
+			m.Applications[i].SubItems[j].State = StateMissing
 		}
 	}
 
@@ -57,6 +57,9 @@ func TestRefreshAllStatesDispatchesEveryCheckAndPreservesUIState(t *testing.T) {
 	m.selectedSubEntries[subEntryKey{app: "a-visible", sub: "config"}] = true
 	m.multiSelectActive = true
 	m.rebuildTable()
+	if len(m.tableRows) < 2 {
+		t.Fatalf("test setup has %d visible rows, want multiple actionable rows", len(m.tableRows))
+	}
 
 	wantCursor := m.tableCursor
 	wantScroll := m.scrollOffset
@@ -95,6 +98,59 @@ func TestRefreshAllStatesDispatchesEveryCheckAndPreservesUIState(t *testing.T) {
 		!reflect.DeepEqual(m.selectedApps, wantApps) || !reflect.DeepEqual(m.selectedSubEntries, wantSubEntries) ||
 		m.multiSelectActive != wantMultiSelect {
 		t.Fatal("refresh did not preserve navigation, filter, expansion, and selection state")
+	}
+	if len(m.tableRows) < 2 {
+		t.Fatal("refresh hid loading rows while action filter was enabled")
+	}
+	if m.tableCursor != wantCursor || m.scrollOffset != wantScroll {
+		t.Fatal("refresh did not preserve cursor and scroll while loading")
+	}
+}
+
+func TestRefreshBlocksMutatingAndRedispatchingActionsUntilResultsDrain(t *testing.T) {
+	entry := func(name string) config.SubEntry {
+		return config.SubEntry{Name: name, Backup: "./" + name, Targets: map[string]string{"linux": t.TempDir()}}
+	}
+	m := NewModel(&config.Config{Version: 3, BackupRoot: "/repo", Applications: []config.Application{{
+		Name: "tool", Entries: []config.SubEntry{entry("one"), entry("two")},
+	}}}, &platform.Platform{OS: platform.OSLinux, EnvVars: map[string]string{}}, false)
+	m.pendingStateChecks = 0
+	for i := range m.Applications[0].SubItems {
+		m.Applications[0].SubItems[i].State = StateLinked
+	}
+	m.Applications[0].Expanded = true
+	m.rebuildTable()
+
+	next, refreshCmd := m.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	refreshing := next.(Model)
+	if refreshCmd == nil || refreshing.pendingStateChecks != 2 {
+		t.Fatalf("refresh pending=%d cmd nil=%v; want 2, false", refreshing.pendingStateChecks, refreshCmd == nil)
+	}
+
+	for _, msg := range []tea.KeyPressMsg{{Code: 'e'}, {Code: 'a'}, {Code: 'A'}, {Code: 'd'}, {Code: 'r'}, {Code: 'f'}} {
+		before := refreshing
+		got, actionCmd := refreshing.Update(msg)
+		refreshing = got.(Model)
+		if actionCmd != nil || refreshing.Screen != before.Screen || refreshing.pendingStateChecks != before.pendingStateChecks {
+			t.Fatalf("key %q changed model during refresh: screen %v->%v pending %d->%d cmd nil=%v", msg.Text, before.Screen, refreshing.Screen, before.pendingStateChecks, refreshing.pendingStateChecks, actionCmd == nil)
+		}
+	}
+
+	for _, result := range collectMsgs(refreshCmd) {
+		got, actionCmd := refreshing.Update(result)
+		refreshing = got.(Model)
+		if actionCmd != nil {
+			t.Fatal("state result unexpectedly dispatched another command")
+		}
+	}
+	if refreshing.pendingStateChecks != 0 || refreshing.hasLoadingItems() {
+		t.Fatalf("pending lifecycle did not drain: pending=%d loading=%v", refreshing.pendingStateChecks, refreshing.hasLoadingItems())
+	}
+
+	got, actionCmd := refreshing.Update(tea.KeyPressMsg{Code: 'e'})
+	resumed := got.(Model)
+	if actionCmd != nil || resumed.Screen != ScreenAddForm {
+		t.Fatalf("edit did not resume after refresh: screen=%v cmd nil=%v", resumed.Screen, actionCmd == nil)
 	}
 }
 
