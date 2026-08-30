@@ -395,8 +395,57 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	// Helper to check if we're in a clean list state (no modals/search)
 	listClean := m.Operation == OpList && !m.searching && !m.confirmingDeleteApp && !m.confirmingDeleteSubEntry && !m.showingDetail
+	if !listClean || !key.Matches(msg, ListKeys.GoTop) {
+		m.pendingG = false
+	}
 
 	switch {
+	case key.Matches(msg, ListKeys.GoTop):
+		if listClean {
+			if m.pendingG {
+				m.pendingG = false
+				m.tableCursor = 0
+				m.scrollOffset = 0
+			} else {
+				m.pendingG = true
+			}
+		}
+		return m, nil
+	case key.Matches(msg, ListKeys.GoBottom):
+		if listClean {
+			m.pendingG = false
+			if len(m.tableRows) > 0 {
+				m.tableCursor = len(m.tableRows) - 1
+				m.updateScrollOffset()
+			}
+		}
+		return m, nil
+	case key.Matches(msg, ListKeys.HalfPageUp):
+		if listClean {
+			movement := m.computeMaxVisibleRows() / 2
+			if movement < 1 {
+				movement = 1
+			}
+			m.tableCursor -= movement
+			if m.tableCursor < 0 {
+				m.tableCursor = 0
+			}
+			m.updateScrollOffset()
+		}
+		return m, nil
+	case key.Matches(msg, ListKeys.HalfPageDown):
+		if listClean {
+			movement := m.computeMaxVisibleRows() / 2
+			if movement < 1 {
+				movement = 1
+			}
+			m.tableCursor += movement
+			if m.tableCursor >= len(m.tableRows) {
+				m.tableCursor = len(m.tableRows) - 1
+			}
+			m.updateScrollOffset()
+		}
+		return m, nil
 	case key.Matches(msg, ListKeys.Search):
 		// Enter search mode
 		if listClean {
@@ -467,6 +516,12 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		}
+	case key.Matches(msg, ListKeys.ActionFilter):
+		if listClean {
+			m.actionFilterEnabled = !m.actionFilterEnabled
+			m.rebuildTable()
+		}
+		return m, nil
 	case key.Matches(msg, SharedKeys.Quit):
 		// Quit the application
 		return m, tea.Quit
@@ -907,6 +962,7 @@ func (m Model) renderHelpForCurrentState() string {
 				MultiSelectKeys.Restore,
 				MultiSelectKeys.Install,
 				MultiSelectKeys.Delete,
+				ListKeys.ActionFilter,
 				SharedKeys.Quit,
 			)
 		}
@@ -914,6 +970,11 @@ func (m Model) renderHelpForCurrentState() string {
 		// Normal mode help text
 		bindings := []key.Binding{
 			ListKeys.Search,
+			ListKeys.ActionFilter,
+			ListKeys.HalfPageUp,
+			ListKeys.HalfPageDown,
+			ListKeys.GoTop,
+			ListKeys.GoBottom,
 			ListKeys.AddApp,
 			ListKeys.AddEntry,
 			ListKeys.Edit,
@@ -968,6 +1029,21 @@ func (m Model) viewListTable() string {
 		filterBanner = "  " + highlightedF + "ilter: on" + countInfo
 	} else {
 		filterBanner = "  " + highlightedF + "ilter: off"
+	}
+
+	highlightedX := lipgloss.NewStyle().Foreground(accentColor).Bold(true).Render("x")
+	if m.actionFilterEnabled {
+		visibleCount := 0
+		for _, app := range m.getSearchedApplications() {
+			if app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled || slices.ContainsFunc(app.SubItems, func(sub SubEntryItem) bool {
+				return stateSeverity(sub.State) > 0
+			}) {
+				visibleCount++
+			}
+		}
+		filterBanner += "  " + highlightedX + fmt.Sprintf(" action filter: on (%d apps)", visibleCount)
+	} else {
+		filterBanner += "  " + highlightedX + " action filter: off"
 	}
 
 	// Append search input after the filter banner on the same line

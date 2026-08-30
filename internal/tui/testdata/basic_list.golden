@@ -1,5 +1,5 @@
 
-    filter: on (showing 5 of 5 apps)
+    filter: on (showing 5 of 5 apps)  x action filter: off
   ┌───────────────────────┬───────────────────────┬───────────────────────┬──────────────────────┐
   │ name ↑                │ status                │ info                  │ path                 │
   ├───────────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
@@ -11,4 +11,5 @@
   └───────────────────────┴───────────────────────┴───────────────────────┴──────────────────────┘
 
 
-  / search  Add app  add entry  edit  delete  restore  install  quit
+  / search  x actions  ctrl+u half page up  ctrl+d half page down  gg top  G bottom  Add app
+  add entry  edit  delete  restore  install  quit

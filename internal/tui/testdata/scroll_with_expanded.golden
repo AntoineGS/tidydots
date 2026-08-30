@@ -1,5 +1,5 @@
 
-    filter: on (showing 25 of 25 apps)
+    filter: on (showing 25 of 25 apps)  x action filter: off
   ┌──────────────────────┬──────────────────────┬─────────────────────┬──────────────────────────┐
   │ name ↑               │ status               │ info                │ path                     │
   ├──────────────────────┼──────────────────────┼─────────────────────┼──────────────────────────┤
@@ -20,9 +20,9 @@
   │ ▶ app-10             │ Unknown              │ 1 entry             │                          │
   │ ▶ app-11             │ Unknown              │ 1 entry             │                          │
   │ ▶ app-12             │ Unknown              │ 1 entry             │                          │
-  │ ▶ app-13             │ Unknown              │ 1 entry             │                          │
-  │ ↓ 12 more below      │                      │                     │                          │
+  │ ↓ 13 more below      │                      │                     │                          │
   └──────────────────────┴──────────────────────┴─────────────────────┴──────────────────────────┘
 
 
-  / search  Add app  add entry  edit  delete  restore  quit
+  / search  x actions  ctrl+u half page up  ctrl+d half page down  gg top  G bottom  Add app
+  add entry  edit  delete  restore  quit

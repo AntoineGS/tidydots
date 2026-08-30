@@ -126,6 +126,9 @@ func (m *Model) fixTreeCharacters() {
 func (m *Model) initTableModel() {
 	// Flatten hierarchical data with current search
 	filtered := m.getSearchedApplications()
+	if m.actionFilterEnabled {
+		filtered = filterActionableApplications(filtered)
+	}
 
 	// Sort applications before flattening (only if sort column applies to apps)
 	if m.sortColumn == SortColumnName || m.sortColumn == SortColumnStatus {

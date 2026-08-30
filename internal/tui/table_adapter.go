@@ -2,9 +2,31 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 
 	"charm.land/bubbles/v2/table"
 )
+
+// filterActionableApplications returns a cloned application list containing
+// only package-missing apps and sub-entries that need an action. The source
+// list is never changed because it is also used for stable cursor resolution.
+func filterActionableApplications(apps []ApplicationItem) []ApplicationItem {
+	filtered := make([]ApplicationItem, 0, len(apps))
+	for _, app := range apps {
+		packageActionable := app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled
+		appCopy := app
+		appCopy.SubItems = make([]SubEntryItem, 0, len(app.SubItems))
+		for _, sub := range app.SubItems {
+			if stateSeverity(sub.State) > 0 {
+				appCopy.SubItems = append(appCopy.SubItems, sub)
+			}
+		}
+		if packageActionable || len(appCopy.SubItems) > 0 {
+			filtered = append(filtered, appCopy)
+		}
+	}
+	return slices.Clip(filtered)
+}
 
 // flattenApplications converts hierarchical apps to flat table rows
 func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bool) []TableRow {

@@ -31,6 +31,11 @@ type ListKeyMap struct {
 	SortByStatus key.Binding
 	SortByPath   key.Binding
 	Filter       key.Binding
+	ActionFilter key.Binding
+	HalfPageUp   key.Binding
+	HalfPageDown key.Binding
+	GoTop        key.Binding
+	GoBottom     key.Binding
 	Edit         key.Binding
 	AddApp       key.Binding
 	AddEntry     key.Binding
@@ -81,6 +86,26 @@ var ListKeys = ListKeyMap{
 	Filter: key.NewBinding(
 		key.WithKeys("f"),
 		key.WithHelp("f", "filter"),
+	),
+	ActionFilter: key.NewBinding(
+		key.WithKeys("x"),
+		key.WithHelp("x", "actions"),
+	),
+	HalfPageUp: key.NewBinding(
+		key.WithKeys("ctrl+u"),
+		key.WithHelp("ctrl+u", "half page up"),
+	),
+	HalfPageDown: key.NewBinding(
+		key.WithKeys("ctrl+d"),
+		key.WithHelp("ctrl+d", "half page down"),
+	),
+	GoTop: key.NewBinding(
+		key.WithKeys("g"),
+		key.WithHelp("gg", "top"),
+	),
+	GoBottom: key.NewBinding(
+		key.WithKeys("G"),
+		key.WithHelp("G", "bottom"),
 	),
 	Edit: key.NewBinding(
 		key.WithKeys("e"),

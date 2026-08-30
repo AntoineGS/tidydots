@@ -1,5 +1,5 @@
 
-    filter: on (showing 8 of 8 apps)    /  vim
+    filter: on (showing 8 of 8 apps)  x action filter: off    /  vim
   ┌───────────────────────┬───────────────────────┬───────────────────────┬──────────────────────┐
   │ name ↑                │ status                │ info                  │ path                 │
   ├───────────────────────┼───────────────────────┼───────────────────────┼──────────────────────┤
@@ -14,4 +14,5 @@
   └───────────────────────┴───────────────────────┴───────────────────────┴──────────────────────┘
 
 
-  / search  Add app  add entry  edit  delete  restore  install  quit
+  / search  x actions  ctrl+u half page up  ctrl+d half page down  gg top  G bottom  Add app
+  add entry  edit  delete  restore  install  quit

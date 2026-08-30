@@ -128,6 +128,95 @@ func TestFlattenApplications(t *testing.T) {
 	})
 }
 
+func TestFilterActionableApplications(t *testing.T) {
+	installed := true
+	missing := false
+	apps := []ApplicationItem{
+		{
+			Application:  config.Application{Name: "package-missing", Package: &config.EntryPackage{}},
+			PkgInstalled: &missing,
+		},
+		{
+			Application: config.Application{Name: "entry-actionable"},
+			SubItems: []SubEntryItem{
+				{SubEntry: config.SubEntry{Name: "linked"}, State: StateLinked, Index: 0},
+				{SubEntry: config.SubEntry{Name: "missing"}, State: StateMissing, Index: 1},
+			},
+			Expanded: true,
+		},
+		{
+			Application: config.Application{Name: "mixed"},
+			SubItems: []SubEntryItem{
+				{SubEntry: config.SubEntry{Name: "ready"}, State: StateReady, Index: 0},
+				{SubEntry: config.SubEntry{Name: "loading"}, State: StateLoading, Index: 1},
+				{SubEntry: config.SubEntry{Name: "unknown"}, State: StateLinked, Index: 2},
+			},
+			Expanded: true,
+		},
+		{
+			Application:  config.Application{Name: "installed"},
+			PkgInstalled: &installed,
+			SubItems: []SubEntryItem{
+				{SubEntry: config.SubEntry{Name: "linked"}, State: StateLinked, Index: 0},
+			},
+		},
+		{
+			Application: config.Application{Name: "loading"},
+			SubItems: []SubEntryItem{
+				{SubEntry: config.SubEntry{Name: "loading"}, State: StateLoading, Index: 0},
+			},
+		},
+	}
+
+	filtered := filterActionableApplications(apps)
+	if got, want := len(filtered), 3; got != want {
+		t.Fatalf("got %d applications, want %d", got, want)
+	}
+
+	if filtered[0].Application.Name != "package-missing" || len(filtered[0].SubItems) != 0 {
+		t.Errorf("package-missing should remain without children: %+v", filtered[0])
+	}
+	if filtered[1].Application.Name != "entry-actionable" || len(filtered[1].SubItems) != 1 ||
+		filtered[1].SubItems[0].SubEntry.Name != "missing" || filtered[1].SubItems[0].Index != 1 {
+		t.Errorf("entry-actionable children were not reduced with original index: %+v", filtered[1])
+	}
+	if filtered[2].Application.Name != "mixed" || len(filtered[2].SubItems) != 1 ||
+		filtered[2].SubItems[0].SubEntry.Name != "ready" || filtered[2].SubItems[0].Index != 0 {
+		t.Errorf("mixed children were not reduced: %+v", filtered[2])
+	}
+	if apps[1].SubItems[0].State != StateLinked || len(apps[1].SubItems) != 2 {
+		t.Error("action filtering must not mutate the source applications")
+	}
+}
+
+func TestFilterActionableApplications_ComposesWithSearch(t *testing.T) {
+	missing := false
+	apps := []ApplicationItem{
+		{
+			Application:  config.Application{Name: "package-match", Package: &config.EntryPackage{}},
+			PkgInstalled: &missing,
+		},
+		{
+			Application: config.Application{Name: "other"},
+			SubItems: []SubEntryItem{
+				{SubEntry: config.SubEntry{Name: "match"}, State: StateMissing, Index: 0},
+				{SubEntry: config.SubEntry{Name: "unmatched"}, State: StateLinked, Index: 1},
+			},
+		},
+	}
+
+	m := Model{Applications: apps, searchText: "match", actionFilterEnabled: true}
+	searched := m.getSearchedApplications()
+	filtered := filterActionableApplications(searched)
+
+	if got, want := len(filtered), 2; got != want {
+		t.Fatalf("got %d applications, want %d", got, want)
+	}
+	if len(filtered[1].SubItems) != 1 || filtered[1].SubItems[0].Index != 0 {
+		t.Errorf("combined filter lost actionable search result index: %+v", filtered[1].SubItems)
+	}
+}
+
 func TestGetApplicationStatus(t *testing.T) {
 	t.Run("filtered application", func(t *testing.T) {
 		app := ApplicationItem{

@@ -150,7 +150,9 @@ type Model struct {
 	diffPickerFiles   []manager.ModifiedTemplate
 
 	// Filter state
-	filterEnabled bool // true to hide filtered apps, false to show all
+	filterEnabled       bool // true to hide filtered apps, false to show all
+	actionFilterEnabled bool // true to show only applications with actionable work
+	pendingG            bool // true after the first g of a gg motion
 
 	// Selection state for multi-select mode
 	selectedApps       map[string]bool      // application name -> selected
