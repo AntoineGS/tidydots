@@ -9,6 +9,22 @@ import (
 	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
 )
 
+func TestSubEntryFormPreservesSetupCommands(t *testing.T) {
+	command := "check\n\tprintf ok\n" + strings.Repeat("x", 513)
+	form := forms.NewSubEntryForm(config.SubEntry{
+		Name:  "setup",
+		Check: map[string]string{"linux": command},
+		Run:   map[string]string{"linux": command},
+	})
+	got, err := form.BuildSubEntry()
+	if err != nil {
+		t.Fatalf("BuildSubEntry() error = %v", err)
+	}
+	if got.Check["linux"] != command || got.Run["linux"] != command {
+		t.Fatalf("setup command text was not preserved: check=%q run=%q", got.Check["linux"], got.Run["linux"])
+	}
+}
+
 func TestNewSubEntryForm_Empty(t *testing.T) {
 	form := forms.NewSubEntryForm(config.SubEntry{})
 

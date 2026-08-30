@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
@@ -94,10 +93,10 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 	windowsTargetInput := newFormInput("e.g., ~/AppData/Local/nvim", CharLimitPath, InputWidthNarrow)
 	backupInput := newFormInput("e.g., ./nvim", CharLimitPath, InputWidthNarrow)
 	newFileInput := newFormInput("e.g., .bashrc", CharLimitFile, InputWidthNarrow)
-	linuxCheckInput := newFormInput("e.g., command -v foo", CharLimitCommand, InputWidthNarrow)
-	linuxRunInput := newFormInput("e.g., install foo", CharLimitCommand, InputWidthNarrow)
-	windowsCheckInput := newFormInput("e.g., where foo", CharLimitCommand, InputWidthNarrow)
-	windowsRunInput := newFormInput("e.g., install foo", CharLimitCommand, InputWidthNarrow)
+	linuxCheckInput := newCommandInput("e.g., command -v foo", InputWidthNarrow)
+	linuxRunInput := newCommandInput("e.g., install foo", InputWidthNarrow)
+	windowsCheckInput := newCommandInput("e.g., where foo", InputWidthNarrow)
+	windowsRunInput := newCommandInput("e.g., install foo", InputWidthNarrow)
 
 	isSudo := false
 	isCopy := false
@@ -756,7 +755,10 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 	isEditing := m.subEntryForm.EditingField && currentFt == fieldType
 	isFocused := currentFt == fieldType
 
-	var input textinput.Model
+	var input interface {
+		Value() string
+		View() string
+	}
 
 	switch fieldType {
 	case subFieldName:

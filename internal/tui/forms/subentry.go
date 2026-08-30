@@ -64,10 +64,10 @@ type SubEntryForm struct {
 	NameInput          textinput.Model
 	LinuxTargetInput   textinput.Model
 	WindowsTargetInput textinput.Model
-	LinuxCheckInput    textinput.Model
-	LinuxRunInput      textinput.Model
-	WindowsCheckInput  textinput.Model
-	WindowsRunInput    textinput.Model
+	LinuxCheckInput    CommandInput
+	LinuxRunInput      CommandInput
+	WindowsCheckInput  CommandInput
+	WindowsRunInput    CommandInput
 	BackupInput        textinput.Model
 	NewFileInput       textinput.Model
 	FilePicker         filepicker.Model
@@ -376,19 +376,19 @@ func (f *SubEntryForm) buildSetupEntry(name string) (config.SubEntry, error) {
 	run := make(map[string]string)
 	fields := []struct {
 		osName string
-		check  textinput.Model
-		run    textinput.Model
+		check  CommandInput
+		run    CommandInput
 	}{
 		{osName: "linux", check: f.LinuxCheckInput, run: f.LinuxRunInput},
 		{osName: "windows", check: f.WindowsCheckInput, run: f.WindowsRunInput},
 	}
 	for _, field := range fields {
-		checkValue := strings.TrimSpace(field.check.Value())
-		runValue := strings.TrimSpace(field.run.Value())
-		if checkValue == "" && runValue == "" {
+		checkValue := field.check.Value()
+		runValue := field.run.Value()
+		if strings.TrimSpace(checkValue) == "" && strings.TrimSpace(runValue) == "" {
 			continue
 		}
-		if checkValue == "" || runValue == "" {
+		if strings.TrimSpace(checkValue) == "" || strings.TrimSpace(runValue) == "" {
 			return config.SubEntry{}, errors.New("setup check and run commands must be provided together for each OS")
 		}
 		check[field.osName] = checkValue
@@ -490,10 +490,10 @@ func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 
 	backupInput := NewFormInput("e.g., ./nvim", tuishared.CharLimitPath, tuishared.InputWidthNarrow)
 	backupInput.SetValue(entry.Backup)
-	linuxCheckInput := NewFormInput("e.g., command -v foo", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
-	linuxRunInput := NewFormInput("e.g., install foo", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
-	windowsCheckInput := NewFormInput("e.g., where foo", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
-	windowsRunInput := NewFormInput("e.g., install foo", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+	linuxCheckInput := NewCommandInput("e.g., command -v foo", tuishared.InputWidthNarrow)
+	linuxRunInput := NewCommandInput("e.g., install foo", tuishared.InputWidthNarrow)
+	windowsCheckInput := NewCommandInput("e.g., where foo", tuishared.InputWidthNarrow)
+	windowsRunInput := NewCommandInput("e.g., install foo", tuishared.InputWidthNarrow)
 	linuxCheckInput.SetValue(entry.Check["linux"])
 	linuxRunInput.SetValue(entry.Run["linux"])
 	windowsCheckInput.SetValue(entry.Check["windows"])

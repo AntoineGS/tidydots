@@ -4,11 +4,51 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/platform"
 	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
 )
+
+// CommandInput is an unbounded text area used for shell commands and template
+// expressions. Unlike textinput, it preserves newlines, tabs, and long values.
+type CommandInput struct {
+	textarea.Model
+	raw string
+}
+
+// NewCommandInput creates an unbounded command text area.
+func NewCommandInput(placeholder string, width int) CommandInput {
+	m := textarea.New()
+	m.Placeholder = placeholder
+	m.CharLimit = 0
+	m.SetWidth(width)
+	m.SetHeight(3)
+	return CommandInput{Model: m}
+}
+
+// Update applies a key or paste message and refreshes the lossless value.
+func (m CommandInput) Update(msg tea.Msg) (CommandInput, tea.Cmd) {
+	var cmd tea.Cmd
+	m.Model, cmd = m.Model.Update(msg)
+	m.raw = m.Model.Value()
+	return m, cmd
+}
+
+// SetCursor retains the textinput-compatible cursor API.
+func (m *CommandInput) SetCursor(column int) { m.SetCursorColumn(column) }
+
+// SetValue retains the original bytes because textarea normalizes tabs for
+// display. Updates made interactively are captured by Update above.
+func (m *CommandInput) SetValue(value string) {
+	m.raw = value
+	m.Model.SetValue(value)
+}
+
+// Value returns the exact command text entered or loaded.
+func (m CommandInput) Value() string { return m.raw }
 
 // DisplayPackageManagers is platform.KnownPackageManagers excluding "git"
 // (git is handled as a special case, not shown in the package manager form)
@@ -41,26 +81,26 @@ func NewGitTextInputs() (gitURLInput, gitBranchInput, gitLinuxInput, gitWindowsI
 }
 
 // NewInstallerTextInputs creates the three installer text inputs with standard placeholders and char limits
-func NewInstallerTextInputs() (installerLinuxInput, installerWindowsInput, installerBinaryInput textinput.Model) {
-	installerLinuxInput = NewFormInput(tuishared.PlaceholderInstallerLinux, tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
-	installerWindowsInput = NewFormInput(tuishared.PlaceholderInstallerWindows, tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
-	installerBinaryInput = NewFormInput(tuishared.PlaceholderInstallerBinary, tuishared.CharLimitBinary, tuishared.InputWidthNarrow)
+func NewInstallerTextInputs() (installerLinuxInput, installerWindowsInput, installerBinaryInput CommandInput) {
+	installerLinuxInput = NewCommandInput(tuishared.PlaceholderInstallerLinux, tuishared.InputWidthNarrow)
+	installerWindowsInput = NewCommandInput(tuishared.PlaceholderInstallerWindows, tuishared.InputWidthNarrow)
+	installerBinaryInput = NewCommandInput(tuishared.PlaceholderInstallerBinary, tuishared.InputWidthNarrow)
 	return installerLinuxInput, installerWindowsInput, installerBinaryInput
 }
 
 // NewCustomTextInputs creates the two custom command inputs.
-func NewCustomTextInputs() (linuxInput, windowsInput textinput.Model) {
-	linuxInput = NewFormInput("e.g., cargo install ...", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
-	windowsInput = NewFormInput("e.g., scoop install ...", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+func NewCustomTextInputs() (linuxInput, windowsInput CommandInput) {
+	linuxInput = NewCommandInput("e.g., cargo install ...", tuishared.InputWidthNarrow)
+	windowsInput = NewCommandInput("e.g., scoop install ...", tuishared.InputWidthNarrow)
 	return linuxInput, windowsInput
 }
 
 // NewURLTextInputs creates URL and command inputs for both operating systems.
-func NewURLTextInputs() (linuxURL, linuxCommand, windowsURL, windowsCommand textinput.Model) {
-	linuxURL = NewFormInput("e.g., https://example.com/tool.tar.gz", tuishared.CharLimitURL, tuishared.InputWidthNarrow)
-	linuxCommand = NewFormInput("e.g., tar -xf {file}", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
-	windowsURL = NewFormInput("e.g., https://example.com/tool.zip", tuishared.CharLimitURL, tuishared.InputWidthNarrow)
-	windowsCommand = NewFormInput("e.g., Expand-Archive {file}", tuishared.CharLimitCommand, tuishared.InputWidthNarrow)
+func NewURLTextInputs() (linuxURL, linuxCommand, windowsURL, windowsCommand CommandInput) {
+	linuxURL = NewCommandInput("e.g., https://example.com/tool.tar.gz", tuishared.InputWidthNarrow)
+	linuxCommand = NewCommandInput("e.g., tar -xf {file}", tuishared.InputWidthNarrow)
+	windowsURL = NewCommandInput("e.g., https://example.com/tool.zip", tuishared.InputWidthNarrow)
+	windowsCommand = NewCommandInput("e.g., Expand-Archive {file}", tuishared.InputWidthNarrow)
 	return linuxURL, linuxCommand, windowsURL, windowsCommand
 }
 
@@ -214,7 +254,13 @@ func RenderGitPackageSection(
 }
 
 // RenderGitField renders a single git text field with appropriate styling
-func RenderGitField(label string, input textinput.Model, onSubFields, isCurrent, isEditing bool) string {
+type valueInput interface {
+	Value() string
+	View() string
+}
+
+// RenderGitField renders a single input with appropriate styling.
+func RenderGitField(label string, input valueInput, onSubFields, isCurrent, isEditing bool) string {
 	prefix := tuishared.IndentSpaces + "  "
 
 	if isEditing {
@@ -242,9 +288,9 @@ func RenderInstallerPackageSection(
 	hasInstallerPackage bool,
 	installerFieldCursor int,
 	editingInstallerField bool,
-	installerLinuxInput textinput.Model,
-	installerWindowsInput textinput.Model,
-	installerBinaryInput textinput.Model,
+	installerLinuxInput CommandInput,
+	installerWindowsInput CommandInput,
+	installerBinaryInput CommandInput,
 ) string {
 	var b strings.Builder
 	prefix := tuishared.IndentSpaces
@@ -279,14 +325,14 @@ func RenderInstallerPackageSection(
 }
 
 // RenderCustomPackageSection renders the expandable custom command package.
-func RenderCustomPackageSection(focused, onItem, hasPackage bool, cursor int, editing bool, linux, windows textinput.Model) string {
+func RenderCustomPackageSection(focused, onItem, hasPackage bool, cursor int, editing bool, linux, windows CommandInput) string {
 	return renderPackageMethodSection(focused, onItem, hasPackage, cursor, editing, "custom", "[+ Add Custom Package]", []packageMethodField{
 		{"Linux:   ", linux}, {"Windows: ", windows},
 	})
 }
 
 // RenderURLPackageSection renders the expandable URL download package.
-func RenderURLPackageSection(focused, onItem, hasPackage bool, cursor int, editing bool, linuxURL, linuxCommand, windowsURL, windowsCommand textinput.Model) string {
+func RenderURLPackageSection(focused, onItem, hasPackage bool, cursor int, editing bool, linuxURL, linuxCommand, windowsURL, windowsCommand CommandInput) string {
 	return renderPackageMethodSection(focused, onItem, hasPackage, cursor, editing, "url:", "[+ Add URL Download Package]", []packageMethodField{
 		{"Linux URL:     ", linuxURL}, {"Linux command: ", linuxCommand}, {"Windows URL:  ", windowsURL}, {"Windows command:", windowsCommand},
 	})
@@ -294,7 +340,7 @@ func RenderURLPackageSection(focused, onItem, hasPackage bool, cursor int, editi
 
 type packageMethodField struct {
 	label string
-	input textinput.Model
+	input CommandInput
 }
 
 func renderPackageMethodSection(focused, onItem, hasPackage bool, cursor int, editing bool, label, addText string, fields []packageMethodField) string {
@@ -323,7 +369,7 @@ func renderPackageMethodSection(focused, onItem, hasPackage bool, cursor int, ed
 func RenderWhenField(
 	focused bool,
 	editing bool,
-	whenInput textinput.Model,
+	whenInput CommandInput,
 ) string {
 	prefix := tuishared.IndentSpaces
 
@@ -411,18 +457,18 @@ func MergeGitPackage(
 func MergeInstallerPackage(
 	pkg *config.EntryPackage,
 	hasInstaller bool,
-	linuxInput textinput.Model,
-	windowsInput textinput.Model,
-	binaryInput textinput.Model,
+	linuxInput valueInput,
+	windowsInput valueInput,
+	binaryInput valueInput,
 ) *config.EntryPackage {
 	if !hasInstaller {
 		return pkg
 	}
 
-	linux := strings.TrimSpace(linuxInput.Value())
-	windows := strings.TrimSpace(windowsInput.Value())
+	linux := linuxInput.Value()
+	windows := windowsInput.Value()
 
-	if linux == "" && windows == "" {
+	if strings.TrimSpace(linux) == "" && strings.TrimSpace(windows) == "" {
 		return pkg
 	}
 
@@ -437,11 +483,11 @@ func MergeInstallerPackage(
 		Binary:  strings.TrimSpace(binaryInput.Value()),
 	}
 
-	if linux != "" {
+	if strings.TrimSpace(linux) != "" {
 		installerPkg.Command[tuishared.OSLinux] = linux
 	}
 
-	if windows != "" {
+	if strings.TrimSpace(windows) != "" {
 		installerPkg.Command[tuishared.OSWindows] = windows
 	}
 
@@ -451,12 +497,12 @@ func MergeInstallerPackage(
 }
 
 // MergeCustomPackage merges OS-specific custom commands into an EntryPackage.
-func MergeCustomPackage(pkg *config.EntryPackage, hasCustom bool, linuxInput, windowsInput textinput.Model) *config.EntryPackage {
+func MergeCustomPackage(pkg *config.EntryPackage, hasCustom bool, linuxInput, windowsInput valueInput) *config.EntryPackage {
 	if !hasCustom {
 		return pkg
 	}
-	linux, windows := strings.TrimSpace(linuxInput.Value()), strings.TrimSpace(windowsInput.Value())
-	if linux == "" && windows == "" {
+	linux, windows := linuxInput.Value(), windowsInput.Value()
+	if strings.TrimSpace(linux) == "" && strings.TrimSpace(windows) == "" {
 		if pkg != nil {
 			pkg.Custom = nil
 		}
@@ -466,25 +512,25 @@ func MergeCustomPackage(pkg *config.EntryPackage, hasCustom bool, linuxInput, wi
 		pkg = &config.EntryPackage{Managers: make(map[string]config.ManagerValue)}
 	}
 	pkg.Custom = make(map[string]string)
-	if linux != "" {
+	if strings.TrimSpace(linux) != "" {
 		pkg.Custom[tuishared.OSLinux] = linux
 	}
-	if windows != "" {
+	if strings.TrimSpace(windows) != "" {
 		pkg.Custom[tuishared.OSWindows] = windows
 	}
 	return pkg
 }
 
 // MergeURLPackage merges OS-specific URL install specs into an EntryPackage.
-func MergeURLPackage(pkg *config.EntryPackage, hasURL bool, linuxURL, linuxCommand, windowsURL, windowsCommand textinput.Model) *config.EntryPackage {
+func MergeURLPackage(pkg *config.EntryPackage, hasURL bool, linuxURL, linuxCommand, windowsURL, windowsCommand valueInput) *config.EntryPackage {
 	if !hasURL {
 		return pkg
 	}
 	values := []struct {
 		os, url, command string
 	}{
-		{tuishared.OSLinux, strings.TrimSpace(linuxURL.Value()), strings.TrimSpace(linuxCommand.Value())},
-		{tuishared.OSWindows, strings.TrimSpace(windowsURL.Value()), strings.TrimSpace(windowsCommand.Value())},
+		{tuishared.OSLinux, strings.TrimSpace(linuxURL.Value()), linuxCommand.Value()},
+		{tuishared.OSWindows, strings.TrimSpace(windowsURL.Value()), windowsCommand.Value()},
 	}
 	if values[0].url == "" && values[0].command == "" && values[1].url == "" && values[1].command == "" {
 		if pkg != nil {
@@ -497,7 +543,7 @@ func MergeURLPackage(pkg *config.EntryPackage, hasURL bool, linuxURL, linuxComma
 	}
 	pkg.URL = make(map[string]config.URLInstallSpec)
 	for _, value := range values {
-		if value.url != "" || value.command != "" {
+		if value.url != "" || strings.TrimSpace(value.command) != "" {
 			pkg.URL[value.os] = config.URLInstallSpec{URL: value.url, Command: value.command}
 		}
 	}

@@ -78,6 +78,21 @@ func TestApplicationWhenHostnameChooserEscapeRestoresDistinctExpression(t *testi
 	}
 }
 
+func TestApplicationWhenHostnameChooserClearsOnEmptySelection(t *testing.T) {
+	m := NewModel(&config.Config{Version: 3}, &platform.Platform{OS: platform.OSLinux}, false)
+	m.HostnameChoices = []string{"desktop"}
+	m.initApplicationForm(-1)
+	m.applicationForm.WhenInput.SetValue(`{{ eq .OS "linux" }}`)
+	m.applicationForm.FocusIndex = 3
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if m.applicationForm.WhenMode != forms.WhenModeNone || m.applicationForm.WhenInput.Value() != "" {
+		t.Fatalf("empty chooser selection did not clear/close: mode=%v value=%q", m.applicationForm.WhenMode, m.applicationForm.WhenInput.Value())
+	}
+}
+
 func TestApplicationForm_Validation(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -120,7 +120,7 @@ Available Commands:
   restore       Restore configurations by creating symlinks
 
 Flags:
-  -d, --dir string   Override configurations directory (ignores app config)
+  -d, --dir string   Override repository directory (TUI metadata remains available)
   -n, --dry-run      Show what would be done without making changes
   -h, --help         help for tidydots
   -o, --os string    Override OS detection (linux or windows)

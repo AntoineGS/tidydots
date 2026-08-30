@@ -4,6 +4,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/AntoineGS/tidydots/internal/tui/forms"
 )
 
 // updateApplicationGitFields handles navigation within git sub-fields (gitFieldCursor >= 0)
@@ -261,7 +262,7 @@ func (m Model) updateApplicationInstallerFieldInput(msg tea.KeyPressMsg) (tea.Mo
 }
 
 // getInstallerFieldInput returns a pointer to the current installer text input based on installerFieldCursor
-func (m *Model) getInstallerFieldInput() *textinput.Model {
+func (m *Model) getInstallerFieldInput() *forms.CommandInput {
 	if m.applicationForm == nil {
 		return nil
 	}

@@ -62,6 +62,25 @@ func LoadAppConfig() (*AppConfig, error) {
 	return &cfg, nil
 }
 
+// LoadAppConfigMetadata loads app config without requiring its repository to
+// exist. Local metadata must remain available while a repository is offline.
+func LoadAppConfigMetadata() (*AppConfig, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("getting home directory: %w", err)
+	}
+	data, err := os.ReadFile(filepath.Join(home, appConfigDir, appConfigFile)) //nolint:gosec
+	if err != nil {
+		return nil, fmt.Errorf("reading app config metadata: %w", err)
+	}
+	var cfg AppConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing app config metadata: %w", err)
+	}
+	cfg.ConfigDir = ExpandPath(cfg.ConfigDir, nil)
+	return &cfg, nil
+}
+
 // SaveAppConfig saves the app configuration to ~/.config/tidydots/config.yaml
 func SaveAppConfig(cfg *AppConfig) error {
 	home, err := os.UserHomeDir()
@@ -82,7 +101,7 @@ func SaveAppConfig(cfg *AppConfig) error {
 	}
 
 	// Add a header comment
-	content := fmt.Sprintf("# tidydots app configuration\n# This file only stores the path to your configurations repository\n\n%s", string(data))
+	content := fmt.Sprintf("# tidydots app configuration\n# This file stores the path to your configurations repository and local UI metadata\n\n%s", string(data))
 
 	// Use 0600 permissions to restrict access to owner only
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {

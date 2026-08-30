@@ -157,4 +157,4 @@ When you run any tidydots command:
 5. Applications are filtered by their `when` expressions against the current platform
 
 !!! info "CLI Override"
-    You can override the config directory with the `-d` / `--dir` flag on any command, bypassing the app config entirely.
+    You can override the repository directory with the `-d` / `--dir` flag on any command. The TUI can still load local app metadata, such as saved hostnames, from the app config.

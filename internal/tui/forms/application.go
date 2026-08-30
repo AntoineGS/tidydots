@@ -2,6 +2,7 @@ package forms
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -41,7 +42,7 @@ type ApplicationForm struct {
 	DescriptionInput  textinput.Model
 	PackageNameInput  textinput.Model
 	NameInput         textinput.Model
-	WhenInput         textinput.Model
+	WhenInput         CommandInput
 	EditAppIdx        int
 	PackagesCursor    int
 	FocusIndex        int
@@ -63,25 +64,25 @@ type ApplicationForm struct {
 	GitSudo         bool // sudo toggle for git package
 
 	// Installer package fields
-	InstallerLinuxInput   textinput.Model
-	InstallerWindowsInput textinput.Model
-	InstallerBinaryInput  textinput.Model
+	InstallerLinuxInput   CommandInput
+	InstallerWindowsInput CommandInput
+	InstallerBinaryInput  CommandInput
 	InstallerFieldCursor  int  // -1 = on installer label/button, 0-2 = on sub-fields
 	EditingInstallerField bool // true when editing an installer text field
 	HasInstallerPackage   bool // true when installer package is configured/expanded
 
 	// Custom package fields
-	CustomLinuxInput   textinput.Model
-	CustomWindowsInput textinput.Model
+	CustomLinuxInput   CommandInput
+	CustomWindowsInput CommandInput
 	CustomFieldCursor  int
 	EditingCustomField bool
 	HasCustomPackage   bool
 
 	// URL download package fields
-	URLLinuxInput          textinput.Model
-	URLLinuxCommandInput   textinput.Model
-	URLWindowsInput        textinput.Model
-	URLWindowsCommandInput textinput.Model
+	URLLinuxInput          CommandInput
+	URLLinuxCommandInput   CommandInput
+	URLWindowsInput        CommandInput
+	URLWindowsCommandInput CommandInput
 	URLFieldCursor         int
 	EditingURLField        bool
 	HasURLPackage          bool
@@ -163,7 +164,7 @@ func (f *ApplicationForm) GetGitFieldInput() *textinput.Model {
 }
 
 // GetInstallerFieldInput returns a pointer to the current installer text input based on InstallerFieldCursor
-func (f *ApplicationForm) GetInstallerFieldInput() *textinput.Model {
+func (f *ApplicationForm) GetInstallerFieldInput() *CommandInput {
 	if f == nil {
 		return nil
 	}
@@ -181,7 +182,7 @@ func (f *ApplicationForm) GetInstallerFieldInput() *textinput.Model {
 }
 
 // GetCustomFieldInput returns the current custom command input.
-func (f *ApplicationForm) GetCustomFieldInput() *textinput.Model {
+func (f *ApplicationForm) GetCustomFieldInput() *CommandInput {
 	if f == nil {
 		return nil
 	}
@@ -195,7 +196,7 @@ func (f *ApplicationForm) GetCustomFieldInput() *textinput.Model {
 }
 
 // GetURLFieldInput returns the current URL package input.
-func (f *ApplicationForm) GetURLFieldInput() *textinput.Model {
+func (f *ApplicationForm) GetURLFieldInput() *CommandInput {
 	if f == nil {
 		return nil
 	}
@@ -300,6 +301,9 @@ func (f *ApplicationForm) BuildApplication() (name, description, when string, pk
 
 	// Build when expression and package
 	when = strings.TrimSpace(f.WhenInput.Value())
+	if err := config.ValidateWhenExpression(when); err != nil {
+		return "", "", "", nil, fmt.Errorf("invalid when expression: %w", err)
+	}
 	pkg = BuildPackageSpec(f.PackageManagers)
 
 	// Merge git package data
@@ -400,7 +404,7 @@ func NewApplicationForm(app config.Application, isEdit bool) *ApplicationForm {
 	descriptionInput := NewFormInput("e.g., Neovim text editor", tuishared.CharLimitDesc, tuishared.InputWidthNarrow)
 	descriptionInput.SetValue(app.Description)
 
-	whenInput := NewFormInput(tuishared.PlaceholderWhen, tuishared.CharLimitWhen, tuishared.InputWidthWide)
+	whenInput := NewCommandInput(tuishared.PlaceholderWhen, tuishared.InputWidthWide)
 	whenInput.SetValue(app.When)
 
 	editAppIdx := -1

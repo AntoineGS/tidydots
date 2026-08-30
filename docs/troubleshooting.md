@@ -18,7 +18,7 @@ Run `tidydots init` with the path to your dotfiles repository:
 tidydots init ~/dotfiles
 ```
 
-Alternatively, bypass the app config entirely by passing the `--dir` flag on every command:
+Alternatively, override the repository selected by app config by passing the `--dir` flag on every command. The TUI may still use local metadata such as saved hostnames:
 
 ```bash
 tidydots restore -d ~/dotfiles

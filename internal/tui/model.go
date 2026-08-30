@@ -686,7 +686,7 @@ func (m Model) handleMouseClickEvent(msg tea.MouseClickMsg) (tea.Model, tea.Cmd)
 
 	// Don't handle mouse during modal states
 	if m.searching || m.confirmingDeleteApp || m.confirmingDeleteSubEntry ||
-		m.confirmingFilterToggle || m.showingDetail || m.showingResults {
+		m.confirmingFilterToggle || m.confirmingActionFilter || m.showingDetail || m.showingResults {
 		return m, nil
 	}
 
@@ -712,7 +712,7 @@ func (m Model) handleMouseWheelEvent(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd)
 
 	// Don't handle mouse during modal states
 	if m.searching || m.confirmingDeleteApp || m.confirmingDeleteSubEntry ||
-		m.confirmingFilterToggle || m.showingDetail || m.showingResults {
+		m.confirmingFilterToggle || m.confirmingActionFilter || m.showingDetail || m.showingResults {
 		return m, nil
 	}
 

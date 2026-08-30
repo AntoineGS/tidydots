@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -83,6 +84,33 @@ func TestRunInit(t *testing.T) {
 				t.Errorf("runInit() unexpected error = %v", err)
 			}
 		})
+	}
+}
+
+func TestRunInitPreservesHostnamesWhenPreviousRepoIsUnavailable(t *testing.T) {
+	appConfigPath := config.AppConfigPath()
+	original, readErr := os.ReadFile(appConfigPath)
+	hadOriginal := readErr == nil
+	t.Cleanup(func() {
+		if hadOriginal {
+			_ = os.WriteFile(appConfigPath, original, 0600)
+		} else {
+			_ = os.Remove(appConfigPath)
+		}
+	})
+	if err := config.SaveAppConfig(&config.AppConfig{ConfigDir: filepath.Join(t.TempDir(), "gone"), Hostnames: []string{"desktop", "laptop"}}); err != nil {
+		t.Fatal(err)
+	}
+	newRepo := t.TempDir()
+	if err := runInit(nil, []string{newRepo}); err != nil {
+		t.Fatalf("runInit() error = %v", err)
+	}
+	got, err := config.LoadAppConfigMetadata()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.Hostnames, []string{"desktop", "laptop"}) {
+		t.Fatalf("hostnames = %v, want preserved metadata", got.Hostnames)
 	}
 }
 

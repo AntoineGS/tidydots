@@ -267,7 +267,7 @@ Check commands must remain read-only and fast because they run during every TUI 
 
 In an application's **Packages** section, move below the standard managers to **Custom** or **URL download** and press `enter` to add or open that section. Use `↑/k` and `↓/j` to move through its fields, `e` or `enter` to edit a text field, and `enter` to confirm the text. `esc` cancels the current field edit; `s` or `ctrl+s` saves the application form. Press `d`, `delete`, or `backspace` on the section row to remove the complete custom or URL section and its values.
 
-Custom packages require at least one Linux or Windows command. URL packages require both a URL and an install command for each OS where either value is supplied; use `{file}` in the command for the downloaded file path. Invalid partial sections are rejected when saving rather than written to the repository.
+Custom packages require at least one Linux or Windows command. URL packages require both a URL and an install command for each OS where either value is supplied; use `{file}` in the command for the downloaded file path. Command fields (including installer and setup commands) are unbounded text areas and preserve pasted multiline content and tabs. Invalid partial sections are rejected when saving rather than written to the repository.
 
 ### File picker
 

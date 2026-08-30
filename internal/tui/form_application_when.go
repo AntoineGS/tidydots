@@ -79,11 +79,9 @@ func (m Model) updateWhenChooser(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				selected = append(selected, hostname)
 			}
 		}
-		if len(selected) > 0 {
-			f.WhenInput.SetValue(buildHostnameWhen(selected))
-			f.WhenMode = 0
-			f.SelectedHostnames = nil
-		}
+		f.WhenInput.SetValue(buildHostnameWhen(selected))
+		f.WhenMode = 0
+		f.SelectedHostnames = nil
 	}
 	return m, nil
 }

@@ -11,6 +11,7 @@ import (
 var (
 	displayPackageManagers        = forms.DisplayPackageManagers
 	newFormInput                  = forms.NewFormInput
+	newCommandInput               = forms.NewCommandInput
 	newGitTextInputs              = forms.NewGitTextInputs
 	newInstallerTextInputs        = forms.NewInstallerTextInputs
 	renderPackagesSection         = forms.RenderPackagesSection

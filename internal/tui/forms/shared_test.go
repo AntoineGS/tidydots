@@ -483,13 +483,13 @@ func TestNewInstallerTextInputs(t *testing.T) {
 
 	inputs := []struct {
 		name        string
-		input       textinput.Model
+		input       forms.CommandInput
 		placeholder string
 		charLimit   int
 	}{
-		{"installerLinux", installerLinux, tuishared.PlaceholderInstallerLinux, tuishared.CharLimitCommand},
-		{"installerWindows", installerWindows, tuishared.PlaceholderInstallerWindows, tuishared.CharLimitCommand},
-		{"installerBinary", installerBinary, tuishared.PlaceholderInstallerBinary, tuishared.CharLimitBinary},
+		{"installerLinux", installerLinux, tuishared.PlaceholderInstallerLinux, 0},
+		{"installerWindows", installerWindows, tuishared.PlaceholderInstallerWindows, 0},
+		{"installerBinary", installerBinary, tuishared.PlaceholderInstallerBinary, 0},
 	}
 
 	for _, tt := range inputs {

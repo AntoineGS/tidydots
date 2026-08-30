@@ -92,7 +92,7 @@ Run without arguments to start the interactive TUI.`,
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&configDir, "dir", "d", "", "Override configurations directory (ignores app config)")
+	rootCmd.PersistentFlags().StringVarP(&configDir, "dir", "d", "", "Override repository directory (app config metadata remains available to the TUI)")
 	rootCmd.PersistentFlags().StringVarP(&osOverride, "os", "o", "", "Override OS detection (linux or windows)")
 	rootCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "Show what would be done without making changes")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
@@ -205,9 +205,11 @@ func runInit(_ *cobra.Command, args []string) error {
 	}
 
 	// Save app config
-	appCfg := &config.AppConfig{
-		ConfigDir: absPath,
+	appCfg, err := config.LoadAppConfigMetadata()
+	if err != nil {
+		appCfg = &config.AppConfig{}
 	}
+	appCfg.ConfigDir = absPath
 
 	if err := config.SaveAppConfig(appCfg); err != nil {
 		return fmt.Errorf("saving app config: %w", err)

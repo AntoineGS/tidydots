@@ -2,6 +2,7 @@ package forms_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -119,6 +120,39 @@ func TestNewApplicationForm_LoadsPackageManagers(t *testing.T) {
 	}
 	if form.PackageManagers["apt"] != "neovim" {
 		t.Errorf("PackageManagers[apt] = %q, want %q", form.PackageManagers["apt"], "neovim")
+	}
+}
+
+func TestApplicationFormPreservesCommandText(t *testing.T) {
+	command := "#!/bin/sh\n\tprintf '%s' long\n" + strings.Repeat("x", 513)
+	app := config.Application{Name: "tool", Package: &config.EntryPackage{
+		Custom:   map[string]string{"linux": command},
+		URL:      map[string]config.URLInstallSpec{"linux": {URL: "https://example.test/tool", Command: command}},
+		Managers: map[string]config.ManagerValue{"installer": {Installer: &config.InstallerPackage{Command: map[string]string{"linux": command}}}},
+	}}
+	form := forms.NewApplicationForm(app, true)
+	if got := form.CustomLinuxInput.Value(); got != command {
+		t.Fatalf("custom command changed: got %q, want %q", got, command)
+	}
+	if got := form.URLLinuxCommandInput.Value(); got != command {
+		t.Fatalf("URL command changed: got %d bytes, want %d", len(got), len(command))
+	}
+	if got := form.InstallerLinuxInput.Value(); got != command {
+		t.Fatalf("installer command changed: got %d bytes, want %d", len(got), len(command))
+	}
+	_, _, _, pkg, err := form.BuildApplication()
+	if err != nil {
+		t.Fatalf("BuildApplication() error = %v", err)
+	}
+	if pkg.Custom["linux"] != command || pkg.URL["linux"].Command != command || pkg.Managers["installer"].Installer.Command["linux"] != command {
+		t.Fatal("command text was not preserved when building application")
+	}
+}
+
+func TestApplicationFormRejectsInvalidWhenTemplate(t *testing.T) {
+	form := forms.NewApplicationForm(config.Application{Name: "tool", When: "{{ if }}"}, true)
+	if _, _, _, _, err := form.BuildApplication(); err == nil {
+		t.Fatal("BuildApplication() accepted invalid when template")
 	}
 }
 
