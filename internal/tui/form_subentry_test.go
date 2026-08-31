@@ -10,6 +10,105 @@ import (
 	"github.com/AntoineGS/tidydots/internal/platform"
 )
 
+func TestInitSubEntryFormWithTypePresetsNewEntries(t *testing.T) {
+	cfg := &config.Config{Applications: []config.Application{{
+		Name: "test-app",
+		Entries: []config.SubEntry{{
+			Name: "existing", Backup: "./existing",
+			Targets: map[string]string{"linux": "~/.config/existing"},
+		}},
+	}}}
+
+	tests := []struct {
+		name                            string
+		entryType                       newSubEntryType
+		wantSetup, wantFolder, wantCopy bool
+	}{
+		{"folder symlink", newSubEntryFolderSymlink, false, true, false},
+		{"file symlink", newSubEntryFileSymlink, false, false, false},
+		{"file copy", newSubEntryFileCopy, false, false, true},
+		{"setup", newSubEntrySetup, true, false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewModel(cfg, &platform.Platform{OS: OSLinux}, false)
+			m.initSubEntryFormWithType(0, -1, tt.entryType)
+			if m.subEntryForm == nil {
+				t.Fatal("subEntryForm is nil")
+			}
+			if m.subEntryForm.IsSetup != tt.wantSetup ||
+				m.subEntryForm.IsFolder != tt.wantFolder ||
+				m.subEntryForm.IsCopy != tt.wantCopy {
+				t.Fatalf("preset = setup:%v folder:%v copy:%v", m.subEntryForm.IsSetup, m.subEntryForm.IsFolder, m.subEntryForm.IsCopy)
+			}
+		})
+	}
+}
+
+func TestInitSubEntryFormWithTypePreservesEditedEntryType(t *testing.T) {
+	cfg := &config.Config{Applications: []config.Application{{
+		Name: "test-app",
+		Entries: []config.SubEntry{{
+			Name: "copy", Backup: "./copy", Files: []string{"config.toml"},
+			Method: config.MethodCopy, Targets: map[string]string{"linux": "~/.config/tool"},
+		}},
+	}}}
+	m := NewModel(cfg, &platform.Platform{OS: OSLinux}, false)
+	m.initSubEntryFormWithType(0, 0, newSubEntrySetup)
+
+	if m.subEntryForm.IsSetup || m.subEntryForm.IsFolder || !m.subEntryForm.IsCopy {
+		t.Fatalf("edit form did not preserve copy entry type")
+	}
+}
+
+func TestNewSubEntryTypeBuildsExpectedShape(t *testing.T) {
+	tests := []struct {
+		name       string
+		entryType  newSubEntryType
+		wantSetup  bool
+		wantFolder bool
+		wantMethod string
+	}{
+		{"folder symlink", newSubEntryFolderSymlink, false, true, config.MethodSymlink},
+		{"file symlink", newSubEntryFileSymlink, false, false, config.MethodSymlink},
+		{"file copy", newSubEntryFileCopy, false, false, config.MethodCopy},
+		{"setup", newSubEntrySetup, true, false, config.MethodSymlink},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{Applications: []config.Application{{Name: "tool"}}}
+			m := NewModel(cfg, &platform.Platform{OS: OSLinux}, false)
+			m.Applications = []ApplicationItem{{Application: cfg.Applications[0]}}
+			m.initSubEntryFormWithType(0, -1, tt.entryType)
+			f := m.subEntryForm
+			f.NameInput.SetValue("created")
+			if tt.wantSetup {
+				f.LinuxCheckInput.SetValue("command -v tool")
+				f.LinuxRunInput.SetValue("install tool")
+			} else {
+				f.LinuxTargetInput.SetValue("~/.config/tool")
+				f.BackupInput.SetValue("./tool")
+				if !tt.wantFolder {
+					f.Files = []string{"config.toml"}
+				}
+			}
+
+			got, err := f.BuildSubEntry()
+			if err != nil {
+				t.Fatalf("BuildSubEntry() error = %v", err)
+			}
+			if got.IsSetup() != tt.wantSetup || got.IsFolder() != tt.wantFolder {
+				t.Fatalf("shape = setup:%v folder:%v", got.IsSetup(), got.IsFolder())
+			}
+			if !tt.wantSetup && got.EffectiveMethod() != tt.wantMethod {
+				t.Fatalf("method = %q, want %q", got.EffectiveMethod(), tt.wantMethod)
+			}
+		})
+	}
+}
+
 // TestAddFileMode_Constants verifies the AddFileMode enum constants exist
 func TestAddFileMode_Constants(t *testing.T) {
 	tests := []struct {

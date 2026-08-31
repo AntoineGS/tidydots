@@ -15,6 +15,15 @@ import (
 // Field type aliases from forms package for use in root tui methods.
 type subEntryFieldType = forms.SubEntryFieldType
 
+type newSubEntryType int
+
+const (
+	newSubEntryFolderSymlink newSubEntryType = iota
+	newSubEntryFileSymlink
+	newSubEntryFileCopy
+	newSubEntrySetup
+)
+
 const (
 	subFieldName         = forms.SubFieldName
 	subFieldIsSetup      = forms.SubFieldIsSetup
@@ -40,11 +49,16 @@ const (
 	ModeTextInput = forms.ModeTextInput
 )
 
-// initSubEntryForm initializes the sub-entry form.
+// initSubEntryForm uses the default folder symlink preset for new entries.
+func (m *Model) initSubEntryForm(appIdx, subIdx int) {
+	m.initSubEntryFormWithType(appIdx, subIdx, newSubEntryFolderSymlink)
+}
+
+// initSubEntryFormWithType initializes the sub-entry form.
 // appIdx is the index in m.Applications (sorted).
 // If subIdx >= 0, loads data from the existing sub-entry (edit mode).
 // If subIdx < 0, creates an empty form for adding to the app (new mode).
-func (m *Model) initSubEntryForm(appIdx, subIdx int) {
+func (m *Model) initSubEntryFormWithType(appIdx, subIdx int, entryType newSubEntryType) {
 	// appIdx is an index into m.Applications (sorted), not m.Config.Applications (unsorted)
 	// We need to find the correct index in m.Config.Applications by application name
 	if appIdx < 0 || appIdx >= len(m.Applications) {
@@ -101,9 +115,9 @@ func (m *Model) initSubEntryForm(appIdx, subIdx int) {
 	windowsRunInput := newCommandInput("e.g., install foo", InputWidthNarrow)
 
 	isSudo := false
-	isCopy := false
-	isFolder := true
-	isSetup := false
+	isCopy := entryType == newSubEntryFileCopy
+	isFolder := entryType == newSubEntryFolderSymlink
+	isSetup := entryType == newSubEntrySetup
 	var files []string
 
 	if hasSub {

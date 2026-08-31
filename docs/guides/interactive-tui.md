@@ -80,7 +80,17 @@ tidydots uses vim-style keybindings alongside arrow keys for navigation.
 | Key | Action |
 |-----|--------|
 | `A` | Add a new application |
-| `a` | Add a new sub-entry to the current application |
+| `a` | Choose and add a new sub-entry to the current application |
+
+Pressing `a` opens an entry-type chooser before the edit form:
+
+- **Folder symlink** links an entire backup directory to its target.
+- **File symlink** links selected files from a backup directory.
+- **File copy** deploys selected files as real copies instead of symlinks.
+- **Setup command** runs an OS-specific command when its read-only check fails.
+
+Use `up`/`k` and `down`/`j` to choose a type, `enter` to continue to the form,
+or `esc` to cancel. The form's type controls remain editable before saving.
 
 ### Sorting
 

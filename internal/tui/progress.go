@@ -662,7 +662,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.Operation == OpList {
 			appIdx, _ := m.getApplicationAtCursorFromTable()
 			if appIdx >= 0 {
-				m.initSubEntryForm(appIdx, -1)
+				m.startEntryTypeChooser(appIdx)
 				return m, nil
 			}
 		}

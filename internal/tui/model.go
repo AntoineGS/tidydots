@@ -29,6 +29,8 @@ const (
 	ScreenResults
 	// ScreenAddForm is the add/edit form screen
 	ScreenAddForm
+	// ScreenEntryTypeChooser is the entry type selection screen
+	ScreenEntryTypeChooser
 	// ScreenSummary is the summary/confirmation screen for batch operations
 	ScreenSummary
 )
@@ -116,6 +118,7 @@ type Model struct {
 	Manager                  *manager.Manager
 	subEntryForm             *SubEntryForm
 	applicationForm          *ApplicationForm
+	entryTypeChooser         *entryTypeChooserState
 	searchText               string
 	ConfigPath               string
 	pendingPackages          []PackageItem
@@ -487,6 +490,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m.updateAddForm(msg)
 		}
 	}
+	if m.Screen == ScreenEntryTypeChooser {
+		return m.updateEntryTypeChooser(msg)
+	}
 
 	switch {
 	case key.Matches(msg, SharedKeys.ForceQuit):
@@ -523,6 +529,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case ScreenAddForm:
 		// AddForm is handled earlier, but adding case for exhaustiveness
 		return m, nil
+	case ScreenEntryTypeChooser:
+		return m.updateEntryTypeChooser(msg)
 	case ScreenSummary:
 		return m.updateSummary(msg)
 	}
@@ -574,6 +582,8 @@ func (m Model) View() tea.View {
 		default:
 			content = m.viewAddForm()
 		}
+	case ScreenEntryTypeChooser:
+		content = m.viewEntryTypeChooser()
 	case ScreenSummary:
 		content = m.viewSummary()
 	}
