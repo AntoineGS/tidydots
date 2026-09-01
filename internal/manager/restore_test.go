@@ -91,6 +91,42 @@ func TestRestoreFolderSkipsExistingSymlink(t *testing.T) {
 	}
 }
 
+func TestRestoreFolderRejectsTargetAliasedThroughParentSymlink(t *testing.T) {
+	t.Parallel()
+	skipIfNoSymlink(t)
+	tmpDir := t.TempDir()
+
+	sourceParent := filepath.Join(tmpDir, "backup")
+	source := filepath.Join(sourceParent, "common")
+	if err := os.MkdirAll(source, 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	marker := filepath.Join(source, "config.txt")
+	if err := os.WriteFile(marker, []byte("config"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	targetParent := filepath.Join(tmpDir, "target")
+	if err := os.Symlink(sourceParent, targetParent); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(targetParent, "common")
+
+	cfg := &config.Config{BackupRoot: tmpDir}
+	plat := &platform.Platform{OS: platform.OSLinux}
+	mgr := New(cfg, plat)
+
+	err := mgr.RestoreFolder(config.SubEntry{Name: "test"}, source, target)
+	if err == nil || !strings.Contains(err.Error(), "source and target resolve to the same location") {
+		t.Fatalf("RestoreFolder() error = %v, want same-location error", err)
+	}
+
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("source content was removed: %v", err)
+	}
+}
+
 func TestRestoreFiles(t *testing.T) {
 	t.Parallel()
 	skipIfNoSymlink(t)

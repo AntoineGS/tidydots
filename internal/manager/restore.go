@@ -165,6 +165,14 @@ func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string)
 		return nil
 	}
 
+	// A symlinked parent can make distinct path strings refer to the same
+	// directory. Refuse before merge or removal can destroy the source.
+	sourceInfo, sourceErr := m.fs.Stat(source)
+	targetInfo, targetErr := m.fs.Stat(target)
+	if sourceErr == nil && targetErr == nil && os.SameFile(sourceInfo, targetInfo) {
+		return NewPathError("restore", target, errors.New("source and target resolve to the same location"))
+	}
+
 	// If it's a symlink but points to wrong location, remove it
 	if m.isSymlink(target) {
 		m.logger.Info("removing incorrect symlink", slog.String("path", target))
