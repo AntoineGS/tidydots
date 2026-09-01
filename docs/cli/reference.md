@@ -8,7 +8,7 @@ These flags are available on every command.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--dir <path>` | `-d` | Override the repository directory; the TUI may still load local app metadata such as hostnames |
+| `--dir <path>` | `-d` | Override the repository directory, including its TUI hostname choices |
 | `--os <os>` | `-o` | Override OS detection (`linux` or `windows`) |
 | `--dry-run` | `-n` | Show what would be done without making changes |
 | `--verbose` | `-v` | Enable verbose output |

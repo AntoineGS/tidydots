@@ -964,6 +964,21 @@ func (m Model) renderApplicationFormHelp() string {
 
 	ft := m.getApplicationFieldType()
 
+	if m.applicationForm.WhenMode == forms.WhenModeChooser {
+		applyBinding := key.NewBinding(
+			key.WithKeys("enter", "e"),
+			key.WithHelp("enter/e", "apply"),
+		)
+		return RenderHelpFromBindings(m.width,
+			FormNavKeys.Up,
+			FormNavKeys.Down,
+			FormNavKeys.Toggle,
+			applyBinding,
+			FormNavKeys.Save,
+			FormNavKeys.Cancel,
+		)
+	}
+
 	if m.applicationForm.EditingDeps {
 		if m.applicationForm.EditingDepItem {
 			return RenderHelpFromBindings(m.width,

@@ -71,7 +71,7 @@ Setup entries cannot have `backup` or `targets`; choose the config-entry mode to
 fields instead. Saving writes the resulting `check` and `run` maps to `tidydots.yaml`.
 
 For the **When** field, `enter` or `e` opens the hostname chooser when saved hostname
-choices are available in the local app config. Select hosts with `space` or `tab`, then
+choices are available in `tidydots.yaml`. Select hosts with `space` or `tab`, then
 confirm to generate an expression; choose **Type expression** to enter a Go-template
 condition manually.
 

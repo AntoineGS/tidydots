@@ -32,6 +32,9 @@ This is the main configuration file that lives inside your dotfiles repository. 
 
 ```yaml
 version: 3
+hostnames:
+  - desktop
+  - laptop
 
 applications:
   - name: "nvim"
@@ -56,6 +59,7 @@ The `tidydots.yaml` file supports the following root-level fields:
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `version` | integer | no | `3` | Configuration format version. Must be `3` |
+| `hostnames` | []string | no | - | Hostname choices shown by the TUI's **When** chooser |
 | `default_manager` | string | no | - | Preferred package manager when multiple are available |
 | `manager_priority` | []string | no | - | Ordered list of package managers to try, highest priority first |
 | `applications` | []Application | no | - | Array of application definitions |
@@ -67,6 +71,16 @@ version: 3
 ```
 
 The version field is required. tidydots currently only supports version 3. If omitted, it defaults to 3, but explicitly setting it is recommended for clarity.
+
+### hostnames
+
+```yaml
+hostnames:
+  - desktop
+  - laptop
+```
+
+Defines the version-controlled machine names shown by the TUI's **When** chooser. Selecting hosts generates a `.Hostname` condition; the list itself does not filter applications or entries.
 
 ### default_manager
 
@@ -157,4 +171,4 @@ When you run any tidydots command:
 5. Applications are filtered by their `when` expressions against the current platform
 
 !!! info "CLI Override"
-    You can override the repository directory with the `-d` / `--dir` flag on any command. The TUI can still load local app metadata, such as saved hostnames, from the app config.
+    You can override the repository directory with the `-d` / `--dir` flag on any command. The TUI uses hostname choices from that repository's `tidydots.yaml`.

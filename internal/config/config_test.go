@@ -22,6 +22,9 @@ func TestLoad(t *testing.T) {
 
 	configContent := `
 version: 3
+hostnames:
+  - desktop
+  - laptop
 
 applications:
   - name: "neovim"
@@ -66,6 +69,9 @@ applications:
 	// Test version
 	if cfg.Version != 3 {
 		t.Errorf("Version = %d, want 3", cfg.Version)
+	}
+	if !reflect.DeepEqual(cfg.Hostnames, []string{"desktop", "laptop"}) {
+		t.Errorf("Hostnames = %v, want [desktop laptop]", cfg.Hostnames)
 	}
 
 	// Test applications count
@@ -275,7 +281,8 @@ func TestSave(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	cfg := &Config{
-		Version: 3,
+		Version:   3,
+		Hostnames: []string{"desktop", "laptop"},
 		Applications: []Application{
 			{
 				Name:        "neovim",
@@ -328,6 +335,9 @@ func TestSave(t *testing.T) {
 
 	if loaded.Version != cfg.Version {
 		t.Errorf("Version = %d, want %d", loaded.Version, cfg.Version)
+	}
+	if !reflect.DeepEqual(loaded.Hostnames, cfg.Hostnames) {
+		t.Errorf("Hostnames = %v, want %v", loaded.Hostnames, cfg.Hostnames)
 	}
 
 	if len(loaded.Applications) != len(cfg.Applications) {

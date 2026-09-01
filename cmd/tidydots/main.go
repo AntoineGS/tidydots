@@ -92,7 +92,7 @@ Run without arguments to start the interactive TUI.`,
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&configDir, "dir", "d", "", "Override repository directory (app config metadata remains available to the TUI)")
+	rootCmd.PersistentFlags().StringVarP(&configDir, "dir", "d", "", "Override repository directory, including TUI hostname choices")
 	rootCmd.PersistentFlags().StringVarP(&osOverride, "os", "o", "", "Override OS detection (linux or windows)")
 	rootCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "Show what would be done without making changes")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")

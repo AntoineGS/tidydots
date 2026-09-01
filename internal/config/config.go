@@ -16,6 +16,7 @@ import (
 type Config struct {
 	Version         int           `yaml:"version"`
 	BackupRoot      string        `yaml:"-"`
+	Hostnames       []string      `yaml:"hostnames,omitempty"`
 	DefaultManager  string        `yaml:"default_manager,omitempty"`
 	ManagerPriority []string      `yaml:"manager_priority,omitempty"`
 	Applications    []Application `yaml:"applications,omitempty"`

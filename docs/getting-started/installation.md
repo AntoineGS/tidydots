@@ -138,20 +138,26 @@ tidydots works on:
 ## Local app configuration
 
 The app configuration at `~/.config/tidydots/config.yaml` points to the repository that
-contains `tidydots.yaml`. It may also contain hostname choices used by the TUI's **When**
-chooser:
+contains `tidydots.yaml`:
 
 ```yaml
 config_dir: ~/.dotfiles
+```
+
+Configure hostname choices in the version-controlled `tidydots.yaml` repository config:
+
+```yaml
+version: 3
 hostnames:
   - desktop
   - laptop
 ```
 
-`hostnames` is local UI metadata. It is not a field in the `tidydots.yaml` v3 schema and is
-not copied into the repository configuration. When selected in the TUI, the choices generate
-Go-template expressions such as `{{ eq .Hostname "desktop" }}` for one host or
+When selected in the TUI, the choices generate Go-template expressions such as
+`{{ eq .Hostname "desktop" }}` for one host or
 `{{ or (eq .Hostname "desktop") (eq .Hostname "laptop") }}` for multiple hosts.
+For compatibility, the TUI uses `hostnames` from the local app config only when the repository
+does not define them.
 
 ## Next steps
 

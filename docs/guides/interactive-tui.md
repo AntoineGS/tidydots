@@ -237,7 +237,7 @@ Navigate to an application row and press `e` to open the edit screen. You can mo
 - **Description** -- optional description text
 - **When** -- conditional expression for machine filtering
 
-If hostname choices are configured in the local app config, focusing **When** and pressing `enter` or `e` opens a chooser. Use `space` or `tab` to select one or more hosts, then `enter` or `e` on a selected host to generate the expression. The chooser also provides **Type expression** for manual Go-template input. For example, selecting `desktop` generates:
+If hostname choices are configured at the top level of `tidydots.yaml`, focusing **When** and pressing `enter` or `e` opens a chooser. Use `space` or `tab` to select one or more hosts. Press `enter` or `e` to apply the selection without saving the form, or `s` / `ctrl+s` to apply it and save immediately. The chooser also provides **Type expression** for manual Go-template input. For example, selecting `desktop` generates:
 
 ```yaml
 when: '{{ eq .Hostname "desktop" }}'
@@ -278,8 +278,8 @@ Navigate to a config entry and press `e` to edit. Editable fields include:
 The **Copy files** toggle only appears when an explicit file list is set, because copy mode is files-only. Switching an entry back to whole-folder mode therefore clears it.
 
 Focusing the sub-entry **When** field and pressing `enter` or `e` opens the same
-hostname chooser used for applications when hostnames are configured in the local app
-config. Use `space` or `tab` to select hosts and confirm to generate a condition, or
+hostname chooser used for applications when hostnames are configured in `tidydots.yaml`.
+Use `space` or `tab` to select hosts and confirm to generate a condition, or
 choose **Type expression** for manual Go-template input. The generated condition is
 saved on that entry, so it combines with the parent application's condition.
 

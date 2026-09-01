@@ -857,15 +857,16 @@ func (m Model) renderSubEntryFormHelp() string {
 	ft := m.getSubEntryFieldType()
 
 	if m.subEntryForm.WhenMode == forms.WhenModeChooser {
-		selectBinding := key.NewBinding(
+		applyBinding := key.NewBinding(
 			key.WithKeys("enter", "e"),
-			key.WithHelp("enter/e", "select"),
+			key.WithHelp("enter/e", "apply"),
 		)
 		return RenderHelpFromBindings(m.width,
 			FormNavKeys.Up,
 			FormNavKeys.Down,
 			FormNavKeys.Toggle,
-			selectBinding,
+			applyBinding,
+			FormNavKeys.Save,
 			FormNavKeys.Cancel,
 		)
 	}

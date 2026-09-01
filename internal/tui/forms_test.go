@@ -117,6 +117,44 @@ func TestApplicationWhenHostnameChooser(t *testing.T) {
 	}
 }
 
+func TestApplicationWhenHostnameChooserSavePersistsSelection(t *testing.T) {
+	cfg := &config.Config{
+		Version:   3,
+		Hostnames: []string{"desktop"},
+		Applications: []config.Application{{
+			Name: "shell",
+			Package: &config.EntryPackage{Managers: map[string]config.ManagerValue{
+				"apt": {PackageName: "shell"},
+			}},
+		}},
+	}
+	configPath := t.TempDir() + "/tidydots.yaml"
+	if err := config.Save(cfg, configPath); err != nil {
+		t.Fatalf("config.Save() error = %v", err)
+	}
+
+	m := NewModel(cfg, &platform.Platform{OS: platform.OSLinux}, false)
+	m.ConfigPath = configPath
+	m.HostnameChoices = append([]string(nil), cfg.Hostnames...)
+	m.initApplicationForm(0)
+	m.applicationForm.FocusIndex = 3
+
+	updated, _ := m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: tea.KeySpace})
+	m = updated.(Model)
+	updated, _ = m.updateApplicationForm(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	m = updated.(Model)
+
+	reloaded, err := config.Load(configPath)
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	if got, want := reloaded.Applications[0].When, `{{ eq .Hostname "desktop" }}`; got != want {
+		t.Errorf("application when = %q, want %q", got, want)
+	}
+}
+
 func TestApplicationWhenHostnameChooserEscapeRestoresDistinctExpression(t *testing.T) {
 	const original = `{{ eq .OS "linux" }}`
 	m := NewModel(&config.Config{Version: 3}, &platform.Platform{OS: platform.OSLinux}, false)
@@ -181,6 +219,46 @@ func TestSubEntryWhenHostnameChooserAndCancel(t *testing.T) {
 	}
 }
 
+func TestSubEntryWhenHostnameChooserSavePersistsSelection(t *testing.T) {
+	cfg := &config.Config{
+		Version:   3,
+		Hostnames: []string{"desktop"},
+		Applications: []config.Application{{
+			Name: "shell",
+			Entries: []config.SubEntry{{
+				Name:    "config",
+				Backup:  "./shell",
+				Targets: map[string]string{"linux": "~/.config/shell"},
+			}},
+		}},
+	}
+	configPath := t.TempDir() + "/tidydots.yaml"
+	if err := config.Save(cfg, configPath); err != nil {
+		t.Fatalf("config.Save() error = %v", err)
+	}
+
+	m := NewModel(cfg, &platform.Platform{OS: platform.OSLinux}, false)
+	m.ConfigPath = configPath
+	m.HostnameChoices = append([]string(nil), cfg.Hostnames...)
+	m.initSubEntryForm(0, 0)
+	m.subEntryForm.FocusIndex = 2
+
+	updated, _ := m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: tea.KeySpace})
+	m = updated.(Model)
+	updated, _ = m.updateSubEntryForm(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	m = updated.(Model)
+
+	reloaded, err := config.Load(configPath)
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	if got, want := reloaded.Applications[0].Entries[0].When, `{{ eq .Hostname "desktop" }}`; got != want {
+		t.Errorf("entry when = %q, want %q", got, want)
+	}
+}
+
 func TestSubEntryWhenHostnameChooserSelectsMultipleInConfiguredOrder(t *testing.T) {
 	m := NewModel(&config.Config{Version: 3, Applications: []config.Application{{Name: "tool"}}}, &platform.Platform{OS: platform.OSLinux}, false)
 	m.Applications = []ApplicationItem{{Application: m.Config.Applications[0]}}
@@ -228,8 +306,8 @@ func TestSubEntryWhenChooserHelpUsesChooserBindings(t *testing.T) {
 	m.initSubEntryForm(0, -1)
 	m.subEntryForm.FocusIndex = 2
 	m.startSubEntryWhenChooser()
-	help := m.renderSubEntryFormHelp()
-	for _, want := range []string{"↑/k", "↓/j", "space", "enter/e", "esc", "select"} {
+	help := stripAnsiCodes(m.renderSubEntryFormHelp())
+	for _, want := range []string{"↑/k", "↓/j", "space", "enter/e", "esc", "apply", "save"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("chooser help %q does not contain %q", help, want)
 		}

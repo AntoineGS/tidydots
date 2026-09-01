@@ -53,8 +53,11 @@ func NewModelWithManager(cfg *config.Config, plat *platform.Platform, mgr *manag
 	m := NewModel(cfg, plat, mgr.DryRun)
 	m.Manager = mgr
 	m.ConfigPath = configPath
-	if appCfg, err := config.LoadAppConfigMetadata(); err == nil && len(appCfg.Hostnames) > 0 {
-		m.HostnameChoices = append([]string(nil), appCfg.Hostnames...)
+	m.HostnameChoices = append([]string(nil), cfg.Hostnames...)
+	if len(m.HostnameChoices) == 0 {
+		if appCfg, err := config.LoadAppConfigMetadata(); err == nil {
+			m.HostnameChoices = append(m.HostnameChoices, appCfg.Hostnames...)
+		}
 	}
 
 	return m

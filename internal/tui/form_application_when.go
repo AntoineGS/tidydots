@@ -68,7 +68,8 @@ func (m Model) updateWhenChooser(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		f.SelectedHostnames[host] = !f.SelectedHostnames[host]
 		return m, nil
 	}
-	if key.Matches(msg, FormNavKeys.Edit) || key.Matches(msg, FormNavKeys.Save) {
+	saveForm := key.Matches(msg, FormNavKeys.Save)
+	if key.Matches(msg, FormNavKeys.Edit) || saveForm {
 		if f.HostnameCursor == optionCount {
 			m.startWhenTextEdit()
 			return m, nil
@@ -82,6 +83,9 @@ func (m Model) updateWhenChooser(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		f.WhenInput.SetValue(buildHostnameWhen(selected))
 		f.WhenMode = 0
 		f.SelectedHostnames = nil
+		if saveForm {
+			return m.updateApplicationForm(msg)
+		}
 	}
 	return m, nil
 }
