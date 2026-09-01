@@ -466,7 +466,7 @@ func cellAttentionStyle(tr TableRow, col int) lipgloss.Style {
 	}
 	if col == 2 && tr.InfoAttention {
 		switch {
-		case stateSeverity(tr.InfoState) >= 3:
+		case tr.InfoState.Severity() >= 3:
 			return baseStyle.Foreground(errorColor)
 		case tr.InfoState == StateOutdated:
 			return baseStyle.Foreground(accentColor)

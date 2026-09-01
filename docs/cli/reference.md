@@ -32,6 +32,12 @@ tidydots [flags]
 
 The TUI provides a visual interface for browsing applications, restoring configs, installing packages, and editing your `tidydots.yaml`. It requires a terminal -- if standard input is not a TTY, tidydots prints an error and exits.
 
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--actions` | Start the TUI with the action filter enabled |
+
 !!! note
     The TUI reads your configuration on startup. Make sure you have run `tidydots init` first, or pass `--dir` to point at your dotfiles repo.
 
@@ -240,6 +246,79 @@ tidydots list -o windows
 
 # List paths from a specific directory
 tidydots list -d ~/dotfiles
+```
+
+---
+
+## tidydots status
+
+Resolve and report the current package and configuration-entry status without changing the system.
+
+```
+tidydots status [flags]
+```
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--actions` | Show only applications and entries that need action |
+| `--json` | Output stable structured JSON |
+
+Status waits for every package, config, template, and setup check used by the TUI before deciding whether an item is actionable. An actionable result is still a successful command and exits `0`; configuration or status-computation failures exit nonzero. The command honors the global `--dir`, `--os`, and `--verbose` flags.
+
+With `--actions`, the `applications` array is reduced using the same predicate as the TUI `x` filter. `counts` always includes totals and actionable counts for all applications and entries that apply to the selected platform.
+
+### JSON schema
+
+```json
+{
+  "actionable": true,
+  "actions_only": true,
+  "counts": {
+    "applications": 1,
+    "entries": 1,
+    "packages": 0,
+    "actionable_applications": 1,
+    "actionable_entries": 1,
+    "actionable_packages": 0
+  },
+  "applications": [
+    {
+      "name": "nvim",
+      "description": "Neovim editor",
+      "status": "Unknown",
+      "actionable": true,
+      "package": null,
+      "entries": [
+        {
+          "name": "config",
+          "kind": "config",
+          "state": "Ready",
+          "actionable": true,
+          "target": "~/.config/nvim",
+          "backup": "./nvim",
+          "method": "symlink"
+        }
+      ]
+    }
+  ]
+}
+```
+
+`state` uses the same labels as the TUI. Actionable entry states are `Missing`, `Ready`, `Adopt`, `Needs setup`, `Outdated`, and `Modified`; an uninstalled package is actionable when its installation method is available. `package` is an object when the application defines a package and contains its selected `name`, `method`, nullable `installed` value, and `actionable` flag.
+
+### Examples
+
+```bash
+# Show all resolved statuses
+tidydots status
+
+# Get actionable items for a status bar or integration
+tidydots status --actions --json
+
+# Resolve status for another repository and OS
+tidydots status --dir ~/dotfiles --os windows --json
 ```
 
 ---

@@ -3,8 +3,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -25,23 +27,50 @@ import (
 var version = "dev"
 
 var (
-	configDir   string // Override from --dir flag
-	osOverride  string
-	dryRun      bool
-	verbose     bool
-	interactive bool
-	noMerge     bool
-	forceDelete bool
-	forceRender bool
-	cpuProfile  string
-	logFile     *os.File
+	configDir     string // Override from --dir flag
+	osOverride    string
+	dryRun        bool
+	verbose       bool
+	interactive   bool
+	actions       bool
+	statusActions bool
+	statusJSON    bool
+	noMerge       bool
+	forceDelete   bool
+	forceRender   bool
+	cpuProfile    string
+	logFile       *os.File
 )
 
+var interactiveIsTerminal = tui.IsTerminal
+
+var runInteractiveTUI = func(
+	cfg *config.Config,
+	plat *platform.Platform,
+	dryRun bool,
+	configPath string,
+	actionFilterEnabled bool,
+) error {
+	if actionFilterEnabled {
+		return tui.RunWithActionFilter(cfg, plat, dryRun, configPath)
+	}
+	return tui.Run(cfg, plat, dryRun, configPath)
+}
+
 func main() {
+	rootCmd := newRootCommand()
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func newRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "tidydots",
 		Version: version,
 		Short:   "Manage dotfiles and configurations across platforms",
+		Args:    cobra.NoArgs,
 		Long: `tidydots is a cross-platform tool for managing dotfiles and configurations.
 It supports backup and restore operations using symlinks, with support for
 both Windows and Linux systems.
@@ -53,7 +82,10 @@ Configuration is stored in two places:
 Run 'tidydots init <path>' to set up the app configuration.
 Run without arguments to start the interactive TUI.`,
 		RunE: runInteractive,
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			if actions && cmd.Name() != "tidydots" {
+				return fmt.Errorf("--actions cannot be used with %s; use it with tidydots or status --actions", cmd.Name())
+			}
 			if verbose {
 				logWriter := os.Stderr
 				// When running interactively (TUI), write logs to a file to avoid corrupting the display
@@ -96,6 +128,7 @@ Run without arguments to start the interactive TUI.`,
 	rootCmd.PersistentFlags().StringVarP(&osOverride, "os", "o", "", "Override OS detection (linux or windows)")
 	rootCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "Show what would be done without making changes")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.Flags().BoolVar(&actions, "actions", false, "Start the interactive TUI with action filtering enabled")
 	rootCmd.PersistentFlags().StringVar(&cpuProfile, "cpuprofile", "", "Write CPU profile to file (e.g. cpu.prof)")
 	_ = rootCmd.PersistentFlags().MarkHidden("cpuprofile")
 
@@ -156,6 +189,16 @@ Packages are filtered based on their filters (os, hostname, user).`,
 		RunE:  runListPackages,
 	}
 
+	statusCmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show resolved configuration and package status",
+		Long:  "Resolve all package and entry checks and report their current status.",
+		Args:  cobra.NoArgs,
+		RunE:  runStatus,
+	}
+	statusCmd.Flags().BoolVar(&statusActions, "actions", false, "Show only applications and entries needing action")
+	statusCmd.Flags().BoolVar(&statusJSON, "json", false, "Output status as JSON")
+
 	previewCmd := &cobra.Command{
 		Use:   "preview <path>",
 		Short: "Live preview template rendering",
@@ -169,11 +212,9 @@ The path can be a single .tmpl file or a directory containing .tmpl files.`,
 		RunE: runPreview,
 	}
 
-	rootCmd.AddCommand(initCmd, restoreCmd, backupCmd, listCmd, installCmd, listPkgsCmd, previewCmd)
+	rootCmd.AddCommand(initCmd, restoreCmd, backupCmd, listCmd, installCmd, listPkgsCmd, statusCmd, previewCmd)
 
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return rootCmd
 }
 
 func runInit(_ *cobra.Command, args []string) error {
@@ -308,11 +349,84 @@ func runInteractive(_ *cobra.Command, _ []string) error {
 	}
 
 	// Check if we're in a terminal
-	if !tui.IsTerminal() {
+	if !interactiveIsTerminal() {
 		return fmt.Errorf("interactive mode requires a terminal; use subcommands (restore, backup, list) for non-interactive use")
 	}
 
-	return tui.Run(cfg, plat, dryRun, configPath)
+	return runInteractiveTUI(cfg, plat, dryRun, configPath, actions)
+}
+
+func runStatus(cmd *cobra.Command, _ []string) error {
+	cfg, plat, _, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	logLevel := slog.LevelInfo
+	if verbose {
+		logLevel = slog.LevelDebug
+	}
+	mgr := manager.New(cfg, plat).WithLogger(slog.New(slog.NewTextHandler(
+		cmd.ErrOrStderr(),
+		&slog.HandlerOptions{Level: logLevel},
+	)))
+	mgr.Verbose = verbose
+	if err := mgr.InitStateStore(); err != nil {
+		return fmt.Errorf("initializing status checks: %w", err)
+	}
+	defer mgr.Close() //nolint:errcheck // best-effort cleanup
+
+	report, err := tui.ComputeStatus(cfg, plat, mgr, statusActions)
+	if err != nil {
+		return err
+	}
+
+	if statusJSON {
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(report); err != nil {
+			return fmt.Errorf("writing status JSON: %w", err)
+		}
+		return nil
+	}
+
+	return writeHumanStatus(cmd.OutOrStdout(), report)
+}
+
+func writeHumanStatus(out io.Writer, report tui.StatusReport) error {
+	if _, err := fmt.Fprintf(out, "Actionable: %t\n", report.Actionable); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Applications: %d (%d actionable)\n", report.Counts.Applications, report.Counts.ActionableApplications); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Entries: %d (%d actionable)\n", report.Counts.Entries, report.Counts.ActionableEntries); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Packages: %d (%d actionable)\n", report.Counts.Packages, report.Counts.ActionablePackages); err != nil {
+		return err
+	}
+
+	for _, app := range report.Applications {
+		if _, err := fmt.Fprintf(out, "\n%s: %s", app.Name, app.Status); err != nil {
+			return err
+		}
+		if app.Actionable {
+			if _, err := fmt.Fprint(out, " [actionable]"); err != nil {
+				return err
+			}
+		}
+		if _, err := fmt.Fprintln(out); err != nil {
+			return err
+		}
+		for _, entry := range app.Entries {
+			if _, err := fmt.Fprintf(out, "  %s: %s\n", entry.Name, entry.State); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {

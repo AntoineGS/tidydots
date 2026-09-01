@@ -185,9 +185,9 @@ func (m *Model) countHiddenActionSelections() int {
 		}
 
 		name := app.Application.Name
-		appActionable := app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled
+		appActionable := applicationPackageActionable(app)
 		for _, sub := range app.SubItems {
-			if stateSeverity(sub.State) > 0 {
+			if sub.State.Actionable() {
 				appActionable = true
 			}
 		}
@@ -197,7 +197,7 @@ func (m *Model) countHiddenActionSelections() int {
 				count++
 			}
 			for _, sub := range app.SubItems {
-				if stateSeverity(sub.State) == 0 {
+				if !sub.State.Actionable() {
 					count++
 				}
 			}
@@ -205,7 +205,7 @@ func (m *Model) countHiddenActionSelections() int {
 		}
 
 		for _, sub := range app.SubItems {
-			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] && stateSeverity(sub.State) == 0 {
+			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] && !sub.State.Actionable() {
 				count++
 			}
 		}

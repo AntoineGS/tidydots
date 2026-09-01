@@ -60,6 +60,30 @@ func (s PathState) String() string {
 	return "Unknown"
 }
 
+// Severity returns the attention level used by the action filter. A positive
+// value means the state requires an action; larger values take priority when
+// choosing an application's highest-severity entry state.
+func (s PathState) Severity() int {
+	switch s {
+	case StateMissing, StateReady, StateAdopt, StateSetupNeeded:
+		return 3
+	case StateOutdated:
+		return 2
+	case StateModified:
+		return 1
+	case StateLoading, StateLinked, StateSetupOk:
+		return 0
+	}
+
+	return 0
+}
+
+// Actionable reports whether this state is included by the TUI action filter
+// once status checks have completed.
+func (s PathState) Actionable() bool {
+	return s.Severity() > 0
+}
+
 // Row wraps table.Row with hierarchy metadata used for rendering and
 // selection logic in the manage screen.
 type Row struct {

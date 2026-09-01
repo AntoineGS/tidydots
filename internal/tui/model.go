@@ -235,6 +235,12 @@ type ResultItem = tuiops.ResultItem
 // platform information, and dry-run mode. It sets up the initial state including
 // loading entries, detecting path states, and initializing the UI.
 func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
+	return NewModelWithActionFilter(cfg, plat, dryRun, false)
+}
+
+// NewModelWithActionFilter creates a TUI model and optionally enables the
+// action filter before the initial status checks are dispatched.
+func NewModelWithActionFilter(cfg *config.Config, plat *platform.Platform, dryRun, actionFilterEnabled bool) Model {
 	// Create template engine for when expression evaluation
 	tmplCtx := tmpl.NewContextFromPlatform(plat)
 	renderer := tmpl.NewEngine(tmplCtx)
@@ -250,23 +256,24 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	s.Style = SpinnerStyle
 
 	m := Model{
-		Screen:             ScreenResults, // Start directly in Manage view
-		Operation:          OpList,        // Set operation to List (Manage)
-		Config:             cfg,
-		Platform:           plat,
-		Renderer:           renderer,
-		DryRun:             dryRun,
-		viewHeight:         15,
-		width:              80,
-		height:             24,
-		searchInput:        searchInput,
-		spinner:            s,
-		sortColumn:         SortColumnName, // Default sort by name
-		sortAscending:      true,           // Ascending by default
-		filterEnabled:      true,           // Filter ON by default
-		selectedApps:       make(map[string]bool),
-		selectedSubEntries: make(map[subEntryKey]bool),
-		multiSelectActive:  false,
+		Screen:              ScreenResults, // Start directly in Manage view
+		Operation:           OpList,        // Set operation to List (Manage)
+		Config:              cfg,
+		Platform:            plat,
+		Renderer:            renderer,
+		DryRun:              dryRun,
+		viewHeight:          15,
+		width:               80,
+		height:              24,
+		searchInput:         searchInput,
+		spinner:             s,
+		sortColumn:          SortColumnName, // Default sort by name
+		sortAscending:       true,           // Ascending by default
+		filterEnabled:       true,           // Filter ON by default
+		actionFilterEnabled: actionFilterEnabled,
+		selectedApps:        make(map[string]bool),
+		selectedSubEntries:  make(map[subEntryKey]bool),
+		multiSelectActive:   false,
 	}
 
 	// Initialize applications for hierarchical view
@@ -276,6 +283,9 @@ func NewModel(cfg *config.Config, plat *platform.Platform, dryRun bool) Model {
 	// Init() uses a value receiver and cannot persist state mutations, so we
 	// compute the count here while we still have a mutable model.
 	m.pendingStateChecks = m.countInitialStateChecks()
+	if actionFilterEnabled {
+		m.rebuildTable()
+	}
 
 	return m
 }

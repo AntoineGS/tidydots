@@ -124,6 +124,34 @@ func TestPathState_String_SetupStates(t *testing.T) {
 	}
 }
 
+func TestPathState_Actionable(t *testing.T) {
+	tests := []struct {
+		state      PathState
+		actionable bool
+		severity   int
+	}{
+		{StateLoading, false, 0},
+		{StateReady, true, 3},
+		{StateAdopt, true, 3},
+		{StateMissing, true, 3},
+		{StateLinked, false, 0},
+		{StateOutdated, true, 2},
+		{StateModified, true, 1},
+		{StateSetupOk, false, 0},
+		{StateSetupNeeded, true, 3},
+		{PathState(99), false, 0},
+	}
+
+	for _, tt := range tests {
+		if got := tt.state.Actionable(); got != tt.actionable {
+			t.Errorf("PathState(%d).Actionable() = %t, want %t", tt.state, got, tt.actionable)
+		}
+		if got := tt.state.Severity(); got != tt.severity {
+			t.Errorf("PathState(%d).Severity() = %d, want %d", tt.state, got, tt.severity)
+		}
+	}
+}
+
 // The existing states are declared with iota; appending must not renumber them,
 // or persisted/compared state values would silently shift meaning.
 func TestPathState_ExistingValuesUnchanged(t *testing.T) {

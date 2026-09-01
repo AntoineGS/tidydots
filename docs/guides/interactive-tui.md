@@ -113,6 +113,8 @@ remain absent in either mode.
 
 Press `x` to toggle the action filter. It keeps applications with an uninstalled package and entries whose state needs attention (`Missing`, `Ready`, `Adopt`, `Needs setup`, `Outdated`, or `Modified`). The filter composes with search and the `f` platform filter. If enabling it would hide selected items, tidydots asks for confirmation; answer `y` to enable it or `n` to leave the current view and selections unchanged. Confirming does not clear selections.
 
+The TUI can start with this filter already enabled by running `tidydots --actions`. This keeps the normal interactive behavior while showing actionable work as soon as status checks settle.
+
 Package status is automatically rechecked after installs. Press `ctrl+r` on the clean main list to manually refresh all package, config, template, and setup statuses. The refresh preserves filters, selections, expansion, and cursor position; existing loading indicators show progress while statuses are rechecked.
 
 The paging and jump motions operate only on the clean main list, not while search or a confirmation dialog is active. `gg` is a two-key sequence: press `g` twice. A single `g` waits for the second key and any other key cancels that pending sequence. Empty and one-row tables remain clamped safely.

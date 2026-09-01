@@ -13,20 +13,30 @@ import (
 func filterActionableApplications(apps []ApplicationItem, includeLoading bool) []ApplicationItem {
 	filtered := make([]ApplicationItem, 0, len(apps))
 	for _, app := range apps {
-		packageActionable := app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled
 		appCopy := app
 		appCopy.SubItems = make([]SubEntryItem, 0, len(app.SubItems))
 		for _, sub := range app.SubItems {
-			if stateSeverity(sub.State) > 0 || includeLoading && sub.State == StateLoading {
+			if subEntryActionable(sub.State, includeLoading) {
 				appCopy.SubItems = append(appCopy.SubItems, sub)
 			}
 		}
-		packageLoading := app.Application.HasPackage() && app.PkgInstalled == nil
-		if packageActionable || packageLoading && includeLoading || len(appCopy.SubItems) > 0 {
+		if applicationActionable(app, includeLoading) {
 			filtered = append(filtered, appCopy)
 		}
 	}
 	return slices.Clip(filtered)
+}
+
+// applicationPackageActionable reports whether an application's package needs
+// installation. An unresolved or unavailable package method is not actionable.
+func applicationPackageActionable(app ApplicationItem) bool {
+	return app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled
+}
+
+// subEntryActionable applies the canonical path-state action predicate. Loading
+// is included only while the TUI is waiting for its initial checks.
+func subEntryActionable(state PathState, includeLoading bool) bool {
+	return state.Actionable() || includeLoading && state == StateLoading
 }
 
 // flattenApplications converts hierarchical apps to flat table rows
@@ -176,18 +186,7 @@ func needsAttention(status string) bool {
 // stateSeverity returns a numeric severity for a PathState.
 // Higher values indicate more urgent states that should take priority in the info column.
 func stateSeverity(s PathState) int {
-	switch s {
-	case StateMissing, StateReady, StateAdopt, StateSetupNeeded:
-		return 3 // Red — action required
-	case StateOutdated:
-		return 2 // Amber — template source changed
-	case StateModified:
-		return 1 // Blue — user edits detected
-	case StateLoading, StateLinked, StateSetupOk:
-		return 0 // No attention
-	}
-
-	return 0
+	return s.Severity()
 }
 
 // appInfoMaxState returns the highest-severity sub-entry state for an application.

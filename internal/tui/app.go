@@ -12,6 +12,15 @@ import (
 
 // Run starts the interactive TUI with a new manager
 func Run(cfg *config.Config, plat *platform.Platform, dryRun bool, configPath string) error {
+	return run(cfg, plat, dryRun, configPath, false)
+}
+
+// RunWithActionFilter starts the interactive TUI with action filtering enabled.
+func RunWithActionFilter(cfg *config.Config, plat *platform.Platform, dryRun bool, configPath string) error {
+	return run(cfg, plat, dryRun, configPath, true)
+}
+
+func run(cfg *config.Config, plat *platform.Platform, dryRun bool, configPath string, actionFilterEnabled bool) error {
 	mgr := manager.New(cfg, plat)
 	mgr.DryRun = dryRun
 
@@ -21,12 +30,24 @@ func Run(cfg *config.Config, plat *platform.Platform, dryRun bool, configPath st
 	}
 	defer func() { _ = mgr.Close() }()
 
-	return RunWithManager(cfg, plat, mgr, configPath)
+	return RunWithManagerAndActionFilter(cfg, plat, mgr, configPath, actionFilterEnabled)
 }
 
 // RunWithManager runs the TUI with an existing manager
 func RunWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Manager, configPath string) error {
-	model := NewModelWithManager(cfg, plat, mgr, configPath)
+	return RunWithManagerAndActionFilter(cfg, plat, mgr, configPath, false)
+}
+
+// RunWithManagerAndActionFilter runs the TUI with an existing manager and an
+// optional action filter enabled at startup.
+func RunWithManagerAndActionFilter(
+	cfg *config.Config,
+	plat *platform.Platform,
+	mgr *manager.Manager,
+	configPath string,
+	actionFilterEnabled bool,
+) error {
+	model := NewModelWithManagerAndActionFilter(cfg, plat, mgr, configPath, actionFilterEnabled)
 
 	p := tea.NewProgram(model)
 
@@ -50,7 +71,19 @@ func RunWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Ma
 
 // NewModelWithManager creates a model with a manager for real operations
 func NewModelWithManager(cfg *config.Config, plat *platform.Platform, mgr *manager.Manager, configPath string) Model {
-	m := NewModel(cfg, plat, mgr.DryRun)
+	return NewModelWithManagerAndActionFilter(cfg, plat, mgr, configPath, false)
+}
+
+// NewModelWithManagerAndActionFilter creates a model with a manager and an
+// optional action filter enabled at startup.
+func NewModelWithManagerAndActionFilter(
+	cfg *config.Config,
+	plat *platform.Platform,
+	mgr *manager.Manager,
+	configPath string,
+	actionFilterEnabled bool,
+) Model {
+	m := NewModelWithActionFilter(cfg, plat, mgr.DryRun, actionFilterEnabled)
 	m.Manager = mgr
 	m.ConfigPath = configPath
 	m.HostnameChoices = append([]string(nil), cfg.Hostnames...)
