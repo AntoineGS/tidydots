@@ -34,6 +34,9 @@ func (m *Manager) restoreLiteralFile(subEntry config.SubEntry, source, target, f
 
 	// Check if already a symlink pointing to correct source
 	if m.symlinkPointsTo(dstFile, srcFile) {
+		if _, err := m.fs.Stat(srcFile); err != nil {
+			return NewPathError("restore", dstFile, fmt.Errorf("cannot access symlink source %s: %w", srcFile, err))
+		}
 		m.logger.Debug("already a symlink", slog.String("path", dstFile))
 		return nil
 	}

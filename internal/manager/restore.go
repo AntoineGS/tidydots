@@ -169,6 +169,9 @@ func (m *Manager) restoreSubEntry(_ string, subEntry config.SubEntry, target str
 func (m *Manager) RestoreFolder(subEntry config.SubEntry, source, target string) error {
 	// Check if already a symlink pointing to the correct source
 	if m.symlinkPointsTo(target, source) {
+		if _, err := m.fs.Stat(source); err != nil {
+			return NewPathError("restore", target, fmt.Errorf("cannot access symlink source %s: %w", source, err))
+		}
 		m.logger.Debug("already a symlink", slog.String("path", target))
 		return nil
 	}

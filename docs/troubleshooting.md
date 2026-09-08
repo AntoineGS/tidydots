@@ -45,6 +45,8 @@ tidydots restore -d ~/dotfiles
 
 2. If the backup path in `tidydots.yaml` is wrong, update it to match the actual location of the files in your repo.
 
+    If the path is correct but the source is missing, recover the source from version control or another backup before restoring.
+
 3. Re-run `tidydots restore` to recreate the symlinks:
 
     ```bash
@@ -52,7 +54,18 @@ tidydots restore -d ~/dotfiles
     ```
 
 !!! note
-    If the target already exists as a broken symlink, `restore` will replace it. If the target exists as a regular file or directory, you may need `--no-merge --force` to overwrite it.
+    A file or folder symlink already pointing to the configured source is a no-op
+    only if that source resolves. If the source is missing (including a dangling
+    source alias), both `restore` and `restore --dry-run` return an error naming
+    the target and source, leaving the existing symlink untouched. Permission or
+    other source-access errors are reported with their underlying cause, not as
+    missing files. Valid source aliases, including rendered-template symlink
+    chains, remain supported.
+
+    A symlink pointing to a different location can be replaced by `restore`.
+    If the target exists as a regular file or directory, you may need
+    `--no-merge --force` to overwrite it. Other missing-source and adoption
+    behavior is unchanged.
 
 ---
 
