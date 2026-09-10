@@ -6,9 +6,14 @@ import (
 	"github.com/AntoineGS/tidydots/internal/tui/detection"
 )
 
-// isPackageInstalledFromPackage checks if a package is installed using the packages package.
-func isPackageInstalledFromPackage(pkg *config.EntryPackage, method, entryName, osType string) bool {
-	return detection.IsPackageInstalled(pkg, method, entryName, osType)
+// isPackageInstalledFromPackage checks a package and its installation-plan
+// dependencies using the packages package.
+func isPackageInstalledFromPackage(
+	pkg *config.EntryPackage,
+	plan packages.InstallationPlan,
+	entryName, osType string,
+) bool {
+	return detection.IsPackageInstalled(pkg, plan, entryName, osType)
 }
 
 // packageConfig shares repository selection preferences between status and install.

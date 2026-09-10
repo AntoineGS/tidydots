@@ -158,10 +158,11 @@ func (m Model) packageStateCheckCmd(appIndex int) tea.Cmd {
 	osType := m.Platform.OS
 	preferences := m.packageConfig()
 	return func() tea.Msg {
-		method := detection.GetPackageInstallMethod(pkg, osType, preferences)
+		plan := detection.GetPackageInstallPlan(pkg, osType, preferences)
+		method := plan.Method
 		installed := false
 		if method != TypeNone {
-			installed = isPackageInstalledFromPackage(pkg, method, name, osType)
+			installed = isPackageInstalledFromPackage(pkg, plan, name, osType)
 		}
 		return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
 	}

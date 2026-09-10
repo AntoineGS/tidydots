@@ -275,6 +275,11 @@ the meanings are **0 = Set up**, **1 = Needs setup**, **2 = Outdated**, and **3 
 
 With `--actions`, the `applications` array is reduced using the same predicate as the TUI `x` filter. `counts` always includes totals and actionable counts for all applications and entries that apply to the selected platform.
 
+Package status checks the selected main package and every dependency in its installation
+plan. A missing dependency makes the package actionable, with `installed: false`, even
+when the main package is already installed. As with installation, this includes
+dependencies from all eligible standard managers, not just the selected main manager.
+
 ### JSON schema
 
 ```json

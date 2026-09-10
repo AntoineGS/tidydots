@@ -89,6 +89,7 @@ In this example, `libssl-dev` and `cmake` are installed via `apt` before the ins
 **Behavior:**
 
 - All dependencies across eligible standard managers are installed first, before the main package
+- Package status checks those same dependencies; a missing dependency makes the application actionable in the TUI and `tidydots status --actions`, even if the main package is installed
 - If any dependency fails, or the selected main method is invalid for this OS, the main installation is aborted
 - tidydots validates the selected main method before running dependencies; an invalid git target or URL, a blank git target, or a missing installer command for the OS therefore runs no dependencies
 - A deps-only manager entry is never selected as the main installation method

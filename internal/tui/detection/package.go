@@ -15,12 +15,30 @@ import (
 // a package manager is locked or a sudo prompt is waiting.
 const PackageCheckTimeout = 10 * time.Second
 
-// IsPackageInstalled checks if a package is installed using the packages package.
-func IsPackageInstalled(pkg *config.EntryPackage, method, entryName, osType string) bool {
-	if pkg == nil {
+// IsPackageInstalled checks the selected main package and every dependency in
+// the installation plan using the packages package.
+func IsPackageInstalled(pkg *config.EntryPackage, plan packages.InstallationPlan, entryName, osType string) bool {
+	if pkg == nil || plan.Method == packages.MethodNone {
 		return false
 	}
 
+	if !isPackageMethodInstalled(pkg, plan.Method, entryName, osType) {
+		return false
+	}
+
+	for _, dependency := range plan.Dependencies {
+		if err := packages.ValidatePackageName(dependency.Name); err != nil {
+			return false
+		}
+		if !isNativePackageInstalled(dependency.Name, string(dependency.Manager)) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isPackageMethodInstalled(pkg *config.EntryPackage, method, entryName, osType string) bool {
 	// Handle installer packages via binary PATH lookup
 	if method == tuishared.TypeInstaller {
 		if val, ok := pkg.Managers[method]; ok && val.IsInstaller() {
@@ -49,28 +67,39 @@ func IsPackageInstalled(pkg *config.EntryPackage, method, entryName, osType stri
 		pkgName = entryName
 	}
 
+	return isNativePackageInstalled(pkgName, method)
+}
+
+func isNativePackageInstalled(pkgName, method string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), PackageCheckTimeout)
 	defer cancel()
 
 	return packages.IsInstalled(ctx, pkgName, method)
 }
 
-// GetPackageInstallMethod determines how a package would be installed. Callers
-// with repository preferences should pass them so status and execution agree.
-func GetPackageInstallMethod(pkg *config.EntryPackage, osType string, preferences *packages.Config) string {
+// GetPackageInstallPlan determines how a package would be installed and which
+// dependencies would run before the selected main method. Callers with
+// repository preferences should pass them so status and execution agree.
+func GetPackageInstallPlan(pkg *config.EntryPackage, osType string, preferences *packages.Config) packages.InstallationPlan {
 	if pkg == nil {
-		return tuishared.TypeNone
+		return packages.InstallationPlan{Method: packages.MethodNone}
 	}
 
-	var available []packages.PackageManager
+	available := make([]packages.PackageManager, 0)
 	for _, mgr := range DetectAvailableManagers() {
 		available = append(available, packages.PackageManager(mgr))
 	}
 	converted := packages.FromPackageSpec("", pkg)
 	if converted == nil {
-		return tuishared.TypeNone
+		return packages.InstallationPlan{Method: packages.MethodNone}
 	}
-	return packages.PlanInstallation(*converted, preferences, osType, available).Method
+	return packages.PlanInstallation(*converted, preferences, osType, available)
+}
+
+// GetPackageInstallMethod determines how a package would be installed. Callers
+// with repository preferences should pass them so status and execution agree.
+func GetPackageInstallMethod(pkg *config.EntryPackage, osType string, preferences *packages.Config) string {
+	return GetPackageInstallPlan(pkg, osType, preferences).Method
 }
 
 // DetectAvailableManagers returns the list of package managers available on the current system.

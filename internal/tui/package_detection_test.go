@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/packages"
+	"github.com/AntoineGS/tidydots/internal/testutil"
 )
 
 func TestIsPackageInstalledFromPackage_GitMethod(t *testing.T) {
@@ -74,10 +76,23 @@ func TestIsPackageInstalledFromPackage_GitMethod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := isPackageInstalledFromPackage(tt.pkg, tt.method, "test-entry", tt.osType)
+			got := isPackageInstalledFromPackage(tt.pkg, packages.InstallationPlan{Method: tt.method}, "test-entry", tt.osType)
 			if got != tt.want {
 				t.Errorf("isPackageInstalledFromPackage() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestIsPackageInstalledFromPackage_InstallerMethod(t *testing.T) {
+	dir := t.TempDir()
+	testutil.CreateMockBinary(t, dir, "tidydots-installer-status", 0, "", "")
+	t.Setenv("PATH", testutil.PrependPath(t, dir))
+
+	pkg := &config.EntryPackage{Managers: map[string]config.ManagerValue{
+		"installer": {Installer: &config.InstallerPackage{Binary: "tidydots-installer-status"}},
+	}}
+	if !isPackageInstalledFromPackage(pkg, packages.InstallationPlan{Method: TypeInstaller}, "test-entry", "linux") {
+		t.Fatal("installer binary was not detected as installed")
 	}
 }
