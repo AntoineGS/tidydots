@@ -26,8 +26,9 @@ type RenderRecord struct {
 
 // Store manages the SQLite database for template render history.
 type Store struct {
-	db   *sql.DB
-	path string
+	db          *sql.DB
+	path        string
+	cleanupPath string
 }
 
 // Open opens or creates the SQLite database at the given path and runs migrations.
@@ -68,7 +69,13 @@ func (s *Store) Path() string {
 
 // Close closes the database connection.
 func (s *Store) Close() error {
-	return s.db.Close()
+	err := s.db.Close()
+	if s.cleanupPath != "" {
+		if cleanupErr := os.RemoveAll(s.cleanupPath); err == nil {
+			err = cleanupErr
+		}
+	}
+	return err
 }
 
 func scanRenderRow(row *sql.Row, context string) (*RenderRecord, error) {
@@ -200,6 +207,8 @@ func (s *Store) migrate(ctx context.Context) error {
 
 	migrations := []func(context.Context, *sql.Tx) error{
 		migrateV1,
+		migrateV2,
+		migrateV3,
 	}
 
 	for i := currentVersion; i < len(migrations); i++ {
@@ -228,6 +237,166 @@ func (s *Store) migrate(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+// migrateV2 persists imported-row mappings atomically with render transfers.
+func migrateV2(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS render_imports (
+		transaction_id TEXT NOT NULL,
+		source_id INTEGER NOT NULL,
+		destination_id INTEGER NOT NULL,
+		template_path TEXT NOT NULL,
+		pure_render BLOB NOT NULL,
+		template_hash TEXT NOT NULL,
+		rendered_at DATETIME NOT NULL,
+		platform_os TEXT NOT NULL,
+		platform_host TEXT NOT NULL,
+		PRIMARY KEY (transaction_id, source_id),
+		UNIQUE (transaction_id, destination_id)
+	)`)
+	if err != nil {
+		return fmt.Errorf("creating render import receipts: %w", err)
+	}
+	_, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS render_deletions (
+		transaction_id TEXT NOT NULL,
+		source_id INTEGER NOT NULL,
+		template_path TEXT NOT NULL,
+		pure_render BLOB NOT NULL,
+		template_hash TEXT NOT NULL,
+		rendered_at DATETIME NOT NULL,
+		platform_os TEXT NOT NULL,
+		platform_host TEXT NOT NULL,
+		PRIMARY KEY (transaction_id, source_id)
+	)`)
+	if err != nil {
+		return fmt.Errorf("creating render deletion receipts: %w", err)
+	}
+	return nil
+}
+
+// migrateV3 replaces plaintext transfer receipts with record fingerprints.
+func migrateV3(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, `CREATE TABLE render_imports_v3 (
+		transaction_id TEXT NOT NULL,
+		source_id INTEGER NOT NULL,
+		destination_id INTEGER NOT NULL,
+		fingerprint BLOB NOT NULL,
+		PRIMARY KEY (transaction_id, source_id),
+		UNIQUE (transaction_id, destination_id)
+	)`); err != nil {
+		return fmt.Errorf("creating fingerprint-only import receipts: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `CREATE TABLE render_deletions_v3 (
+		transaction_id TEXT NOT NULL,
+		source_id INTEGER NOT NULL,
+		fingerprint BLOB NOT NULL,
+		PRIMARY KEY (transaction_id, source_id)
+	)`); err != nil {
+		return fmt.Errorf("creating fingerprint-only deletion receipts: %w", err)
+	}
+	if err := migrateImportReceipts(ctx, tx); err != nil {
+		return err
+	}
+	if err := migrateDeletionReceipts(ctx, tx); err != nil {
+		return err
+	}
+	for _, statement := range []string{
+		`DROP TABLE render_imports`,
+		`ALTER TABLE render_imports_v3 RENAME TO render_imports`,
+		`DROP TABLE render_deletions`,
+		`ALTER TABLE render_deletions_v3 RENAME TO render_deletions`,
+	} {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("replacing plaintext transfer receipts: %w", err)
+		}
+	}
+	return nil
+}
+
+func migrateImportReceipts(ctx context.Context, tx *sql.Tx) error {
+	rows, err := tx.QueryContext(ctx, `SELECT transaction_id, source_id, destination_id, template_path, pure_render,
+		template_hash, rendered_at, platform_os, platform_host FROM render_imports`)
+	if err != nil {
+		return fmt.Errorf("reading legacy import receipts: %w", err)
+	}
+	type receipt struct {
+		transactionID string
+		sourceID      int64
+		destinationID int64
+		record        RenderRecord
+	}
+	receipts := make([]receipt, 0)
+	for rows.Next() {
+		var item receipt
+		var renderedAt string
+		if err := rows.Scan(&item.transactionID, &item.sourceID, &item.destinationID, &item.record.TemplatePath,
+			&item.record.PureRender, &item.record.TemplateHash, &renderedAt, &item.record.PlatformOS, &item.record.PlatformHost); err != nil {
+			_ = rows.Close() //nolint:errcheck,gosec // preserve scan error
+			return fmt.Errorf("scanning legacy import receipt: %w", err)
+		}
+		item.record.RenderedAt, err = parseTime(renderedAt)
+		if err != nil {
+			_ = rows.Close() //nolint:errcheck,gosec // preserve parse error
+			return fmt.Errorf("parsing legacy import receipt: %w", err)
+		}
+		receipts = append(receipts, item)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close() //nolint:errcheck,gosec // preserve iteration error
+		return fmt.Errorf("reading legacy import receipts: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("closing legacy import receipts: %w", err)
+	}
+	for _, item := range receipts {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO render_imports_v3 (transaction_id, source_id, destination_id, fingerprint)
+			VALUES (?, ?, ?, ?)`, item.transactionID, item.sourceID, item.destinationID, renderFingerprint(item.record)); err != nil {
+			return fmt.Errorf("migrating import receipt %q/%d: %w", item.transactionID, item.sourceID, err)
+		}
+	}
+	return nil
+}
+
+func migrateDeletionReceipts(ctx context.Context, tx *sql.Tx) error {
+	rows, err := tx.QueryContext(ctx, `SELECT transaction_id, source_id, template_path, pure_render,
+		template_hash, rendered_at, platform_os, platform_host FROM render_deletions`)
+	if err != nil {
+		return fmt.Errorf("reading legacy deletion receipts: %w", err)
+	}
+	type receipt struct {
+		transactionID string
+		record        RenderRecord
+	}
+	receipts := make([]receipt, 0)
+	for rows.Next() {
+		var item receipt
+		var renderedAt string
+		if err := rows.Scan(&item.transactionID, &item.record.ID, &item.record.TemplatePath, &item.record.PureRender,
+			&item.record.TemplateHash, &renderedAt, &item.record.PlatformOS, &item.record.PlatformHost); err != nil {
+			_ = rows.Close() //nolint:errcheck,gosec // preserve scan error
+			return fmt.Errorf("scanning legacy deletion receipt: %w", err)
+		}
+		item.record.RenderedAt, err = parseTime(renderedAt)
+		if err != nil {
+			_ = rows.Close() //nolint:errcheck,gosec // preserve parse error
+			return fmt.Errorf("parsing legacy deletion receipt: %w", err)
+		}
+		receipts = append(receipts, item)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close() //nolint:errcheck,gosec // preserve iteration error
+		return fmt.Errorf("reading legacy deletion receipts: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("closing legacy deletion receipts: %w", err)
+	}
+	for _, item := range receipts {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO render_deletions_v3 (transaction_id, source_id, fingerprint)
+			VALUES (?, ?, ?)`, item.transactionID, item.record.ID, renderFingerprint(item.record)); err != nil {
+			return fmt.Errorf("migrating deletion receipt %q/%d: %w", item.transactionID, item.record.ID, err)
+		}
+	}
 	return nil
 }
 

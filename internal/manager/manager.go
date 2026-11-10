@@ -92,13 +92,32 @@ func (m *Manager) WithRunner(r cmdexec.Runner) *Manager {
 // InitStateStore initializes the SQLite state store for template render history.
 // The database is placed in the backup root directory.
 func (m *Manager) InitStateStore() error {
+	if m.DryRun {
+		return m.InitReadOnlyStateStore()
+	}
+	return m.openStateStore(false)
+}
+
+// InitReadOnlyStateStore initializes an existing state database for inspection
+// without creating or changing the database or its SQLite sidecars. A missing
+// database leaves the manager without a state store.
+func (m *Manager) InitReadOnlyStateStore() error {
+	return m.openStateStore(true)
+}
+
+func (m *Manager) openStateStore(readOnly bool) error {
 	backupRoot, err := m.repositoryRoot()
 	if err != nil {
 		return fmt.Errorf("resolving state store root: %w", err)
 	}
 	dbPath := filepath.Join(backupRoot, ".tidydots.db")
 
-	store, err := state.Open(m.ctx, dbPath)
+	var store *state.Store
+	if readOnly {
+		store, err = state.OpenReadOnly(m.ctx, dbPath)
+	} else {
+		store, err = state.Open(m.ctx, dbPath)
+	}
 	if err != nil {
 		return fmt.Errorf("opening state store: %w", err)
 	}

@@ -27,14 +27,14 @@ func TestOpen_CreatesDBAndSchema(t *testing.T) {
 	}
 	defer func() { _ = store.Close() }() //nolint:errcheck // cleanup is best-effort
 
-	// Should have schema_version table with version 1
+	// Should have schema_version table with version 3
 	var version int
 	ctx := context.Background()
 	if err := store.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil {
 		t.Fatalf("failed to read schema version: %v", err)
 	}
-	if version != 1 {
-		t.Errorf("schema version = %d, want 1", version)
+	if version != 3 {
+		t.Errorf("schema version = %d, want 3", version)
 	}
 }
 
@@ -59,8 +59,8 @@ func TestOpen_Idempotent(t *testing.T) {
 	if err := store2.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil {
 		t.Fatalf("failed to read schema version: %v", err)
 	}
-	if version != 1 {
-		t.Errorf("schema version = %d, want 1", version)
+	if version != 3 {
+		t.Errorf("schema version = %d, want 3", version)
 	}
 }
 
@@ -328,8 +328,8 @@ func TestSchemaMigration_Version0To1(t *testing.T) {
 	}
 
 	version := store.getSchemaVersion(ctx)
-	if version != 1 {
-		t.Errorf("expected version 1, got %d", version)
+	if version != 3 {
+		t.Errorf("expected version 3, got %d", version)
 	}
 
 	_ = store.Close() //nolint:errcheck // cleanup is best-effort
@@ -342,7 +342,7 @@ func TestSchemaMigration_Version0To1(t *testing.T) {
 	defer func() { _ = store2.Close() }() //nolint:errcheck // cleanup is best-effort
 
 	version = store2.getSchemaVersion(ctx)
-	if version != 1 {
-		t.Errorf("expected version 1 after re-open, got %d", version)
+	if version != 3 {
+		t.Errorf("expected version 3 after re-open, got %d", version)
 	}
 }

@@ -574,6 +574,17 @@ The database stores:
 
 The database uses WAL mode for safe concurrent access and maintains a history of renders per template.
 
+Dry-run and inspection open existing history through a read-only snapshot; a
+missing database stays missing, and inspection does not create or modify the
+database, WAL, or shared-memory sidecars. Public and private repositories keep
+separate `.tidydots.db` files. When a supported repository move transfers a
+template, it carries the complete attributable history for every OS/host and
+copy target, then removes the transferred rows from the old repository after
+the move commits. Transfer receipts retain only a canonical SHA-256 fingerprint
+and database-local ID mapping, not rendered content; source cleanup also removes
+older import receipts for the rows being moved. This is logical cleanup, not
+forensic erasure of prior database copies, backups, or Git history.
+
 History is scoped by repository-relative source path, OS, and hostname, plus the
 resolved target for copy deployments. Templates such as `Both/Git/config.tmpl`
 and `Linux/ghostty/config.tmpl` have independent render histories even though
