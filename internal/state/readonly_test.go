@@ -33,6 +33,40 @@ func TestOpenReadOnlyDoesNotCreate(t *testing.T) {
 	}
 }
 
+func TestOpenReadOnlyEnumeratesEveryRenderInDatabaseOrder(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), ".tidydots.db")
+	writer, err := Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []struct {
+		key, body, osName, host string
+	}{
+		{`copy:"./a.tmpl":"C:\\Users\\host\\config"`, "windows", "windows", "host-win"},
+		{`copy:"./a.tmpl":"/home/other/config"`, "linux", "linux", "host-linux"},
+	} {
+		if err := writer.SaveRender(ctx, item.key, []byte(item.body), "hash", item.osName, item.host); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := OpenReadOnly(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = reader.Close() }() //nolint:errcheck // best-effort test cleanup
+	got, err := reader.EnumerateRenders(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].ID >= got[1].ID || got[0].PlatformHost != "host-win" || got[1].PlatformHost != "host-linux" {
+		t.Fatalf("enumerated records = %#v, want all records in database ID order", got)
+	}
+}
+
 func TestOpenReadOnlyReadsExistingWALSnapshotWithoutSideEffects(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".tidydots.db")
 	writer, err := Open(context.Background(), path)

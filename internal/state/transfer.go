@@ -19,6 +19,76 @@ type RenderImport struct {
 	DestinationID int64
 }
 
+// EnumerateRenders returns every render record in database ID order. It is
+// intended for read-only attribution and verification across stored key
+// variants that cannot be reconstructed from the current machine.
+func (s *Store) EnumerateRenders(ctx context.Context) ([]RenderRecord, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, template_path, pure_render, template_hash, rendered_at, platform_os, platform_host
+		FROM template_renders ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("enumerating render history: %w", err)
+	}
+	defer func() { _ = rows.Close() }() //nolint:errcheck,gosec // best-effort close after query
+
+	var records []RenderRecord
+	for rows.Next() {
+		var record RenderRecord
+		var renderedAt string
+		if err := rows.Scan(&record.ID, &record.TemplatePath, &record.PureRender, &record.TemplateHash,
+			&renderedAt, &record.PlatformOS, &record.PlatformHost); err != nil {
+			return nil, fmt.Errorf("scanning enumerated render: %w", err)
+		}
+		record.RenderedAt, err = parseTime(renderedAt)
+		if err != nil {
+			return nil, fmt.Errorf("parsing enumerated render timestamp: %w", err)
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading enumerated renders: %w", err)
+	}
+	return records, nil
+}
+
+// VerifyImportedRenders confirms that a transaction's durable import receipt
+// and every destination-local row still match the supplied source snapshot.
+func (s *Store) VerifyImportedRenders(ctx context.Context, transactionID string, records []RenderRecord) error {
+	if transactionID == "" {
+		return fmt.Errorf("render import transaction ID must not be empty")
+	}
+	ordered := append([]RenderRecord(nil), records...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
+	if err := validateImportRecords(ordered); err != nil {
+		return err
+	}
+	var receiptCount int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM render_imports WHERE transaction_id = ?`, transactionID).Scan(&receiptCount); err != nil {
+		return fmt.Errorf("counting render import receipts: %w", err)
+	}
+	if receiptCount != len(ordered) {
+		return fmt.Errorf("render import %q has %d receipt rows, want %d", transactionID, receiptCount, len(ordered))
+	}
+	for _, record := range ordered {
+		var destinationID int64
+		var fingerprint []byte
+		if err := s.db.QueryRowContext(ctx, `SELECT destination_id, fingerprint FROM render_imports
+			WHERE transaction_id = ? AND source_id = ?`, transactionID, record.ID).Scan(&destinationID, &fingerprint); err != nil {
+			return fmt.Errorf("reading render import receipt for source ID %d: %w", record.ID, err)
+		}
+		if !bytes.Equal(fingerprint, renderFingerprint(record)) {
+			return fmt.Errorf("render import %q receipt changed for source ID %d", transactionID, record.ID)
+		}
+		actual, err := queryRenderByID(ctx, s.db, destinationID)
+		if err != nil {
+			return fmt.Errorf("checking imported render ID %d: %w", destinationID, err)
+		}
+		if actual == nil || !sameRenderPayload(*actual, record) || !bytes.Equal(renderFingerprint(*actual), fingerprint) {
+			return fmt.Errorf("imported render ID %d is missing or changed", destinationID)
+		}
+	}
+	return nil
+}
+
 // ExportRenders returns every record whose template_path exactly matches one
 // of keys, in ascending source database ID order. An empty key list exports
 // nothing. Rows are snapshots: pass these exact records to DeleteRenders so
