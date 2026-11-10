@@ -182,34 +182,97 @@ func canonicalRoot(root string) (string, error) { return canonicalRepositoryRoot
 func shareGitObjectStore(left, right string) (bool, error) {
 	git, err := exec.LookPath("git")
 	if err != nil {
+		if hasGitMetadata(left) || hasGitMetadata(right) {
+			return false, fmt.Errorf("git executable is unavailable while inspecting an existing repository")
+		}
 		return false, nil
 	}
-	common := func(root string) (string, bool, error) {
-		cmd := exec.CommandContext(context.Background(), git, "rev-parse", "--git-common-dir")
-		cmd.Dir = root
-		output, err := cmd.Output()
-		if err != nil {
-			return "", false, nil
-		}
-		path := strings.TrimSpace(string(output))
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(root, path)
-		}
-		canonical, err := filepath.EvalSymlinks(path)
-		if err != nil {
-			return "", false, fmt.Errorf("canonicalize Git common directory for %s: %w", root, err)
-		}
-		return filepath.Clean(canonical), true, nil
-	}
-	a, aGit, err := common(left)
+	a, aGit, err := inspectGitStorage(git, left)
 	if err != nil {
 		return false, err
 	}
-	b, bGit, err := common(right)
+	b, bGit, err := inspectGitStorage(git, right)
 	if err != nil {
 		return false, err
 	}
-	return aGit && bGit && a == b, nil
+	return aGit && bGit && (a.common == b.common || a.objects == b.objects), nil
+}
+
+type gitStorageIdentity struct{ common, objects string }
+
+func inspectGitStorage(git, root string) (gitStorageIdentity, bool, error) {
+	if gitObjectOverridesPresent() {
+		return gitStorageIdentity{}, false, fmt.Errorf("git environment overrides prevent proving object-store independence for %s", root)
+	}
+	common, err := gitPath(git, root, "--git-common-dir")
+	if err != nil {
+		if hasGitMetadata(root) {
+			return gitStorageIdentity{}, false, fmt.Errorf("cannot inspect existing git repository %s: %w", root, err)
+		}
+		return gitStorageIdentity{}, false, nil
+	}
+	objects, err := gitPath(git, root, "--git-path", "objects")
+	if err != nil {
+		return gitStorageIdentity{}, false, fmt.Errorf("cannot inspect effective git object directory for %s: %w", root, err)
+	}
+	if err := rejectGitAlternates(objects, root); err != nil {
+		return gitStorageIdentity{}, false, err
+	}
+	return gitStorageIdentity{common: common, objects: objects}, true, nil
+}
+
+func gitPath(git, root string, args ...string) (string, error) {
+	cmd := exec.CommandContext(context.Background(), git, append([]string{"rev-parse"}, args...)...)
+	cmd.Dir = root
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	path := strings.TrimSpace(string(output))
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	canonical, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(canonical), nil
+}
+
+func rejectGitAlternates(objects, root string) error {
+	path := filepath.Join(objects, "info", "alternates")
+	contents, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect git object alternates for %s: %w", root, err)
+	}
+	if strings.TrimSpace(string(contents)) != "" {
+		return fmt.Errorf("git object alternates prevent proving object-store independence for %s", root)
+	}
+	return nil
+}
+
+func hasGitMetadata(root string) bool {
+	for path := filepath.Clean(root); ; path = filepath.Dir(path) {
+		if _, err := os.Lstat(filepath.Join(path, ".git")); err == nil {
+			return true
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return false
+		}
+	}
+}
+
+func gitObjectOverridesPresent() bool {
+	for _, key := range []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_COUNT", "GIT_CONFIG_PARAMETERS"} {
+		if os.Getenv(key) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func loadRepository(role Role, root string) (*Repository, error) {

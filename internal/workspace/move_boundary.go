@@ -69,7 +69,7 @@ func verifyRemainingSourceAncestry(repositoryRoot, backup string, j *moveJournal
 		expected[filepath.Clean(file.rel)] = file
 	}
 	if !j.WholeFolder {
-		return nil
+		return verifyRemainingSelectedSubtrees(backup, j, pending)
 	}
 	return verifyRemainingWholeFolder(backup, expected)
 }
@@ -309,6 +309,16 @@ func revalidateCommittedSourceSet(ctx context.Context, j *moveJournal) error {
 	}
 	if err := revalidateMoveSourceState(ctx, j); err != nil {
 		return err
+	}
+	if !j.WholeFolder {
+		backup := filepath.Join(j.SourceRoot, filepath.FromSlash(j.SourceRel))
+		pending, err := remainingSourceSnapshots(backup, j)
+		if err != nil {
+			return err
+		}
+		if err := verifyRemainingSelectedSubtrees(backup, j, pending); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -15,10 +15,14 @@ configuration. `--dir` remains isolated unless paired explicitly with
 `--private-dir`; `--public-only` and `--private-dir` are mutually exclusive.
 
 Public and private storage must be independent Git repositories. tidydots
-rejects linked worktrees (and other roots with a shared Git common/object
-database), because a commit made from one worktree is also part of the other
-repository's history. This check is local and does not inspect remotes or
-contact a server. Non-Git directories remain usable where Git is not used.
+rejects linked worktrees, shared canonical Git object directories, and object
+alternates or environment overrides that prevent proving storage independence.
+A commit made through shared storage could otherwise write private objects into
+the public repository. This check is local and does not inspect remotes or
+contact a server. Non-Git directories remain usable where Git is not used; an
+existing Git repository that cannot be inspected fails closed. Relevant Git
+storage environment overrides are rejected even when the config roots lack
+physical `.git` metadata, since Git may still resolve them to shared storage.
 
 An application may contribute entries in both repositories. Entry names must
 remain unique across the merged application. A package belongs to one scope and
@@ -47,6 +51,10 @@ their checks and commands are never run as part of relocation.
 
 Moves support both whole-folder entries (`files` omitted or empty) and explicit
 file selections. They require static, repository-contained source paths.
+When an explicitly selected path is a directory, the move snapshots and verifies
+its entire subtree. A new, missing, or changed member blocks publication; a new
+member after commit is left untouched and keeps the transaction journal pending.
+Other siblings outside the selected directory are not part of that move.
 Shared/dynamic ownership, escaping or special files, absolute source symlinks,
 hard-linked regular files, and conflicting simultaneous source/selection/target/
 method/kind changes are rejected. A valid entry rename may accompany an ownership

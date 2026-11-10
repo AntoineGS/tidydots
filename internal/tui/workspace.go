@@ -291,8 +291,6 @@ func (m *Model) initWorkspaceApplicationItems() error {
 			active := config.EvaluateWhen(entry.AppWhen, m.Renderer) && config.EvaluateWhen(entry.Value.When, m.Renderer)
 			if active {
 				anyActive = true
-			} else if m.filterEnabled {
-				continue
 			}
 			if !subEntryAppliesToOS(entry.Value, m.Platform.OS) {
 				continue

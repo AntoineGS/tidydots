@@ -52,7 +52,7 @@ type fileSnapshot struct {
 	link string
 	dir  bool
 }
-type linkSnapshot struct{ path, old, next string }
+type linkSnapshot struct{ path, old, next, forwardTemp, rollbackTemp string }
 
 // PlanMove checks all ownership and path constraints without mutating disk.
 //

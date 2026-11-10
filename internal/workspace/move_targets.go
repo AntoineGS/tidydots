@@ -170,16 +170,7 @@ func writeLink(link linkSnapshot) error {
 	if current == link.next {
 		return nil
 	}
-	tmp := link.path + ".tidydots-txn-link"
-	_ = os.Remove(tmp)
-	if err := os.Symlink(link.next, tmp); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, link.path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return syncDirectory(filepath.Dir(link.path))
+	return replaceLink(link.path, link.next, link.forwardTemp)
 }
 
 func restoreLink(link linkSnapshot) error {
@@ -188,19 +179,50 @@ func restoreLink(link linkSnapshot) error {
 		return err
 	}
 	if current == link.old {
-		return nil
+		return discardOwnedLinkTemp(link.forwardTemp, link.next)
 	}
 	if current != link.next {
 		return fmt.Errorf("live link changed since transaction: %s", link.path)
 	}
-	tmp := link.path + ".tidydots-txn-link"
-	_ = os.Remove(tmp)
-	if err := os.Symlink(link.old, tmp); err != nil {
+	return replaceLink(link.path, link.old, link.rollbackTemp)
+}
+
+// replaceLink uses a path reserved in the durable journal for this transaction.
+// Symlink creation is exclusive, so an occupied temporary path is never removed.
+// If recovery finds the exact expected link at the journaled path, it may finish
+// the interrupted atomic rename; unrelated contents fail closed.
+func replaceLink(target, destination, temporary string) error {
+	if temporary == "" {
+		return fmt.Errorf("transaction link temporary path is missing for %s", target)
+	}
+	if err := os.Symlink(destination, temporary); err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+		actual, readErr := os.Readlink(temporary)
+		if readErr != nil || actual != destination {
+			return fmt.Errorf("transaction link temporary path is occupied: %s", temporary)
+		}
+	}
+	if err := os.Rename(temporary, target); err != nil {
 		return err
 	}
-	if err := os.Rename(tmp, link.path); err != nil {
-		_ = os.Remove(tmp)
+	return syncDirectory(filepath.Dir(target))
+}
+
+func discardOwnedLinkTemp(temporary, expected string) error {
+	if temporary == "" {
+		return nil
+	}
+	actual, err := os.Readlink(temporary)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil || actual != expected {
+		return fmt.Errorf("transaction link temporary path is occupied during recovery: %s", temporary)
+	}
+	if err := os.Remove(temporary); err != nil {
 		return err
 	}
-	return syncDirectory(filepath.Dir(link.path))
+	return syncDirectory(filepath.Dir(temporary))
 }

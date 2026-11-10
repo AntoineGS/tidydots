@@ -152,10 +152,10 @@ Press a sort key to sort by that column. Press the same key again to reverse the
 
 Press `/` to enter search mode. Type to filter applications and entries by name, description, target paths, or backup paths. The list updates in real time as you type. Press `enter` to confirm or `esc` to exit search mode (your selections are preserved).
 
-Press `f` to toggle the filter. When enabled (the default), applications excluded by
-their application-level `when` expression are hidden. When disabled, those applications
-are shown. Entries excluded by their own `when` are removed before table filtering and
-remain absent in either mode.
+Press `f` to toggle the machine filter. When enabled (the default), applications and
+entries excluded by their applicable `when` expressions are hidden. When disabled,
+inactive definitions are shown for inspection and editing. They remain inactive: tidydots
+does not run their setup checks or restore operations on this machine.
 
 Press `x` to toggle the action filter. It keeps applications with an uninstalled package and entries whose state needs attention (`Missing`, `Ready`, `Adopt`, `Needs setup`, `Outdated`, `Check failed`, `Modified`, or `Unavailable`). The filter composes with search and the `f` platform filter. If enabling it would hide selected items, tidydots asks for confirmation; answer `y` to enable it or `n` to leave the current view and selections unchanged. Confirming does not clear selections. A **Check failed** entry is actionable for visibility and diagnosis, but its setup command is not run until the check can safely determine the current state.
 

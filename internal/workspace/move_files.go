@@ -43,21 +43,26 @@ func (f *fileSnapshot) UnmarshalJSON(data []byte) error {
 }
 func (l linkSnapshot) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Path string `json:"path"`
-		Old  string `json:"old"`
-		Next string `json:"next"`
-	}{l.path, l.old, l.next})
+		Path         string `json:"path"`
+		Old          string `json:"old"`
+		Next         string `json:"next"`
+		ForwardTemp  string `json:"forward_temp,omitempty"`
+		RollbackTemp string `json:"rollback_temp,omitempty"`
+	}{l.path, l.old, l.next, l.forwardTemp, l.rollbackTemp})
 }
 func (l *linkSnapshot) UnmarshalJSON(data []byte) error {
 	var v struct {
-		Path string `json:"path"`
-		Old  string `json:"old"`
-		Next string `json:"next"`
+		Path         string `json:"path"`
+		Old          string `json:"old"`
+		Next         string `json:"next"`
+		ForwardTemp  string `json:"forward_temp"`
+		RollbackTemp string `json:"rollback_temp"`
 	}
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
 	l.path, l.old, l.next = v.Path, v.Old, v.Next
+	l.forwardTemp, l.rollbackTemp = v.ForwardTemp, v.RollbackTemp
 	return nil
 }
 

@@ -55,8 +55,14 @@ func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bo
 		}
 
 		// Level 0: Application row
-		expandChar := "  " // Default padding for apps with no sub-items
-		if len(app.SubItems) > 0 {
+		visibleSubItems := make([]SubEntryItem, 0, len(app.SubItems))
+		for _, item := range app.SubItems {
+			if !filterEnabled || !item.Filtered {
+				visibleSubItems = append(visibleSubItems, item)
+			}
+		}
+		expandChar := "  " // Default padding for apps with no visible sub-items
+		if len(visibleSubItems) > 0 {
 			expandChar = "▶ "
 			if app.Expanded {
 				expandChar = "▼ "
@@ -68,10 +74,10 @@ func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bo
 
 		// Entry count text
 		entryText := "entries"
-		if len(app.SubItems) == 1 {
+		if len(visibleSubItems) == 1 {
 			entryText = "entry"
 		}
-		entryCount := fmt.Sprintf("%d %s", len(app.SubItems), entryText)
+		entryCount := fmt.Sprintf("%d %s", len(visibleSubItems), entryText)
 		if appHasActivePackage(app) && app.ShowRepository {
 			entryCount += " · package " + string(app.PackageOwner)
 		}
@@ -97,9 +103,9 @@ func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bo
 
 		// Level 1: Sub-entry rows (if expanded)
 		if app.Expanded {
-			for subIdx, subItem := range app.SubItems {
+			for subIdx, subItem := range visibleSubItems {
 				treeChar := "├─"
-				if subIdx == len(app.SubItems)-1 {
+				if subIdx == len(visibleSubItems)-1 {
 					treeChar = "└─"
 				}
 

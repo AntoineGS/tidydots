@@ -88,6 +88,7 @@ type moveJournal struct {
 	DestinationStateExisted bool                 `json:"destination_state_existed,omitempty"`
 	StateCleaned            bool                 `json:"state_cleaned,omitempty"`
 	WholeFolder             bool                 `json:"whole_folder,omitempty"`
+	SelectedDirs            []string             `json:"selected_dirs,omitempty"`
 	CleanedPaths            []string             `json:"cleaned_paths,omitempty"`
 	RolledBackPaths         []string             `json:"rolled_back_paths,omitempty"`
 }
@@ -269,11 +270,8 @@ func (w *Workspace) ApplyMove(ctx context.Context, plan *MovePlan, dryRun bool) 
 		if err := verifyPathParents(d.source.Root, sourcePath); err != nil {
 			return err
 		}
-		verify := verifySnapshotAt
-		if d.entry.IsFolder() {
-			verify = verifyExactTree
-		}
-		if err := verify(sourcePath, d.sourceFiles); err != nil {
+		selectedDirs := selectedDirectoryRoots(d.entry.Files, d.sourceFiles)
+		if err := verifyMoveSourceSnapshot(sourcePath, d.sourceFiles, d.entry.IsFolder(), selectedDirs); err != nil {
 			return fmt.Errorf("move source changed after planning: %w", err)
 		}
 		if err := verifyDestinationFree(d.destination.Root, d.backupRel, d.entry.Files); err != nil {
@@ -336,12 +334,18 @@ func (w *Workspace) ApplyMove(ctx context.Context, plan *MovePlan, dryRun bool) 
 	if err != nil {
 		return err
 	}
+	for i := range d.targets {
+		dir := filepath.Dir(d.targets[i].path)
+		d.targets[i].forwardTemp = filepath.Join(dir, fmt.Sprintf(".tidydots-txn-link-%s-%d-forward", id, i))
+		d.targets[i].rollbackTemp = filepath.Join(dir, fmt.Sprintf(".tidydots-txn-link-%s-%d-rollback", id, i))
+	}
 	j := moveJournal{Version: 1, ID: id, Phase: "prepared", PublicRoot: repositoryByRole(w, Public).Root, PrivateRoot: repositoryByRole(w, Private).Root, SourceRoot: d.source.Root, DestinationRoot: d.destination.Root, SourceRef: plan.SourceRef, DestinationRef: plan.DestinationRef, PublicConfig: repositoryByRole(w, Public).ConfigPath, PrivateConfig: repositoryByRole(w, Private).ConfigPath, PublicBefore: d.publicConfig, PrivateBefore: d.privateConfig, SourceRel: d.backupRel, DestinationRel: d.backupRel, SourceMethod: d.entry.EffectiveMethod(), Files: d.sourceFiles, Links: d.targets, Created: time.Now().UTC().Format(time.RFC3339Nano)}
 	j.StateKeys = append([]string(nil), d.stateKeys...)
 	j.StateRecords = cloneRenderRecords(d.stateRecords)
 	_, statErr := os.Stat(filepath.Join(d.destination.Root, ".tidydots.db"))
 	j.DestinationStateExisted = statErr == nil
 	j.WholeFolder = d.entry.IsFolder() && !d.entry.IsSetup()
+	j.SelectedDirs = selectedDirectoryRoots(d.entry.Files, d.sourceFiles)
 	j.PublicAfter, j.PrivateAfter, err = moveConfigBytes(plan)
 	if err != nil {
 		return err
@@ -378,6 +382,9 @@ func (w *Workspace) ApplyMove(ctx context.Context, plan *MovePlan, dryRun bool) 
 			if err := injectFault("stage-source-before"); err != nil {
 				return err
 			}
+			if err := verifyMoveSourceSnapshot(filepath.Join(d.source.Root, d.backupRel), d.sourceFiles, j.WholeFolder, j.SelectedDirs); err != nil {
+				return fmt.Errorf("move source changed before staging: %w", err)
+			}
 			if err := verifyPathParents(d.destination.Root, stage); err != nil {
 				return err
 			}
@@ -386,6 +393,11 @@ func (w *Workspace) ApplyMove(ctx context.Context, plan *MovePlan, dryRun bool) 
 			}
 			if err := copySnapshot(stage, d.sourceFiles); err != nil {
 				return err
+			}
+			if !j.WholeFolder {
+				if err := verifySelectedSubtrees(stage, d.sourceFiles, j.SelectedDirs); err != nil {
+					return fmt.Errorf("staged selected-directory membership changed: %w", err)
+				}
 			}
 			return syncSnapshotTree(stage)
 		}}, transactionStep{"publish-source", func() error {
@@ -396,9 +408,17 @@ func (w *Workspace) ApplyMove(ctx context.Context, plan *MovePlan, dryRun bool) 
 			if err := injectFault("publish-source-before"); err != nil {
 				return err
 			}
+			if err := verifyMoveSourceSnapshot(filepath.Join(d.source.Root, d.backupRel), d.sourceFiles, j.WholeFolder, j.SelectedDirs); err != nil {
+				return fmt.Errorf("move source changed before publication: %w", err)
+			}
 			dest := filepath.Join(d.destination.Root, d.backupRel)
 			if err := verifyMoveDestinationParents(d.destination.Root, d.backupRel, d.entry.Files); err != nil {
 				return err
+			}
+			if !j.WholeFolder {
+				if err := verifySelectedSubtrees(stage, d.sourceFiles, j.SelectedDirs); err != nil {
+					return fmt.Errorf("staged selected-directory membership changed before publication: %w", err)
+				}
 			}
 			if err := ensureDurableDirectory(filepath.Dir(dest), d.destination.Root); err != nil {
 				return err
@@ -457,13 +477,8 @@ func (w *Workspace) ApplyMove(ctx context.Context, plan *MovePlan, dryRun bool) 
 		}
 	}
 	if !d.entry.IsSetup() {
-		if err := verifySnapshotAt(filepath.Join(d.source.Root, d.backupRel), d.sourceFiles); err != nil {
+		if err := verifyMoveSourceSnapshot(filepath.Join(d.source.Root, d.backupRel), d.sourceFiles, j.WholeFolder, j.SelectedDirs); err != nil {
 			return fail(fmt.Errorf("move source changed before commit: %w", err))
-		}
-		if d.entry.IsFolder() {
-			if err := verifyExactTree(filepath.Join(d.source.Root, d.backupRel), d.sourceFiles); err != nil {
-				return fail(fmt.Errorf("move source changed before commit: %w", err))
-			}
 		}
 		if err := revalidateMoveSourceState(ctx, &j); err != nil {
 			return fail(err)

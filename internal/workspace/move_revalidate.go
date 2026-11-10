@@ -21,6 +21,11 @@ func revalidateMoveInputs(ctx context.Context, journal *moveJournal) error {
 	if err := verify(source, journal.Files); err != nil {
 		return fmt.Errorf("source data changed before ownership publication: %w", err)
 	}
+	if !journal.WholeFolder {
+		if err := verifySelectedSubtrees(source, journal.Files, journal.SelectedDirs); err != nil {
+			return fmt.Errorf("source selected-directory membership changed before ownership publication: %w", err)
+		}
+	}
 	if err := revalidateCommittedSourceSet(ctx, journal); err != nil {
 		return err
 	}
