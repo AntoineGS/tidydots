@@ -47,12 +47,14 @@ you explicitly pair it with `--private-dir <path>`; `--private-dir` and
 The Public/Private toggle applies to entries, including setup entries, not to an
 application's package definition. A move may also relocate exclusively-owned
 source files and attributable template state while preserving verified live
-symlink deployments. It is deliberately rejected when source ownership is shared
-or ambiguous, source paths or selections are dynamic, app-level `when` scopes
-differ, or an existing deployment cannot be safely verified. Save changes to
-paths, file selection, deployment method, target, or entry kind separately from
-an ownership move. Setup-entry moves change only the YAML definition; commands
-are not run.
+symlink deployments. External copy-deployment recovery backups named
+`<target>.tidydots.bak` remain beside their live targets; only attributable
+repository-local artifacts move. It is deliberately rejected when source
+ownership is shared or ambiguous, source paths or selections are dynamic,
+app-level `when` scopes differ, or an existing deployment cannot be safely
+verified. Save changes to paths, file selection, deployment method, target, or
+entry kind separately from an ownership move. Setup-entry moves change only the
+YAML definition; commands are not run.
 
 Preview a move with `-n` before applying it. The preview does not mutate files,
 state, configuration, or the loaded workspace. A move spans two YAML files,
