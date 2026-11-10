@@ -14,6 +14,7 @@ import (
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
 	tuiops "github.com/AntoineGS/tidydots/internal/tui/operations"
 	tuitable "github.com/AntoineGS/tidydots/internal/tui/table"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // Screen represents the current screen being displayed in the TUI.
@@ -120,6 +121,15 @@ type Model struct {
 	Platform                 *platform.Platform
 	Renderer                 config.PathRenderer
 	Manager                  *manager.Manager
+	Workspace                *workspace.Workspace
+	workspaceInvalidated     bool
+	RepositoryManagers       map[workspace.Role]*manager.Manager // read-only inspectors
+	readerTracker            *workspaceReaderTracker
+	WriteManagers            map[workspace.Role]*manager.Manager // lazily opened writers
+	WorkspaceGeneration      uint64
+	pendingMove              *workspace.MovePlan
+	pendingMoveFocus         workspace.EntryRef
+	pendingMoveApp           string
 	subEntryForm             *SubEntryForm
 	applicationForm          *ApplicationForm
 	entryTypeChooser         *entryTypeChooserState
@@ -179,9 +189,12 @@ type Model struct {
 	// Setup entry execution state. Setup entries are subprocesses that may
 	// prompt for a sudo password, so they run one at a time through tea.Exec
 	// (see setup_run.go) rather than inside a plain background command.
-	pendingSetups     []setupRunItem // Queued setup entries, in run order
-	currentSetupIndex int            // Index of the entry currently running
-	setupBatch        bool           // The queue belongs to a multi-select batch operation
+	pendingSetups         []setupRunItem // Queued setup entries, in run order
+	currentSetupIndex     int            // Index of the entry currently running
+	setupBatch            bool           // The queue belongs to a multi-select batch operation
+	pendingConfigRestores []configRestoreItem
+	configRestoreSetups   []setupRunItem
+	configRestoreDirty    bool
 
 	// Batch operation progress state
 	spinner           spinner.Model  // Loading spinner for async state detection
@@ -201,28 +214,39 @@ type Model struct {
 // PackageItem represents a package to be installed, including its name,
 // package configuration, installation method, and selection state.
 type PackageItem struct {
-	Name     string
-	Package  *config.EntryPackage
-	Method   string // How it would be installed (pacman, apt, custom, url, none)
-	Selected bool
+	Name       string
+	Package    *config.EntryPackage
+	Repository workspace.Role
+	Method     string // How it would be installed (pacman, apt, custom, url, none)
+	Selected   bool
 }
 
 // ApplicationItem represents a top-level application with sub-entries
 type ApplicationItem struct {
-	Application  config.Application
-	PkgInstalled *bool
-	PkgMethod    string
-	SubItems     []SubEntryItem
-	Expanded     bool
-	IsFiltered   bool // True if this app doesn't match the current filter context
+	Application     config.Application
+	PackageOwner    workspace.Role
+	PackageWhen     string
+	PackageFiltered bool
+	ShowRepository  bool
+	PkgInstalled    *bool
+	PkgMethod       string
+	SubItems        []SubEntryItem
+	Expanded        bool
+	IsFiltered      bool // True if this app doesn't match the current filter context
 }
 
 // SubEntryItem represents a sub-entry within an application (config or git)
 type SubEntryItem struct {
-	AppName  string
-	Target   string
-	SubEntry config.SubEntry
-	State    PathState
+	AppName        string
+	Ref            workspace.EntryRef
+	AppWhen        string
+	Filtered       bool
+	ShowRepository bool
+	Generation     uint64
+	Target         string
+	BackupPath     string
+	SubEntry       config.SubEntry
+	State          PathState
 	// CheckError contains a bounded diagnostic when a setup status check fails.
 	CheckError string
 	// Index is this entry's position in its application's SubItems. It is carried
@@ -328,6 +352,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case setupRunMsg:
 		return m.handleSetupRunResult(msg)
 
+	case configRestoreMsg:
+		return m.handleConfigRestoreResult(msg)
+
 	case spinner.TickMsg:
 		if m.hasLoadingItems() {
 			var cmd tea.Cmd
@@ -374,10 +401,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case PackageInstallMsg:
 		// Record result
+		message := msg.Message
+		if message == "" && msg.Err != nil {
+			message = msg.Err.Error()
+		}
 		m.results = append(m.results, ResultItem{
 			Name:    msg.Package.Name,
 			Success: msg.Success,
-			Message: msg.Message,
+			Message: message,
+			Err:     msg.Err,
 		})
 
 		m.currentPackageIndex++
@@ -412,6 +444,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
+	case workspaceMoveCompleteMsg:
+		m.processing = false
+		refreshed := false
+		var sourceRef, destinationRef workspace.EntryRef
+		appName := m.pendingMoveApp
+		if m.pendingMove != nil {
+			sourceRef = m.pendingMove.SourceRef
+			destinationRef = m.pendingMove.DestinationRef
+		} else {
+			sourceRef = m.pendingMoveFocus
+			destinationRef = sourceRef
+		}
+		m.pendingMove = nil
+		if msg.err != nil {
+			if isCommittedTransactionError(msg.err) {
+				m.remapSelectedEntry(sourceRef, destinationRef)
+			}
+			m.err = m.reconcileCommittedWorkspaceError(msg.err, &destinationRef, appName)
+			refreshed = isCommittedTransactionError(msg.err) && !m.workspaceInvalidated
+			m.results = []ResultItem{{Name: workspaceMoveResult, Success: false, Message: m.err.Error()}}
+		} else if m.DryRun {
+			m.results = []ResultItem{{Name: workspaceMoveResult, Success: true, Message: "Would move entry (dry-run)"}}
+		} else {
+			m.remapSelectedEntry(sourceRef, destinationRef)
+			if err := m.refreshWorkspace(&destinationRef, appName); err != nil {
+				m.err = err
+				m.results = []ResultItem{{Name: workspaceMoveResult, Success: false, Message: err.Error()}}
+			} else {
+				refreshed = true
+				m.results = []ResultItem{{Name: workspaceMoveResult, Success: true, Message: "Moved entry to " + string(destinationRef.Repository)}}
+			}
+		}
+		m.Screen = ScreenResults
+		m.Operation = OpList
+		m.showingResults = true
+		m.resultsScrollOffset = 0
+		if refreshed {
+			return m, tea.Batch(m.dispatchUncheckedPackageStates(), m.dispatchLoadingSubEntryStates())
+		}
+		return m, nil
+
 	case BatchOperationMsg:
 		// Update batch progress state
 		m.batchCurrentItem = msg.ItemName
@@ -434,7 +507,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Screen = ScreenResults
 		m.Operation = OpList
 
-		m.rebuildTable()
+		refreshed := false
+		for i := range m.results {
+			if !isCommittedTransactionError(m.results[i].Err) {
+				continue
+			}
+			reloaded := m.reconcileCommittedWorkspaceError(m.results[i].Err, nil, "")
+			m.results[i].Message = reloaded.Error()
+			refreshed = !m.workspaceInvalidated
+			break
+		}
+		if m.Workspace != nil {
+			if refreshed {
+				// A committed cleanup-pending result has already been reconciled
+				// through LoadForInspection above.
+			} else if err := m.refreshWorkspace(nil, ""); err != nil {
+				m.results = append(m.results, ResultItem{Name: "workspace refresh", Success: false, Message: err.Error()})
+			} else {
+				refreshed = true
+			}
+		} else {
+			m.rebuildTable()
+		}
 
 		// Clear selections after operation
 		m.clearSelections()
@@ -442,6 +536,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.showingResults = true
 		m.resultsScrollOffset = 0
 
+		if refreshed {
+			return m, tea.Batch(m.dispatchUncheckedPackageStates(), m.dispatchLoadingSubEntryStates())
+		}
 		return m, nil
 
 	case initBatchInstallMsg:
@@ -633,11 +730,24 @@ func detectConfigState(backupPath, targetPath string, isFolder bool, files []str
 
 // handlePkgCheckResult processes the result of a single async package install check.
 func (m Model) handlePkgCheckResult(msg pkgCheckResultMsg) (tea.Model, tea.Cmd) {
-	if msg.appIndex < len(m.Applications) {
-		m.Applications[msg.appIndex].PkgMethod = msg.method
+	if (m.Workspace != nil && msg.generation != m.WorkspaceGeneration) || (m.Workspace == nil && msg.generation != 0 && msg.generation != m.WorkspaceGeneration) {
+		return m, nil
+	}
+	appIndex := msg.appIndex
+	if msg.appName != "" {
+		appIndex = -1
+		for i, app := range m.Applications {
+			if app.Application.Name == msg.appName && app.PackageOwner == msg.repository {
+				appIndex = i
+				break
+			}
+		}
+	}
+	if appIndex >= 0 && appIndex < len(m.Applications) {
+		m.Applications[appIndex].PkgMethod = msg.method
 		if msg.method != TypeNone {
 			installed := msg.installed
-			m.Applications[msg.appIndex].PkgInstalled = &installed
+			m.Applications[appIndex].PkgInstalled = &installed
 		}
 	}
 	m.decrementPendingAndRebuild()
@@ -646,9 +756,27 @@ func (m Model) handlePkgCheckResult(msg pkgCheckResultMsg) (tea.Model, tea.Cmd) 
 
 // handleStateCheckResult processes the result of a single async sub-entry state check.
 func (m Model) handleStateCheckResult(msg stateCheckResultMsg) (tea.Model, tea.Cmd) {
-	if msg.appIndex < len(m.Applications) && msg.subIndex < len(m.Applications[msg.appIndex].SubItems) {
-		m.Applications[msg.appIndex].SubItems[msg.subIndex].State = msg.state
-		m.Applications[msg.appIndex].SubItems[msg.subIndex].CheckError = msg.checkError
+	if (m.Workspace != nil && msg.generation != m.WorkspaceGeneration) || (m.Workspace == nil && msg.generation != 0 && msg.generation != m.WorkspaceGeneration) {
+		return m, nil
+	}
+	appIndex, subIndex := msg.appIndex, msg.subIndex
+	if msg.ref != (workspace.EntryRef{}) {
+		appIndex, subIndex = -1, -1
+		for i, app := range m.Applications {
+			for j, sub := range app.SubItems {
+				if sub.Ref == msg.ref {
+					appIndex, subIndex = i, j
+					break
+				}
+			}
+			if appIndex >= 0 {
+				break
+			}
+		}
+	}
+	if appIndex >= 0 && appIndex < len(m.Applications) && subIndex >= 0 && subIndex < len(m.Applications[appIndex].SubItems) {
+		m.Applications[appIndex].SubItems[subIndex].State = msg.state
+		m.Applications[appIndex].SubItems[subIndex].CheckError = msg.checkError
 	}
 	m.decrementPendingAndRebuild()
 	return m, nil

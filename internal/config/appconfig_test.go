@@ -118,6 +118,59 @@ func TestAppConfigHostnamesRoundTrip(t *testing.T) {
 	}
 }
 
+func TestAppConfigPrivateConfigDirRoundTrip(t *testing.T) {
+	tmpDir := t.TempDir()
+	setTestHome(t, tmpDir)
+	publicRepo := filepath.Join(tmpDir, "public")
+	privateRepo := filepath.Join(tmpDir, "private")
+	for _, dir := range []string{publicRepo, privateRepo} {
+		if err := os.MkdirAll(dir, 0750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := &AppConfig{ConfigDir: publicRepo, PrivateConfigDir: privateRepo, Hostnames: []string{"desktop"}}
+	if err := SaveAppConfig(want); err != nil {
+		t.Fatalf("SaveAppConfig() error = %v", err)
+	}
+	got, err := LoadAppConfig()
+	if err != nil {
+		t.Fatalf("LoadAppConfig() error = %v", err)
+	}
+	if got.PrivateConfigDir != privateRepo {
+		t.Errorf("PrivateConfigDir = %q, want %q", got.PrivateConfigDir, privateRepo)
+	}
+	if got.ConfigDir != publicRepo || strings.Join(got.Hostnames, ",") != "desktop" {
+		t.Fatalf("existing app config fields changed: %#v", got)
+	}
+}
+
+func TestLoadAppConfigExpandsPrivateConfigDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	setTestHome(t, tmpDir)
+	publicRepo := filepath.Join(tmpDir, "public")
+	privateRepo := filepath.Join(tmpDir, "private")
+	for _, dir := range []string{publicRepo, privateRepo} {
+		if err := os.MkdirAll(dir, 0750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	appDir := filepath.Join(tmpDir, appConfigDir)
+	if err := os.MkdirAll(appDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte("config_dir: " + publicRepo + "\nprivate_config_dir: " + privateRepo + "\n")
+	if err := os.WriteFile(filepath.Join(appDir, appConfigFile), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadAppConfig()
+	if err != nil {
+		t.Fatalf("LoadAppConfig() error = %v", err)
+	}
+	if got.PrivateConfigDir != privateRepo {
+		t.Errorf("PrivateConfigDir = %q, want %q", got.PrivateConfigDir, privateRepo)
+	}
+}
+
 func TestLoadAppConfigWithoutHostnames(t *testing.T) {
 	tmpDir := t.TempDir()
 	setTestHome(t, tmpDir)

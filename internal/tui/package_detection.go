@@ -4,6 +4,7 @@ import (
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/packages"
 	"github.com/AntoineGS/tidydots/internal/tui/detection"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // isPackageInstalledFromPackage checks a package and its installation-plan
@@ -16,12 +17,15 @@ func isPackageInstalledFromPackage(
 	return detection.IsPackageInstalled(pkg, plan, entryName, osType)
 }
 
-// packageConfig shares repository selection preferences between status and install.
-func (m Model) packageConfig() *packages.Config {
+func (m Model) packageConfigForRole(role workspace.Role) *packages.Config {
 	cfg := &packages.Config{}
-	if m.Config != nil {
-		cfg.DefaultManager = packages.PackageManager(m.Config.DefaultManager)
-		for _, mgr := range m.Config.ManagerPriority {
+	ownerConfig := m.Config
+	if role != "" && m.Workspace != nil {
+		ownerConfig = m.configForRole(role)
+	}
+	if ownerConfig != nil {
+		cfg.DefaultManager = packages.PackageManager(ownerConfig.DefaultManager)
+		for _, mgr := range ownerConfig.ManagerPriority {
 			cfg.ManagerPriority = append(cfg.ManagerPriority, packages.PackageManager(mgr))
 		}
 	}

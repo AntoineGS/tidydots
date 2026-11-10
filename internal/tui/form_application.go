@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // Field type aliases from forms package for use in root tui methods.
@@ -26,20 +28,57 @@ const (
 // If appIdx >= 0, loads data from the existing application at that index (edit mode).
 // If appIdx < 0, creates an empty form (new mode).
 func (m *Model) initApplicationForm(appIdx int) {
+	m.initApplicationFormForRole(appIdx, "")
+}
+
+func (m *Model) initApplicationFormForRole(appIdx int, selectedRole workspace.Role) {
 	// Resolve config index and app data (edit mode only)
 	configAppIdx := -1
 	var app *config.Application
+	role := workspace.Public
+	if selectedRole != "" {
+		role = selectedRole
+	}
 
 	if appIdx >= 0 {
 		if appIdx >= len(m.Applications) {
 			return
 		}
 		appName := m.Applications[appIdx].Application.Name
-		configAppIdx = m.findConfigApplicationIndex(appName)
-		if configAppIdx < 0 {
-			return
+		if m.Workspace != nil {
+			roles := []workspace.Role{workspace.Public, workspace.Private}
+			if selectedRole != "" {
+				roles = []workspace.Role{selectedRole}
+			} else if owner := m.Applications[appIdx].PackageOwner; owner != "" {
+				roles = []workspace.Role{owner, workspace.Public, workspace.Private}
+			}
+			seen := make(map[workspace.Role]bool)
+			for _, candidate := range roles {
+				if seen[candidate] {
+					continue
+				}
+				seen[candidate] = true
+				repo, err := m.Workspace.Repository(candidate)
+				if err != nil {
+					continue
+				}
+				for i := range repo.Config.Applications {
+					if repo.Config.Applications[i].Name == appName {
+						role, app = candidate, &repo.Config.Applications[i]
+						break
+					}
+				}
+				if app != nil {
+					break
+				}
+			}
+		} else {
+			configAppIdx = m.findConfigApplicationIndex(appName)
+			if configAppIdx < 0 {
+				return
+			}
+			app = &m.Config.Applications[configAppIdx]
 		}
-		app = &m.Config.Applications[configAppIdx]
 	}
 
 	nameInput := newFormInput(PlaceholderNeovim, CharLimitName, InputWidthNarrow)
@@ -146,18 +185,26 @@ func (m *Model) initApplicationForm(appIdx int) {
 	}
 
 	m.applicationForm = &ApplicationForm{
-		NameInput:              nameInput,
-		DescriptionInput:       descriptionInput,
-		PackageManagers:        packageManagers,
-		PackagesCursor:         0,
-		EditingPackage:         false,
-		PackageNameInput:       packageNameInput,
-		LastPackageName:        "",
-		WhenInput:              whenInput,
-		FocusIndex:             0,
-		EditingField:           false,
-		OriginalValue:          "",
-		EditAppIdx:             configAppIdx,
+		NameInput:        nameInput,
+		DescriptionInput: descriptionInput,
+		PackageManagers:  packageManagers,
+		PackagesCursor:   0,
+		EditingPackage:   false,
+		PackageNameInput: packageNameInput,
+		LastPackageName:  "",
+		WhenInput:        whenInput,
+		FocusIndex:       0,
+		EditingField:     false,
+		OriginalValue:    "",
+		EditAppIdx:       configAppIdx,
+		RepositoryRole:   role,
+		OriginalAppName: func() string {
+			if app != nil {
+				return app.Name
+			}
+			return ""
+		}(),
+		RepositoryChoices:      m.applicationRepositoryChoices(appIdx),
 		Err:                    "",
 		GitURLInput:            gitURLInput,
 		GitBranchInput:         gitBranchInput,
@@ -191,6 +238,34 @@ func (m *Model) initApplicationForm(appIdx int) {
 
 	m.activeForm = FormApplication
 	m.Screen = ScreenAddForm
+}
+
+func (m Model) applicationRepositoryChoices(appIdx int) []workspace.Role {
+	if m.Workspace == nil {
+		return nil
+	}
+	roles := make([]workspace.Role, 0, 2)
+	for _, role := range []workspace.Role{workspace.Public, workspace.Private} {
+		if _, err := m.Workspace.Repository(role); err != nil {
+			continue
+		}
+		if appIdx < 0 {
+			roles = append(roles, role)
+			continue
+		}
+		if appIdx >= len(m.Applications) {
+			continue
+		}
+		appName := m.Applications[appIdx].Application.Name
+		repo, _ := m.Workspace.Repository(role)
+		for _, app := range repo.Config.Applications {
+			if app.Name == appName {
+				roles = append(roles, role)
+				break
+			}
+		}
+	}
+	return roles
 }
 
 // getApplicationFieldType returns the field type at the current focus index
@@ -247,6 +322,9 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.applicationForm.EditingWhen {
 		return m.updateApplicationWhenInput(msg)
 	}
+	if m.getApplicationFieldType() == forms.AppFieldScope && isApplicationScopeSelectionKey(msg) {
+		return m.updateApplicationRepositoryScope(msg)
+	}
 
 	// Handle packages list navigation
 	if m.getApplicationFieldType() == appFieldPackages {
@@ -279,7 +357,7 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, FormNavKeys.Down):
 		m.applicationForm.FocusIndex++
-		if m.applicationForm.FocusIndex > 3 {
+		if m.applicationForm.FocusIndex > 4 {
 			m.applicationForm.FocusIndex = 0
 		}
 		m.updateApplicationFormFocus()
@@ -288,7 +366,7 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, FormNavKeys.Up):
 		m.applicationForm.FocusIndex--
 		if m.applicationForm.FocusIndex < 0 {
-			m.applicationForm.FocusIndex = 3
+			m.applicationForm.FocusIndex = 4
 		}
 		if m.getApplicationFieldType() == appFieldPackages {
 			m.applicationForm.PackagesCursor = len(displayPackageManagers) + 1
@@ -300,7 +378,7 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, FormNavKeys.TabNext):
 		m.applicationForm.FocusIndex++
-		if m.applicationForm.FocusIndex > 3 {
+		if m.applicationForm.FocusIndex > 4 {
 			m.applicationForm.FocusIndex = 0
 		}
 		m.updateApplicationFormFocus()
@@ -309,7 +387,7 @@ func (m Model) updateApplicationForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, FormNavKeys.TabPrev):
 		m.applicationForm.FocusIndex--
 		if m.applicationForm.FocusIndex < 0 {
-			m.applicationForm.FocusIndex = 3
+			m.applicationForm.FocusIndex = 4
 		}
 		if m.getApplicationFieldType() == appFieldPackages {
 			m.applicationForm.PackagesCursor = len(displayPackageManagers) + 1
@@ -454,7 +532,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 		default:
 			// Move to next field
 			m.applicationForm.FocusIndex++
-			if m.applicationForm.FocusIndex > 3 {
+			if m.applicationForm.FocusIndex > 4 {
 				m.applicationForm.FocusIndex = 0
 			}
 			m.applicationForm.ResetCursors()
@@ -464,7 +542,7 @@ func (m Model) updateApplicationPackagesList(msg tea.KeyPressMsg) (tea.Model, te
 
 	case key.Matches(msg, FormNavKeys.TabNext):
 		m.applicationForm.FocusIndex++
-		if m.applicationForm.FocusIndex > 3 {
+		if m.applicationForm.FocusIndex > 4 {
 			m.applicationForm.FocusIndex = 0
 		}
 		m.applicationForm.ResetCursors()
@@ -821,6 +899,13 @@ func (m Model) viewApplicationForm() string {
 
 	var b strings.Builder
 	ft := m.getApplicationFieldType()
+	if m.Workspace != nil {
+		label := "Repository scope: " + strings.ToUpper(string(m.applicationForm.RepositoryRole))
+		if ft == forms.AppFieldScope {
+			label = HelpKeyStyle.Render(label + "  [←/→ or enter to change]")
+		}
+		fmt.Fprintf(&b, "  %s\n\n", label)
+	}
 
 	// Name field
 	nameLabel := "Name:"
@@ -917,6 +1002,78 @@ func (m Model) viewApplicationForm() string {
 	b.WriteString(m.renderApplicationFormHelp())
 
 	return BaseStyle.Render(b.String())
+}
+
+func (m Model) updateApplicationRepositoryScope(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	f := m.applicationForm
+	if f == nil {
+		return m, nil
+	}
+	if len(f.RepositoryChoices) < 2 {
+		return m, nil
+	}
+	step := 0
+	switch msg.String() {
+	case "left", "h":
+		step = -1
+	case "right", "l", "enter", "e":
+		step = 1
+	default:
+		return m, nil
+	}
+	index := 0
+	for i, role := range f.RepositoryChoices {
+		if role == f.RepositoryRole {
+			index = i
+			break
+		}
+	}
+	index = (index + step + len(f.RepositoryChoices)) % len(f.RepositoryChoices)
+	selected := f.RepositoryChoices[index]
+	drafts := f.RepositoryDrafts
+	if drafts == nil {
+		drafts = make(map[workspace.Role]*forms.ApplicationForm)
+	}
+	currentDraft := *f
+	currentDraft.RepositoryDrafts = nil
+	drafts[f.RepositoryRole] = &currentDraft
+	sharedName, originalName := f.NameInput.Value(), f.OriginalAppName
+	appIdx := -1
+	if originalName != "" {
+		for i := range m.Applications {
+			if m.Applications[i].Application.Name == originalName {
+				appIdx = i
+				break
+			}
+		}
+	}
+	m.initApplicationFormForRole(appIdx, selected)
+	next := m.applicationForm
+	next.NameInput.SetValue(sharedName)
+	next.OriginalAppName = originalName
+	next.RepositoryDrafts = drafts
+	if draft := drafts[selected]; draft != nil {
+		restored := *draft
+		restored.NameInput.SetValue(sharedName)
+		restored.OriginalAppName = originalName
+		restored.EditAppIdx = next.EditAppIdx
+		restored.RepositoryChoices = next.RepositoryChoices
+		restored.RepositoryDrafts = drafts
+		m.applicationForm = &restored
+		next = m.applicationForm
+	}
+	next.FocusIndex = 4
+	next.UpdateFocus()
+	return m, nil
+}
+
+func isApplicationScopeSelectionKey(msg tea.KeyPressMsg) bool {
+	switch msg.String() {
+	case "left", "h", "right", "l", "enter", "e":
+		return true
+	default:
+		return false
+	}
 }
 
 // renderApplicationFieldValue renders a field value with appropriate styling
@@ -1098,6 +1255,13 @@ func (m Model) renderApplicationFormHelp() string {
 			FormNavKeys.Save,
 		)
 	}
+	if ft == forms.AppFieldScope {
+		return RenderHelpFromBindings(m.width,
+			key.NewBinding(key.WithKeys("left", "h", "right", "l", "enter", "e"), key.WithHelp("←/→", "choose repository scope")),
+			FormNavKeys.Save,
+			FormNavKeys.Cancel,
+		)
+	}
 
 	// Text field focused (not editing)
 	return RenderHelpFromBindings(m.width,
@@ -1123,6 +1287,27 @@ func (m *Model) saveApplicationForm() error {
 		if _, err := m.Renderer.RenderString("when", when); err != nil {
 			return fmt.Errorf("invalid when expression: %w", err)
 		}
+	}
+	if m.Workspace != nil {
+		form := m.applicationForm
+		if form.OriginalAppName != "" {
+			return m.saveWorkspaceApplication(form.RepositoryRole, form.OriginalAppName, name, description, when, pkg)
+		}
+		if err := m.validateWorkspaceTargets(); err != nil {
+			return fmt.Errorf("validating workspace targets: %w", err)
+		}
+		app := config.Application{Name: name, Description: description, When: when, Package: pkg}
+		if err := m.Workspace.AddApplication(context.Background(), form.RepositoryRole, app, m.DryRun); err != nil {
+			if isCommittedTransactionError(err) {
+				form.OriginalAppName = name
+			}
+			return m.reconcileCommittedWorkspaceError(err, nil, app.Name)
+		}
+		if m.DryRun {
+			m.results = []ResultItem{{Name: name, Success: true, Message: "Would add application (dry-run)"}}
+			return nil
+		}
+		return m.refreshWorkspace(nil, name)
 	}
 
 	// Save based on edit mode

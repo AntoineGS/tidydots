@@ -42,7 +42,25 @@ Register it with `tidydots init --private <path>`; unregister it with
 Use `--public-only` to temporarily use the public repository without changing
 registration. When using `--dir <path>`, only that repository is loaded unless
 you explicitly pair it with `--private-dir <path>`; `--private-dir` and
-`--public-only` cannot be used together. No command clones a private repository.
+`--public-only` cannot be used together. `--dir <path> --public-only` is allowed
+and uses only that selected repository. No command clones a private repository;
+non-Git configuration directories are supported. Re-running `tidydots init
+<path>` with the same canonical primary directory retains its private
+association; changing the canonical primary clears it. Pairing two Git
+worktrees that share a common Git object directory is rejected; use independent
+repositories instead.
+
+For Git roots, the registration helper installs excludes in the common Git
+metadata (including linked-worktree common metadata) for `.tidydots-txn/`,
+`.tidydots-txn-config-*`, `.tidydots.db`, `*.tmpl.rendered`, and
+`*.tmpl.conflict`. Non-Git config directories remain supported.
+
+A pending transaction affecting registered or selected roots blocks writes;
+`--dir` and `--public-only` do not bypass that mutation guard. These options
+still exclude an unavailable private root from configuration loading. Read-only
+`list`, `status`, and dry-run previews remain available while the relevant
+manifests parse. If an interrupted transaction left a manifest malformed,
+recover it before operations that need to parse that manifest or before writing.
 
 The Public/Private toggle applies to entries, including setup entries, not to an
 application's package definition. A move may also relocate exclusively-owned
@@ -55,6 +73,12 @@ app-level `when` scopes differ, or an existing deployment cannot be safely
 verified. Save changes to paths, file selection, deployment method, target, or
 entry kind separately from an ownership move. Setup-entry moves change only the
 YAML definition; commands are not run.
+
+For paired repositories, all configured target claims remain reserved across
+owners even when the owning app or entry's `when` condition is false on the
+current machine. Exact and ancestor/descendant overlaps between repository
+owners are rejected. Same-owner overlaps remain allowed for intentional folder
+composition, such as a directory entry plus nested entries.
 
 Preview a move with `-n` before applying it. The preview does not mutate files,
 state, configuration, or the loaded workspace. A move spans two YAML files,

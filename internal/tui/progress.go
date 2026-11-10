@@ -10,19 +10,25 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/manager"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // pkgCheckResultMsg is sent when a single package install check completes.
 type pkgCheckResultMsg struct {
-	appIndex  int
-	method    string
-	installed bool
+	appIndex   int
+	appName    string
+	repository workspace.Role
+	generation uint64
+	method     string
+	installed  bool
 }
 
 // stateCheckResultMsg is sent when a single sub-entry state check completes.
 type stateCheckResultMsg struct {
 	appIndex   int
 	subIndex   int
+	ref        workspace.EntryRef
+	generation uint64
 	state      PathState
 	checkError string
 }
@@ -46,6 +52,14 @@ func subEntryAppliesToOS(subEntry config.SubEntry, osType string) bool {
 
 // initApplicationItems creates ApplicationItem list from v3 config
 func (m *Model) initApplicationItems() {
+	if m.Workspace != nil {
+		if err := m.initWorkspaceApplicationItems(); err != nil {
+			m.err = err
+			m.Applications = nil
+			m.initTableModel()
+		}
+		return
+	}
 	// Get ALL applications, not just filtered ones
 	apps := m.Config.Applications
 
@@ -78,6 +92,7 @@ func (m *Model) initApplicationItems() {
 				SubEntry: subEntry,
 				Target:   expandedTarget,
 				AppName:  app.Name,
+				Ref:      workspace.EntryRef{Repository: workspace.Public, App: app.Name, Name: subEntry.Name},
 				Index:    len(subItems),
 			}
 			if pathError != nil {
@@ -351,6 +366,20 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// its OS-filtered SubItems; deletion slices the unsorted, unfiltered
 			// m.Config, so both must be resolved to config indices by name.
 			appIdx, subIdx := m.getApplicationAtCursorFromTable()
+			if m.Workspace != nil {
+				if appIdx >= 0 && (m.confirmingDeleteApp || (m.confirmingDeleteSubEntry && subIdx >= 0)) {
+					deleteApp := m.confirmingDeleteApp
+					m.confirmingDeleteApp, m.confirmingDeleteSubEntry = false, false
+					if deleteApp {
+						subIdx = -1
+					}
+					if err := m.deleteApplicationOrSubEntry(appIdx, subIdx); err != nil {
+						m.err = err
+					}
+					m.rebuildTable()
+					return m, nil
+				}
+			}
 			if m.confirmingDeleteApp && appIdx >= 0 {
 				m.confirmingDeleteApp = false
 				configAppIdx := m.findConfigApplicationIndex(m.Applications[appIdx].Application.Name)
@@ -721,20 +750,21 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// On a modified config entry: launch diff viewer. Symlink templates
 			// compare their rendered cache; copy templates compare their live
 			// deployed targets.
-			if appIdx >= 0 && subIdx >= 0 && m.Manager != nil {
+			if appIdx >= 0 && subIdx >= 0 {
 				subItem := m.Applications[appIdx].SubItems[subIdx]
-				if subItem.State == StateModified && subItem.SubEntry.IsConfig() {
-					targetPath, backupPath, err := resolveSubEntryPaths(subItem, m.Manager)
+				mgr := managerForSubEntry(m, subItem)
+				if subItem.State == StateModified && subItem.SubEntry.IsConfig() && mgr != nil {
+					targetPath, backupPath, err := resolveSubEntryPaths(subItem, mgr)
 					if err != nil {
 						return m, func() tea.Msg { return editorLaunchCompleteMsg{err: err} }
 					}
 					var modifiedFiles []manager.ModifiedTemplate
 					if subItem.SubEntry.IsCopy() {
 						var inspection manager.CopyTemplateInspection
-						inspection, err = m.Manager.InspectCopyTemplates(subItem.SubEntry, backupPath, targetPath)
+						inspection, err = mgr.InspectCopyTemplates(subItem.SubEntry, backupPath, targetPath)
 						modifiedFiles = inspection.Modified
 					} else {
-						modifiedFiles, err = m.Manager.GetModifiedTemplateFiles(backupPath, subItem.SubEntry.Files)
+						modifiedFiles, err = mgr.GetModifiedTemplateFiles(backupPath, subItem.SubEntry.Files)
 					}
 					if err != nil {
 						return m, func() tea.Msg { return editorLaunchCompleteMsg{err: err} }
@@ -759,15 +789,16 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			// On an app row: install package (original behavior)
 			if appIdx >= 0 && subIdx < 0 && !m.Applications[appIdx].IsFiltered {
 				app := m.Applications[appIdx]
-				if app.PkgInstalled != nil && !*app.PkgInstalled {
+				if app.PkgInstalled != nil && !*app.PkgInstalled && appHasActivePackage(app) {
 					m.Operation = OpInstallPackages
 					m.currentPackageIndex = 0
 					m.results = nil
 					m.pendingPackages = []PackageItem{{
-						Name:     app.Application.Name,
-						Package:  app.Application.Package,
-						Method:   app.PkgMethod,
-						Selected: true,
+						Name:       app.Application.Name,
+						Package:    app.Application.Package,
+						Repository: app.PackageOwner,
+						Method:     app.PkgMethod,
+						Selected:   true,
 					}}
 					m.Screen = ScreenProgress
 					return m, m.installNextPackage()
@@ -790,7 +821,7 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 			// Single-item restore (original behavior)
 			appIdx, subIdx := m.getApplicationAtCursorFromTable()
-			if appIdx >= 0 && subIdx >= 0 && !m.Applications[appIdx].IsFiltered {
+			if appIdx >= 0 && subIdx >= 0 && !m.Applications[appIdx].IsFiltered && m.subEntryEligibilityError(m.Applications[appIdx].SubItems[subIdx]) == nil {
 				// Restore single sub-entry
 				subItem := &m.Applications[appIdx].SubItems[subIdx]
 
@@ -808,45 +839,32 @@ func (m Model) updateResults(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 					}}, false)
 				}
 
-				success, message := m.performRestoreSubEntry(*subItem)
-				if success {
-					m.Applications[appIdx].SubItems[subIdx].State = m.detectSubEntryState(subItem)
-					m.rebuildTable()
+				if subItem.SubEntry.IsConfig() {
+					m.results = nil
+					m.completedOperation = OpList
+					return m, m.startConfigRestores([]configRestoreItem{{item: *subItem, name: subItem.SubEntry.Name}}, nil)
 				}
-				m.results = []ResultItem{{
-					Name:    subItem.SubEntry.Name,
-					Success: success,
-					Message: message,
-				}}
-				m.completedOperation = OpList
-				m.showingResults = true
-				m.resultsScrollOffset = 0
 			} else if appIdx >= 0 && subIdx < 0 && !m.Applications[appIdx].IsFiltered {
-				// Restore all sub-entries for this application: config entries
-				// inline, setup entries queued for the tea.Exec runner.
+				// Restore eligible config entries through tea.Exec, then eligible
+				// setup entries through the same terminal handover.
 				m.results = nil
 				m.completedOperation = OpList
-				for i := range m.Applications[appIdx].SubItems {
-					subItem := &m.Applications[appIdx].SubItems[i]
-					if subItem.SubEntry.IsSetup() || !subItem.SubEntry.IsConfig() {
+				var configs []configRestoreItem
+				for _, subItem := range m.Applications[appIdx].SubItems {
+					if !subItem.SubEntry.IsConfig() || m.subEntryEligibilityError(subItem) != nil {
 						continue
 					}
-					success, message := m.performRestoreSubEntry(*subItem)
-					if success {
-						m.Applications[appIdx].SubItems[i].State = m.detectSubEntryState(subItem)
-					}
-					m.results = append(m.results, ResultItem{
-						Name:    subItem.SubEntry.Name,
-						Success: success,
-						Message: message,
-					})
+					configs = append(configs, configRestoreItem{item: subItem, name: subItem.SubEntry.Name})
 				}
-				m.rebuildTable()
-
-				if setups := m.collectAppSetupItems(appIdx); len(setups) > 0 {
+				setups := m.collectAppSetupItems(appIdx)
+				if len(configs) > 0 {
+					return m, m.startConfigRestores(configs, setups)
+				}
+				if len(setups) > 0 {
 					return m, m.startSetupRun(setups, false)
 				}
-
+				m.results = []ResultItem{{Name: m.Applications[appIdx].Application.Name, Success: false, Message: "No active entries to restore"}}
+				m.completedOperation = OpList
 				m.showingResults = true
 				m.resultsScrollOffset = 0
 			}

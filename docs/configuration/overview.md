@@ -8,18 +8,28 @@ tidydots uses a **two-level configuration system**: a minimal app config that po
 
 **Location:** `~/.config/tidydots/config.yaml`
 
-This file is created by `tidydots init` and contains a single field:
+This file is created by `tidydots init` and stores local repository registration
+and UI metadata. A private repository is optional and is never recorded in a
+repository's `tidydots.yaml`:
 
 ```yaml
 # tidydots app configuration
-# This file only stores the path to your configurations repository
+# This file stores local repository paths and UI metadata
 
 config_dir: ~/dotfiles
+private_config_dir: ~/dotfiles-private  # optional
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `config_dir` | string | yes | Absolute or `~`-relative path to your dotfiles repository |
+| `private_config_dir` | string | no | Optional absolute or `~`-relative path to a second repository; when unset, tidydots uses only the primary repository |
+
+The private path is machine-local. It does not add a `private` field to either
+repository manifest: each repository keeps its own independent `tidydots.yaml`,
+and tidydots derives entry ownership from the document it loaded. Register a
+private checkout only on machines that should use it; public-only operation does
+not require or access that checkout.
 
 !!! note
     The `config_dir` path supports `~` expansion. tidydots verifies that the directory exists when loading the config. If the directory is missing, you will see an error prompting you to run `tidydots init` or create it manually.

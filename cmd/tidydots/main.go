@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/pprof"
+	"strings"
 	"syscall"
 
 	"github.com/AntoineGS/tidydots/internal/config"
@@ -21,25 +22,30 @@ import (
 	"github.com/AntoineGS/tidydots/internal/preview"
 	tmpl "github.com/AntoineGS/tidydots/internal/template"
 	"github.com/AntoineGS/tidydots/internal/tui"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
 var version = "dev"
 
 var (
-	configDir     string // Override from --dir flag
-	osOverride    string
-	dryRun        bool
-	verbose       bool
-	interactive   bool
-	actions       bool
-	statusActions bool
-	statusJSON    bool
-	noMerge       bool
-	forceDelete   bool
-	forceRender   bool
-	cpuProfile    string
-	logFile       *os.File
+	configDir      string // Override from --dir flag
+	osOverride     string
+	dryRun         bool
+	verbose        bool
+	interactive    bool
+	actions        bool
+	statusActions  bool
+	statusJSON     bool
+	noMerge        bool
+	forceDelete    bool
+	forceRender    bool
+	privateDir     string
+	publicOnly     bool
+	initPrivateDir string
+	removePrivate  bool
+	cpuProfile     string
+	logFile        *os.File
 )
 
 var interactiveIsTerminal = tui.IsTerminal
@@ -83,6 +89,9 @@ Run 'tidydots init <path>' to set up the app configuration.
 Run without arguments to start the interactive TUI.`,
 		RunE: runInteractive,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateWorkspaceFlags(cmd); err != nil {
+				return err
+			}
 			if actions && cmd.Name() != "tidydots" {
 				return fmt.Errorf("--actions cannot be used with %s; use it with tidydots or status --actions", cmd.Name())
 			}
@@ -125,6 +134,8 @@ Run without arguments to start the interactive TUI.`,
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&configDir, "dir", "d", "", "Override repository directory, including TUI hostname choices")
+	rootCmd.PersistentFlags().StringVar(&privateDir, "private-dir", "", "Pair a private repository for this invocation")
+	rootCmd.PersistentFlags().BoolVar(&publicOnly, "public-only", false, "Use only the primary repository for this invocation")
 	rootCmd.PersistentFlags().StringVarP(&osOverride, "os", "o", "", "Override OS detection (linux or windows)")
 	rootCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "Show what would be done without making changes")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
@@ -133,15 +144,20 @@ Run without arguments to start the interactive TUI.`,
 	_ = rootCmd.PersistentFlags().MarkHidden("cpuprofile")
 
 	initCmd := &cobra.Command{
-		Use:   "init <path>",
+		Use:   "init [path]",
 		Short: "Initialize app configuration",
 		Long: `Initialize the app configuration by setting the path to your configurations repository.
 
 This creates ~/.config/tidydots/config.yaml with the path to your repo.
-The repo should contain a tidydots.yaml file with your path definitions.`,
-		Args: cobra.ExactArgs(1),
+The repo should contain a tidydots.yaml file with your path definitions.
+
+Use --private <path> to register an existing private repository, or
+--remove-private to unregister it without deleting files. Both support --dry-run.`,
+		Args: validateInitArgs,
 		RunE: runInit,
 	}
+	initCmd.Flags().StringVar(&initPrivateDir, "private", "", "Register an existing private repository")
+	initCmd.Flags().BoolVar(&removePrivate, "remove-private", false, "Unregister the private repository")
 
 	restoreCmd := &cobra.Command{
 		Use:   "restore [app [entry]]",
@@ -189,6 +205,14 @@ Packages are filtered based on their filters (os, hostname, user).`,
 		RunE:  runListPackages,
 	}
 
+	recoverCmd := &cobra.Command{
+		Use:   "recover <transaction-id>",
+		Short: "Recover an interrupted workspace transaction",
+		Long:  "Roll back an interrupted workspace transaction or finish cleanup after its commit point.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runRecover,
+	}
+
 	statusCmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show resolved configuration and package status",
@@ -212,37 +236,70 @@ The path can be a single .tmpl file or a directory containing .tmpl files.`,
 		RunE: runPreview,
 	}
 
-	rootCmd.AddCommand(initCmd, restoreCmd, backupCmd, listCmd, installCmd, listPkgsCmd, statusCmd, previewCmd)
+	rootCmd.AddCommand(initCmd, restoreCmd, backupCmd, listCmd, installCmd, listPkgsCmd, recoverCmd, statusCmd, previewCmd)
 
 	return rootCmd
 }
 
+func runRecover(cmd *cobra.Command, args []string) error {
+	if err := workspace.Recover(cmd.Context(), "", args[0], dryRun); err != nil {
+		return fmt.Errorf("recovering workspace transaction: %w", err)
+	}
+	if dryRun {
+		fmt.Printf("Dry run: workspace transaction %s would be recovered\n", args[0])
+		return nil
+	}
+	fmt.Printf("Workspace transaction %s recovered\n", args[0])
+	return nil
+}
+
+func validateWorkspaceFlags(cmd *cobra.Command) error {
+	if cmd.Flags().Changed("private-dir") && privateDir == "" {
+		return fmt.Errorf("--private-dir requires a path")
+	}
+	if privateDir != "" && publicOnly {
+		return fmt.Errorf("--private-dir and --public-only are mutually exclusive")
+	}
+	return nil
+}
+
+func validateInitArgs(cmd *cobra.Command, args []string) error {
+	privateChanged := cmd.Flags().Changed("private")
+	removeChanged := cmd.Flags().Changed("remove-private")
+	if privateChanged && removeChanged {
+		return fmt.Errorf("--private and --remove-private are mutually exclusive")
+	}
+	if privateChanged {
+		if initPrivateDir == "" {
+			return fmt.Errorf("--private requires a path")
+		}
+		if len(args) != 0 {
+			return fmt.Errorf("init --private does not accept a positional path")
+		}
+		return nil
+	}
+	if removeChanged {
+		if !removePrivate {
+			return fmt.Errorf("--remove-private cannot be set to false")
+		}
+		if len(args) != 0 {
+			return fmt.Errorf("init --remove-private does not accept a positional path")
+		}
+		return nil
+	}
+	if len(args) != 1 {
+		return fmt.Errorf("init requires a path, --private <path>, or --remove-private")
+	}
+	return nil
+}
+
 func runInit(_ *cobra.Command, args []string) error {
-	path := args[0]
-
-	// Expand ~ if present
-	path = config.ExpandPath(path, nil)
-
-	// Make absolute
-	absPath, err := filepath.Abs(path)
+	if initPrivateDir != "" || removePrivate {
+		return runPrivateRegistration()
+	}
+	absPath, err := validateInitPath(args[0])
 	if err != nil {
-		return fmt.Errorf("resolving path: %w", err)
-	}
-
-	// Check directory exists
-	info, err := os.Stat(absPath)
-	if errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("directory does not exist %s: %w", absPath, err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("not a directory: %s", absPath)
-	}
-
-	// Check for tidydots.yaml in the repo
-	repoConfig := filepath.Join(absPath, "tidydots.yaml")
-	if _, err := os.Stat(repoConfig); errors.Is(err, os.ErrNotExist) {
-		fmt.Printf("Warning: %s not found in %s\n", "tidydots.yaml", absPath)
-		fmt.Println("You'll need to create it before using tidydots.")
+		return err
 	}
 
 	// Save app config
@@ -250,16 +307,213 @@ func runInit(_ *cobra.Command, args []string) error {
 	if err != nil {
 		appCfg = &config.AppConfig{}
 	}
-	appCfg.ConfigDir = absPath
+	oldConfiguredRoot := appCfg.ConfigDir
+	oldPrivateRoot := appCfg.PrivateConfigDir
+	oldPrimary, oldPrimaryErr := canonicalConfiguredDirectory(oldConfiguredRoot)
+	newPrimary, err := canonicalDirectory(absPath)
+	if err != nil {
+		return fmt.Errorf("resolving path: %w", err)
+	}
+	return savePrimaryRegistration(appCfg, oldConfiguredRoot, oldPrivateRoot, oldPrimary, oldPrimaryErr, newPrimary)
+}
+
+func validateInitPath(path string) (string, error) {
+	path = config.ExpandPath(path, nil)
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolving path: %w", err)
+	}
+	info, err := os.Stat(absPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("directory does not exist %s: %w", absPath, err)
+	}
+	if err != nil {
+		return "", fmt.Errorf("checking directory %s: %w", absPath, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("not a directory: %s", absPath)
+	}
+	if _, err := os.Stat(filepath.Join(absPath, "tidydots.yaml")); errors.Is(err, os.ErrNotExist) {
+		fmt.Printf("Warning: %s not found in %s\n", "tidydots.yaml", absPath)
+		fmt.Println("You'll need to create it before using tidydots.")
+	}
+	return absPath, nil
+}
+
+func savePrimaryRegistration(appCfg *config.AppConfig, oldConfiguredRoot, oldPrivateRoot, oldPrimary string, oldPrimaryErr error, newPrimary string) error {
+	appCfg.ConfigDir = newPrimary
+	pendingRoots := []string{newPrimary, oldConfiguredRoot, oldPrivateRoot}
+	if err := checkPendingCLITransactions(pendingRoots...); err != nil {
+		return err
+	}
+	if oldPrimaryErr != nil || oldPrimary != newPrimary {
+		appCfg.PrivateConfigDir = ""
+	}
+	if dryRun {
+		fmt.Printf("Dry run: app configuration would be saved to %s\n", config.AppConfigPath())
+		fmt.Printf("Configurations directory: %s\n", newPrimary)
+		return nil
+	}
+	release, err := acquireRegistrationMutationGuard(pendingRoots...)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := checkPendingCLITransactions(pendingRoots...); err != nil {
+		return err
+	}
 
 	if err := config.SaveAppConfig(appCfg); err != nil {
 		return fmt.Errorf("saving app config: %w", err)
 	}
 
 	fmt.Printf("App configuration saved to %s\n", config.AppConfigPath())
-	fmt.Printf("Configurations directory: %s\n", absPath)
+	fmt.Printf("Configurations directory: %s\n", newPrimary)
 
 	return nil
+}
+
+func canonicalConfiguredDirectory(path string) (string, error) {
+	if path == "" {
+		return "", nil
+	}
+	return canonicalDirectory(path)
+}
+
+func runPrivateRegistration() error {
+	appCfg, err := config.LoadAppConfigMetadata()
+	if err != nil {
+		return fmt.Errorf("private repository registration requires an initialized app config: %w", err)
+	}
+	requestedRoots := []string{appCfg.ConfigDir, appCfg.PrivateConfigDir}
+	if initPrivateDir != "" {
+		requestedRoots = append(requestedRoots, config.ExpandPath(initPrivateDir, nil))
+	}
+	if err := checkPendingCLITransactions(requestedRoots...); err != nil {
+		return err
+	}
+	if removePrivate {
+		return removePrivateRegistration(appCfg, requestedRoots)
+	}
+	return registerPrivateRepository(appCfg)
+}
+
+func removePrivateRegistration(appCfg *config.AppConfig, roots []string) error {
+	appCfg.PrivateConfigDir = ""
+	if dryRun {
+		fmt.Println("Dry run: private repository registration would be removed")
+		return nil
+	}
+	release, err := acquireRegistrationMutationGuard(roots...)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := checkPendingCLITransactions(roots...); err != nil {
+		return err
+	}
+	if err := config.SaveAppConfig(appCfg); err != nil {
+		return fmt.Errorf("saving app config: %w", err)
+	}
+	fmt.Println("Private repository registration removed")
+	return nil
+}
+
+func registerPrivateRepository(appCfg *config.AppConfig) error {
+	var err error
+	privatePath := config.ExpandPath(initPrivateDir, nil)
+	privatePath, err = filepath.Abs(privatePath)
+	if err != nil {
+		return fmt.Errorf("resolving private repository path: %w", err)
+	}
+	loaded, err := workspace.Load(appCfg.ConfigDir, privatePath)
+	if err != nil {
+		return fmt.Errorf("validating private repository: %w", err)
+	}
+	var release func()
+	if !dryRun {
+		roots := make([]string, 0, len(loaded.Repositories)+1)
+		roots = append(roots, appCfg.PrivateConfigDir)
+		for _, repo := range loaded.Repositories {
+			roots = append(roots, repo.Root)
+		}
+		release, err = acquireRegistrationMutationGuard(roots...)
+		if err != nil {
+			return err
+		}
+		defer release()
+		if err := checkPendingCLITransactions(roots...); err != nil {
+			return err
+		}
+	}
+	if err := configureWorkspaceGitExcludes(loaded, dryRun); err != nil {
+		return err
+	}
+	private, err := loaded.Repository(workspace.Private)
+	if err != nil {
+		return err
+	}
+	appCfg.PrivateConfigDir = private.Root
+	if dryRun {
+		fmt.Printf("Dry run: private repository %s would be registered\n", private.Root)
+		return nil
+	}
+	if err := config.SaveAppConfig(appCfg); err != nil {
+		return fmt.Errorf("saving app config: %w", err)
+	}
+	fmt.Printf("Private repository registered: %s\n", private.Root)
+	return nil
+}
+
+func acquireRegistrationMutationGuard(roots ...string) (func(), error) {
+	canonicalRoots := make([]string, 0, len(roots))
+	seen := make(map[string]struct{}, len(roots))
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		canonical, err := canonicalDirectory(root)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("resolving repository root for registration guard: %w", err)
+		}
+		if _, ok := seen[canonical]; ok {
+			continue
+		}
+		seen[canonical] = struct{}{}
+		canonicalRoots = append(canonicalRoots, canonical)
+	}
+	release, err := workspace.MutationGuard(context.Background(), "", canonicalRoots...)
+	if err != nil {
+		return nil, fmt.Errorf("guarding repository registration: %w", err)
+	}
+	if err := checkPendingCLITransactions(roots...); err != nil {
+		release()
+		return nil, err
+	}
+	return release, nil
+}
+
+func canonicalDirectory(path string) (string, error) {
+	path = config.ExpandPath(path, nil)
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	canonical, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(canonical)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("not a directory: %s", canonical)
+	}
+	return filepath.Clean(canonical), nil
 }
 
 func getConfigDir() (string, error) {
@@ -342,7 +596,20 @@ func createManager(args []string, allowSetup bool) (*manager.Manager, error) {
 
 var createCommandManager = createManager
 
-func runInteractive(_ *cobra.Command, _ []string) error {
+func runInteractive(cmd *cobra.Command, _ []string) error {
+	w, workspacePlatform, routed, err := resolveCLIWorkspace(cmd)
+	if err != nil {
+		return err
+	}
+	if routed {
+		if err := w.ValidateTargets(workspacePlatform); err != nil {
+			return err
+		}
+		if !interactiveIsTerminal() {
+			return fmt.Errorf("interactive mode requires a terminal; use subcommands (restore, backup, list) for non-interactive use")
+		}
+		return tui.RunWorkspace(w, workspacePlatform, dryRun, actions)
+	}
 	cfg, plat, configPath, err := loadConfig()
 	if err != nil {
 		return err
@@ -357,6 +624,22 @@ func runInteractive(_ *cobra.Command, _ []string) error {
 }
 
 func runStatus(cmd *cobra.Command, _ []string) error {
+	w, plat, routed, err := resolveCLIWorkspace(cmd)
+	if err != nil {
+		return err
+	}
+	if routed {
+		report, err := tui.ComputeWorkspaceStatus(w, plat, statusActions)
+		if err != nil {
+			return err
+		}
+		if statusJSON {
+			encoder := json.NewEncoder(cmd.OutOrStdout())
+			encoder.SetIndent("", "  ")
+			return encoder.Encode(report)
+		}
+		return writeHumanStatus(cmd.OutOrStdout(), report)
+	}
 	cfg, plat, _, err := loadConfig()
 	if err != nil {
 		return err
@@ -394,6 +677,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 }
 
 func writeHumanStatus(out io.Writer, report tui.StatusReport) error {
+	showRepositoryOwners := statusHasPrivateOwner(report)
 	if _, err := fmt.Fprintf(out, "Actionable: %t\n", report.Actionable); err != nil {
 		return err
 	}
@@ -419,17 +703,51 @@ func writeHumanStatus(out io.Writer, report tui.StatusReport) error {
 		if _, err := fmt.Fprintln(out); err != nil {
 			return err
 		}
-		for _, entry := range app.Entries {
-			detail := entry.State
-			if entry.Error != "" {
-				detail += ": " + entry.Error
-			}
-			if _, err := fmt.Fprintf(out, "  %s: %s\n", entry.Name, detail); err != nil {
-				return err
-			}
+		if err := writeStatusApplication(out, app, showRepositoryOwners); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+func statusHasPrivateOwner(report tui.StatusReport) bool {
+	for _, app := range report.Applications {
+		if app.Package != nil && app.Package.Repository == string(workspace.Private) {
+			return true
+		}
+		for _, entry := range app.Entries {
+			if entry.Repository == string(workspace.Private) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func writeStatusApplication(out io.Writer, app tui.StatusApplication, showOwners bool) error {
+	if app.Package != nil {
+		owner := ""
+		if showOwners && app.Package.Repository != "" {
+			owner = " [" + app.Package.Repository + "]"
+		}
+		if _, err := fmt.Fprintf(out, "  package: %s (%s)%s\n", app.Package.Name, app.Package.Method, owner); err != nil {
+			return err
+		}
+	}
+	for _, entry := range app.Entries {
+		detail := entry.State
+		if entry.Error != "" {
+			detail += ": " + entry.Error
+		}
+		owner := ""
+		if showOwners && entry.Repository != "" {
+			owner = " [" + entry.Repository + "]"
+		}
+		if _, err := fmt.Fprintf(out, "  %s%s: %s\n", entry.Name, owner, detail); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -440,18 +758,16 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	if interactive {
 		return runInteractive(cmd, args)
 	}
-
-	mgr, err := createCommandManager(args, true)
+	w, plat, routed, err := resolveCLIWorkspace(cmd)
 	if err != nil {
 		return err
 	}
-	defer mgr.Close() //nolint:errcheck // best-effort cleanup
-
-	if dryRun {
-		fmt.Println("=== DRY RUN MODE ===")
+	if routed {
+		return runWorkspaceRestore(w, plat, args)
 	}
-
-	return runRestoreWithManager(mgr)
+	return runSingleFileOperation(args, true, func(mgr *manager.Manager) error {
+		return runRestoreWithManager(mgr)
+	})
 }
 
 func runRestoreWithManager(m manager.Restorer) error {
@@ -465,8 +781,28 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	if interactive {
 		return runInteractive(cmd, args)
 	}
+	w, plat, routed, err := resolveCLIWorkspace(cmd)
+	if err != nil {
+		return err
+	}
+	if routed {
+		return runWorkspaceBackup(w, plat, args)
+	}
+	return runSingleFileOperation(args, false, func(mgr *manager.Manager) error {
+		return runBackupWithManager(mgr)
+	})
+}
 
-	mgr, err := createCommandManager(args, false)
+func runSingleFileOperation(args []string, allowSetup bool, operation func(*manager.Manager) error) error {
+	if !dryRun {
+		release, err := acquireSingleRepositoryMutationGuard()
+		if err != nil {
+			return err
+		}
+		defer release()
+	}
+
+	mgr, err := createCommandManager(args, allowSetup)
 	if err != nil {
 		return err
 	}
@@ -476,7 +812,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		fmt.Println("=== DRY RUN MODE ===")
 	}
 
-	return runBackupWithManager(mgr)
+	return operation(mgr)
 }
 
 func runBackupWithManager(m manager.Backuper) error {
@@ -502,7 +838,14 @@ func runWithCancellation(fn func(ctx context.Context) error) error {
 	return fn(ctx)
 }
 
-func runList(_ *cobra.Command, args []string) error {
+func runList(cmd *cobra.Command, args []string) error {
+	w, plat, routed, err := resolveCLIWorkspace(cmd)
+	if err != nil {
+		return err
+	}
+	if routed {
+		return runWorkspaceList(w, plat, args)
+	}
 	mgr, err := createCommandManager(args, false)
 	if err != nil {
 		return err
@@ -519,6 +862,20 @@ func runListWithManager(m manager.Lister) error {
 func runInstall(cmd *cobra.Command, args []string) error {
 	if interactive {
 		return runInteractive(cmd, args)
+	}
+	w, workspacePlatform, routed, err := resolveCLIWorkspace(cmd)
+	if err != nil {
+		return err
+	}
+	if routed {
+		return runWorkspaceInstall(w, workspacePlatform, args)
+	}
+	if !dryRun {
+		release, err := acquireSingleRepositoryMutationGuard()
+		if err != nil {
+			return err
+		}
+		defer release()
 	}
 
 	cfg, plat, _, err := loadConfig()
@@ -572,6 +929,10 @@ func runInstall(cmd *cobra.Command, args []string) error {
 		packagesToInstall = filtered
 	}
 
+	return installPackages(pkgMgr, packagesToInstall)
+}
+
+func installPackages(pkgMgr *packages.Manager, packagesToInstall []packages.Package) error {
 	results := pkgMgr.InstallAll(packagesToInstall)
 
 	// Print results
@@ -595,7 +956,14 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runListPackages(_ *cobra.Command, _ []string) error {
+func runListPackages(cmd *cobra.Command, _ []string) error {
+	w, workspacePlatform, routed, err := resolveCLIWorkspace(cmd)
+	if err != nil {
+		return err
+	}
+	if routed {
+		return runWorkspaceListPackages(w, workspacePlatform)
+	}
 	cfg, plat, _, err := loadConfig()
 	if err != nil {
 		return err
@@ -648,12 +1016,103 @@ func convertToPackageManagers(strs []string) []packages.PackageManager {
 	return result
 }
 
-func runPreview(_ *cobra.Command, args []string) error {
+func runPreview(cmd *cobra.Command, args []string) error {
+	w, workspacePlatform, routed, err := resolveCLIWorkspace(cmd)
+	if err != nil {
+		return err
+	}
+	if routed {
+		_, ownedPath, err := workspacePreviewRoot(w, args[0])
+		if err != nil {
+			return err
+		}
+		if dryRun {
+			return planPreview(workspacePlatform, ownedPath, cmd.OutOrStdout())
+		}
+		roots := make([]string, 0, len(w.Repositories))
+		for _, repo := range w.Repositories {
+			roots = append(roots, repo.Root)
+		}
+		release, err := workspace.MutationGuard(cmd.Context(), w.JournalDir, roots...)
+		if err != nil {
+			return fmt.Errorf("guarding preview workspace: %w", err)
+		}
+		defer release()
+		if err := w.ValidateFresh(); err != nil {
+			return fmt.Errorf("workspace configuration is stale; reload and retry: %w", err)
+		}
+		return runPreviewWithPlatform(workspacePlatform, ownedPath)
+	}
+	if dryRun {
+		_, plat, _, err := loadConfig()
+		if err != nil {
+			return err
+		}
+		return planPreview(plat, args[0], cmd.OutOrStdout())
+	}
+	release, err := acquireSingleRepositoryMutationGuard()
+	if err != nil {
+		return err
+	}
+	defer release()
 	_, plat, _, err := loadConfig()
 	if err != nil {
 		return err
 	}
+	return runPreviewWithPlatform(plat, args[0])
+}
 
+func planPreview(plat *platform.Platform, path string, out io.Writer) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("stat preview path %s: %w", path, err)
+	}
+	var templates []string
+	if !info.IsDir() {
+		if !tmpl.IsTemplateFile(path) {
+			return fmt.Errorf("%s is not a template file (must end in .tmpl)", path)
+		}
+		templates = []string{path}
+	} else {
+		err := filepath.WalkDir(path, func(file string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if !entry.IsDir() && tmpl.IsTemplateFile(file) {
+				templates = append(templates, file)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("walking preview path %s: %w", path, err)
+		}
+	}
+	if len(templates) == 0 {
+		return fmt.Errorf("no template files found at %s", path)
+	}
+	engine := tmpl.NewEngine(tmpl.NewContextFromPlatform(plat))
+	for _, sourcePath := range templates {
+		content, err := os.ReadFile(sourcePath)
+		if err != nil {
+			return fmt.Errorf("reading template %s: %w", sourcePath, err)
+		}
+		rendered, _, err := engine.RenderStringWithSourceMap(filepath.Base(sourcePath), string(content))
+		if err != nil {
+			return fmt.Errorf("rendering template %s: %w", sourcePath, err)
+		}
+		if _, err := fmt.Fprintf(out, "Dry run: would render %s to %s (watcher not started)\n%s", sourcePath, tmpl.RenderedPath(sourcePath), rendered); err != nil {
+			return err
+		}
+		if !strings.HasSuffix(rendered, "\n") {
+			if _, err := fmt.Fprintln(out); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func runPreviewWithPlatform(plat *platform.Platform, path string) error {
 	tmplCtx := tmpl.NewContextFromPlatform(plat)
 	engine := tmpl.NewEngine(tmplCtx)
 
@@ -667,5 +1126,5 @@ func runPreview(_ *cobra.Command, args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	return w.WatchWithStdin(ctx, args[0], os.Stdin)
+	return w.WatchWithStdin(ctx, path, os.Stdin)
 }

@@ -44,7 +44,7 @@ func (m Model) updateApplicationCustomFields(msg tea.KeyPressMsg) (tea.Model, te
 		}
 	case key.Matches(msg, FormNavKeys.TabNext):
 		m.applicationForm.FocusIndex++
-		if m.applicationForm.FocusIndex > 3 {
+		if m.applicationForm.FocusIndex > 4 {
 			m.applicationForm.FocusIndex = 0
 		}
 		m.applicationForm.PackagesCursor = 0
@@ -56,7 +56,7 @@ func (m Model) updateApplicationCustomFields(msg tea.KeyPressMsg) (tea.Model, te
 	case key.Matches(msg, FormNavKeys.TabPrev):
 		m.applicationForm.FocusIndex--
 		if m.applicationForm.FocusIndex < 0 {
-			m.applicationForm.FocusIndex = 3
+			m.applicationForm.FocusIndex = 4
 		}
 		m.applicationForm.PackagesCursor = 0
 		m.applicationForm.GitFieldCursor = -1
@@ -91,7 +91,7 @@ func (m Model) updateApplicationURLFields(msg tea.KeyPressMsg) (tea.Model, tea.C
 			m.applicationForm.URLFieldCursor++
 		} else {
 			m.applicationForm.FocusIndex++
-			if m.applicationForm.FocusIndex > 3 {
+			if m.applicationForm.FocusIndex > 4 {
 				m.applicationForm.FocusIndex = 0
 			}
 			m.applicationForm.PackagesCursor = 0
@@ -112,7 +112,7 @@ func (m Model) updateApplicationURLFields(msg tea.KeyPressMsg) (tea.Model, tea.C
 		}
 	case key.Matches(msg, FormNavKeys.TabNext):
 		m.applicationForm.FocusIndex++
-		if m.applicationForm.FocusIndex > 3 {
+		if m.applicationForm.FocusIndex > 4 {
 			m.applicationForm.FocusIndex = 0
 		}
 		m.applicationForm.PackagesCursor = 0
@@ -124,7 +124,7 @@ func (m Model) updateApplicationURLFields(msg tea.KeyPressMsg) (tea.Model, tea.C
 	case key.Matches(msg, FormNavKeys.TabPrev):
 		m.applicationForm.FocusIndex--
 		if m.applicationForm.FocusIndex < 0 {
-			m.applicationForm.FocusIndex = 3
+			m.applicationForm.FocusIndex = 4
 		}
 		m.applicationForm.PackagesCursor = 0
 		m.applicationForm.GitFieldCursor = -1

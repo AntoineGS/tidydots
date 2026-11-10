@@ -1,5 +1,7 @@
 package tui
 
+import "github.com/AntoineGS/tidydots/internal/workspace"
+
 // Selection helper methods.
 //
 // Selections are keyed by NAME, not by position. Config validation enforces
@@ -11,8 +13,28 @@ package tui
 
 // subEntryKey identifies one sub-entry by its application and entry names.
 type subEntryKey struct {
-	app string
-	sub string
+	app        string
+	sub        string
+	repository workspace.Role
+}
+
+func selectionKey(appName string, sub SubEntryItem) subEntryKey {
+	key := subEntryKey{app: appName, sub: sub.SubEntry.Name}
+	if sub.ShowRepository {
+		key.repository = sub.Ref.Repository
+	}
+	return key
+}
+
+func (m *Model) remapSelectedEntry(oldRef, newRef workspace.EntryRef) {
+	oldKey := subEntryKey{app: oldRef.App, sub: oldRef.Name, repository: oldRef.Repository}
+	selected := m.selectedSubEntries[oldKey]
+	if !selected {
+		return
+	}
+	delete(m.selectedSubEntries, oldKey)
+	m.selectedSubEntries[subEntryKey{app: newRef.App, sub: newRef.Name, repository: newRef.Repository}] = true
+	m.multiSelectActive = len(m.selectedApps) > 0 || len(m.selectedSubEntries) > 0
 }
 
 // toggleAppSelection toggles the selection state of an entire application and all its sub-entries.
@@ -32,14 +54,14 @@ func (m *Model) toggleAppSelection(appIdx int) {
 	m.selectedApps[name] = newState
 
 	for _, sub := range app.SubItems {
-		m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] = newState
+		m.selectedSubEntries[selectionKey(name, sub)] = newState
 	}
 
 	// Clean up maps if deselecting
 	if !newState {
 		delete(m.selectedApps, name)
 		for _, sub := range app.SubItems {
-			delete(m.selectedSubEntries, subEntryKey{app: name, sub: sub.SubEntry.Name})
+			delete(m.selectedSubEntries, selectionKey(name, sub))
 		}
 	}
 
@@ -58,10 +80,7 @@ func (m *Model) toggleSubEntrySelection(appIdx, subIdx int) {
 		return
 	}
 
-	key := subEntryKey{
-		app: m.Applications[appIdx].Application.Name,
-		sub: m.Applications[appIdx].SubItems[subIdx].SubEntry.Name,
-	}
+	key := selectionKey(m.Applications[appIdx].Application.Name, m.Applications[appIdx].SubItems[subIdx])
 
 	newState := !m.selectedSubEntries[key]
 	m.selectedSubEntries[key] = newState
@@ -94,7 +113,7 @@ func (m *Model) prepareCurrentRowSummary(operation Operation) bool {
 		return false
 	}
 	if subIdx >= 0 {
-		m.selectedSubEntries[subEntryKey{app: app.Application.Name, sub: app.SubItems[subIdx].SubEntry.Name}] = true
+		m.selectedSubEntries[selectionKey(app.Application.Name, app.SubItems[subIdx])] = true
 	} else {
 		m.selectedApps[app.Application.Name] = true
 	}
@@ -128,11 +147,24 @@ func (m *Model) isAppSelected(appName string) bool {
 
 // isSubEntrySelected returns true if the sub-entry is selected.
 // A sub-entry is considered selected if it's explicitly selected OR if its parent app is selected.
-func (m *Model) isSubEntrySelected(appName, subName string) bool {
+func (m *Model) isSubEntrySelected(appName, subName string, repository ...string) bool {
 	if m.selectedApps[appName] {
 		return true
 	}
+	if len(repository) > 0 && repository[0] != "" {
+		return m.selectedSubEntries[subEntryKey{app: appName, sub: subName, repository: workspace.Role(repository[0])}]
+	}
 
+	for _, app := range m.Applications {
+		if app.Application.Name != appName {
+			continue
+		}
+		for _, sub := range app.SubItems {
+			if sub.SubEntry.Name == subName && m.selectedSubEntries[selectionKey(appName, sub)] {
+				return true
+			}
+		}
+	}
 	return m.selectedSubEntries[subEntryKey{app: appName, sub: subName}]
 }
 
@@ -166,7 +198,7 @@ func (m *Model) countHiddenSelections() int {
 		}
 
 		for _, sub := range app.SubItems {
-			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] {
+			if m.selectedSubEntries[selectionKey(name, sub)] {
 				count++
 			}
 		}
@@ -205,7 +237,7 @@ func (m *Model) countHiddenActionSelections() int {
 		}
 
 		for _, sub := range app.SubItems {
-			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] && !sub.State.Actionable() {
+			if m.selectedSubEntries[selectionKey(name, sub)] && !sub.Filtered && !sub.State.Actionable() {
 				count++
 			}
 		}
@@ -225,7 +257,7 @@ func (m *Model) clearHiddenSelections() {
 		delete(m.selectedApps, name)
 
 		for _, sub := range app.SubItems {
-			delete(m.selectedSubEntries, subEntryKey{app: name, sub: sub.SubEntry.Name})
+			delete(m.selectedSubEntries, selectionKey(name, sub))
 		}
 	}
 
@@ -244,7 +276,7 @@ func (m *Model) pruneStaleSelections() {
 		if app.IsFiltered {
 			delete(m.selectedApps, app.Application.Name)
 			for _, sub := range app.SubItems {
-				delete(m.selectedSubEntries, subEntryKey{app: app.Application.Name, sub: sub.SubEntry.Name})
+				delete(m.selectedSubEntries, selectionKey(app.Application.Name, sub))
 			}
 			continue
 		}
@@ -252,7 +284,7 @@ func (m *Model) pruneStaleSelections() {
 		liveApps[name] = true
 
 		for _, sub := range app.SubItems {
-			liveSubs[subEntryKey{app: name, sub: sub.SubEntry.Name}] = true
+			liveSubs[selectionKey(name, sub)] = true
 		}
 	}
 

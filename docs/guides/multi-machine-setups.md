@@ -8,9 +8,17 @@ For configurations that must not be present on shared or untrusted machines,
 tidydots can optionally load a second, private repository alongside the public
 one. This is separate from hostname conditions: `when` selects what applies on a
 machine, while repository ownership controls which checkout stores an entry.
-The private repository is never cloned automatically. See the [Private
+Private storage is optional: servers can use only the public repository, and
+tidydots never clones a private repository automatically. An explicit
+`--private-dir` can pair a private checkout for one invocation without
+registering it persistently. See the [Private
 Repositories guide](private-repositories.md) for registration, public-only
 operation, entry moves, and recovery.
+
+When both repositories are paired, target ownership is checked across both
+manifests even for entries whose `when` condition is false on the current
+machine. Keep cross-repository targets disjoint; same-repository folder
+composition remains supported.
 
 tidydots provides three mechanisms for per-machine customization:
 

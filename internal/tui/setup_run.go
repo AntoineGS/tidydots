@@ -6,6 +6,7 @@ import (
 	"io"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/AntoineGS/tidydots/internal/config"
 )
 
 // Messages shown for a setup entry in the results popup.
@@ -93,22 +94,46 @@ func (s *setupExec) Run() error {
 //
 // This shells out. Callers must be on a goroutine that does not hold the
 // terminal: go through startSetupRun/runNextSetup, which wrap this in tea.Exec.
-func (m Model) runSetupForItem(item SubEntryItem) (bool, string) {
-	if m.Manager == nil {
+func (m *Model) runSetupForItem(item SubEntryItem) (bool, string) {
+	if err := m.subEntryEligibilityError(item); err != nil {
+		return false, err.Error()
+	}
+	release, guardErr := m.lockWorkspaceMutation()
+	if guardErr != nil {
+		return false, fmt.Sprintf("Failed: %v", guardErr)
+	}
+	defer release()
+	if err := m.validateFreshWorkspace(); err != nil {
+		return false, fmt.Sprintf("Failed: %v", err)
+	}
+	if err := m.validateSubEntrySnapshot(item); err != nil {
+		return false, fmt.Sprintf("Failed: %v", err)
+	}
+	mgr, err := m.writeManagerForSubEntry(item)
+	if err != nil {
 		return false, setupResultNoRunner
 	}
 
-	if err := m.Manager.RunSetup(item.AppName, item.SubEntry); err != nil {
+	if err := mgr.RunSetup(item.AppName, item.SubEntry); err != nil {
 		return false, fmt.Sprintf("Failed: %v", err)
 	}
 
 	// The manager runs the check but never the run command in dry-run mode, so
 	// say so rather than claiming the system was changed.
-	if m.Manager.DryRun {
+	if mgr.DryRun {
 		return true, setupResultDryRun
 	}
 
 	return true, setupResultOK
+}
+
+// subEntryEligibilityError checks raw owner-local conditions independently of
+// whether the machine filter is currently hiding inactive rows.
+func (m Model) subEntryEligibilityError(item SubEntryItem) error {
+	if !config.EvaluateWhen(item.AppWhen, m.Renderer) || !config.EvaluateWhen(item.SubEntry.When, m.Renderer) {
+		return fmt.Errorf("%s is inactive for this machine", item.SubEntry.Name)
+	}
+	return nil
 }
 
 // startSetupRun queues setup entries and starts the first one. Entries run one
@@ -239,7 +264,7 @@ func (m Model) collectAppSetupItems(appIdx int) []setupRunItem {
 	var items []setupRunItem
 
 	for subIdx, sub := range m.Applications[appIdx].SubItems {
-		if !sub.SubEntry.IsSetup() {
+		if !sub.SubEntry.IsSetup() || m.subEntryEligibilityError(sub) != nil {
 			continue
 		}
 

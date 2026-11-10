@@ -36,7 +36,11 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading config file: %w", err)
 	}
+	return Parse(data)
+}
 
+// Parse validates a configuration from an immutable byte snapshot.
+func Parse(data []byte) (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing config file: %w", err)

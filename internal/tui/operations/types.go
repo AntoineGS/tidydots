@@ -9,6 +9,7 @@ type ResultItem struct {
 	Name    string
 	Message string
 	Success bool
+	Err     error
 }
 
 // Operation represents the type of operation being performed in the TUI.

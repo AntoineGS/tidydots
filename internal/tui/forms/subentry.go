@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // SubEntryFieldType represents the type of field in the SubEntryForm
@@ -25,12 +26,13 @@ const (
 	SubFieldLinuxRun
 	SubFieldWindowsCheck
 	SubFieldWindowsRun
-	SubFieldBackup    // Config-specific
-	SubFieldIsFolder  // Config-specific toggle
-	SubFieldFiles     // Config-specific list
-	SubFieldIsSudo    // Sudo toggle
-	SubFieldIsCopy    // Deployment method toggle: copy instead of symlink
-	SubFieldCheckMode // Setup-specific check exit-code interpretation
+	SubFieldBackup     // Config-specific
+	SubFieldIsFolder   // Config-specific toggle
+	SubFieldFiles      // Config-specific list
+	SubFieldIsSudo     // Sudo toggle
+	SubFieldIsCopy     // Deployment method toggle: copy instead of symlink
+	SubFieldCheckMode  // Setup-specific check exit-code interpretation
+	SubFieldRepository // Pending public/private repository owner selection
 )
 
 // AddFileMode represents the current mode for adding files to the files list
@@ -59,6 +61,14 @@ type SubEntryForm struct {
 	// They are also retained for form consumers that need the original maps.
 	Check map[string]string
 	Run   map[string]string
+	// RepositoryRole is the pending owner choice; ownership is kept outside
+	// config.SubEntry because it belongs to the workspace, not a manifest.
+	// EntryRef identifies the existing source entry for a future move operation
+	// and is nil when the form creates a new entry.
+	RepositoryRole           workspace.Role
+	OriginalRepositoryRole   workspace.Role
+	EntryRef                 *workspace.EntryRef
+	PrivateRepositoryEnabled bool
 	// Method is the entry's deployment method as it was read in. IsCopy is what
 	// the toggle edits; Method is kept so that turning the toggle off restores the
 	// original spelling ("" or an explicit "symlink") rather than normalizing it.
@@ -129,6 +139,8 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 			return SubFieldCheckMode
 		case 8:
 			return SubFieldIsSudo
+		case 9:
+			return SubFieldRepository
 		}
 		return SubFieldName
 	}
@@ -141,7 +153,7 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 
 	// Config-specific fields start at index 5
 	if f.IsFolder {
-		// Folder mode: backup (5), isFolder (6), isSudo (7).
+		// Folder mode: backup (5), isFolder (6), isSudo (7), repository (8).
 		// No copy toggle: copy mode is files-only (see ToggleFolderMode).
 		switch idx {
 		case 5:
@@ -150,9 +162,11 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 			return SubFieldIsFolder
 		case 7:
 			return SubFieldIsSudo
+		case 8:
+			return SubFieldRepository
 		}
 	} else {
-		// Files mode: backup (5), isFolder (6), files (7), isSudo (8), isCopy (9)
+		// Files mode: backup (5), isFolder (6), files (7), isSudo (8), isCopy (9), repository (10)
 		switch idx {
 		case 5:
 			return SubFieldBackup
@@ -164,6 +178,8 @@ func (f *SubEntryForm) GetFieldType() SubEntryFieldType {
 			return SubFieldIsSudo
 		case 9:
 			return SubFieldIsCopy
+		case 10:
+			return SubFieldRepository
 		}
 	}
 
@@ -178,18 +194,18 @@ func (f *SubEntryForm) MaxIndex() int {
 	}
 
 	if f.IsSetup {
-		return 8
+		return 9
 	}
 
 	// Common fields: name, entry type, when, linux, windows = 5 fields (0-4)
 	// Config-specific fields start at 5
 	if f.IsFolder {
-		// Config folder: backup, isFolder, isSudo = 3 fields (5-7)
-		return 7
+		// Config folder: backup, isFolder, isSudo, repository = 4 fields (5-8)
+		return 8
 	}
 
-	// Config files: backup, isFolder, files, isSudo, isCopy = 5 fields (5-9)
-	return 9
+	// Config files: backup, isFolder, files, isSudo, isCopy, repository = 6 fields (5-10)
+	return 10
 }
 
 // ToggleFolderMode flips between folder and files mode.
@@ -220,7 +236,7 @@ func (f *SubEntryForm) IsTextInputField() bool {
 	case SubFieldName, SubFieldWhen, SubFieldLinux, SubFieldWindows, SubFieldBackup,
 		SubFieldLinuxCheck, SubFieldLinuxRun, SubFieldWindowsCheck, SubFieldWindowsRun:
 		return true
-	case SubFieldIsSetup, SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy, SubFieldCheckMode:
+	case SubFieldIsSetup, SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy, SubFieldCheckMode, SubFieldRepository:
 		// These fields don't have suggestions
 	}
 
@@ -235,7 +251,56 @@ func (f *SubEntryForm) IsToggleField() bool {
 
 	ft := f.GetFieldType()
 
-	return ft == SubFieldIsSetup || ft == SubFieldIsFolder || ft == SubFieldIsSudo || ft == SubFieldIsCopy || ft == SubFieldCheckMode
+	return ft == SubFieldIsSetup || ft == SubFieldIsFolder || ft == SubFieldIsSudo || ft == SubFieldIsCopy || ft == SubFieldCheckMode || ft == SubFieldRepository
+}
+
+// SetRepositoryDraft initializes workspace-owned repository selection state.
+// It does not mutate a manifest or perform a move. A nil ref identifies a
+// newly-created entry; an existing entry should carry its stable workspace ref.
+func (f *SubEntryForm) SetRepositoryDraft(role workspace.Role, privateEnabled bool, ref *workspace.EntryRef) {
+	if f == nil {
+		return
+	}
+	if role != workspace.Private {
+		role = workspace.Public
+	}
+	f.RepositoryRole = role
+	f.OriginalRepositoryRole = role
+	f.PrivateRepositoryEnabled = privateEnabled
+	if ref == nil {
+		f.EntryRef = nil
+		return
+	}
+	copyRef := *ref
+	f.EntryRef = &copyRef
+}
+
+// SelectRepositoryRole updates the pending owner selection. Private cannot be
+// selected unless the workspace has an enabled private repository.
+func (f *SubEntryForm) SelectRepositoryRole(role workspace.Role) {
+	if f == nil {
+		return
+	}
+	switch role {
+	case workspace.Public:
+		f.RepositoryRole = workspace.Public
+	case workspace.Private:
+		if f.PrivateRepositoryEnabled {
+			f.RepositoryRole = workspace.Private
+		}
+	}
+}
+
+// ToggleRepositoryRole toggles the pending owner choice when Private is enabled.
+func (f *SubEntryForm) ToggleRepositoryRole() {
+	if f == nil || !f.PrivateRepositoryEnabled {
+		return
+	}
+	if f.RepositoryRole == workspace.Private {
+		f.RepositoryRole = workspace.Public
+		return
+	}
+	f.RepositoryRole = workspace.Private
 }
 
 // UpdateFocus updates which input field is focused
@@ -275,7 +340,7 @@ func (f *SubEntryForm) UpdateFocus() {
 		f.WindowsRunInput.Focus()
 	case SubFieldBackup:
 		f.BackupInput.Focus()
-	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy, SubFieldCheckMode:
+	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy, SubFieldCheckMode, SubFieldRepository:
 		// Boolean and list fields don't use text input focus
 	}
 }
@@ -326,7 +391,7 @@ func (f *SubEntryForm) EnterFieldEditMode() {
 		f.OriginalValue = f.BackupInput.Value()
 		f.BackupInput.Focus()
 		f.BackupInput.SetCursor(len(f.BackupInput.Value()))
-	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy, SubFieldCheckMode:
+	case SubFieldIsFolder, SubFieldFiles, SubFieldIsSudo, SubFieldIsCopy, SubFieldCheckMode, SubFieldRepository:
 		// Boolean and list fields don't use text input editing
 	}
 }
@@ -537,23 +602,25 @@ func NewSubEntryForm(entry config.SubEntry) *SubEntryForm {
 	windowsRunInput.SetValue(entry.Run["windows"])
 
 	return &SubEntryForm{
-		NameInput:          nameInput,
-		WhenInput:          whenInput,
-		LinuxTargetInput:   linuxTargetInput,
-		WindowsTargetInput: windowsTargetInput,
-		LinuxCheckInput:    linuxCheckInput,
-		LinuxRunInput:      linuxRunInput,
-		WindowsCheckInput:  windowsCheckInput,
-		WindowsRunInput:    windowsRunInput,
-		BackupInput:        backupInput,
-		CheckMode:          entry.CheckMode,
-		IsSudo:             entry.Sudo,
-		IsCopy:             entry.IsCopy(),
-		Method:             entry.Method,
-		IsFolder:           entry.IsFolder(),
-		IsSetup:            entry.IsSetup(),
-		Files:              entry.Files,
-		Check:              maps.Clone(entry.Check),
-		Run:                maps.Clone(entry.Run),
+		NameInput:              nameInput,
+		WhenInput:              whenInput,
+		LinuxTargetInput:       linuxTargetInput,
+		WindowsTargetInput:     windowsTargetInput,
+		LinuxCheckInput:        linuxCheckInput,
+		LinuxRunInput:          linuxRunInput,
+		WindowsCheckInput:      windowsCheckInput,
+		WindowsRunInput:        windowsRunInput,
+		BackupInput:            backupInput,
+		CheckMode:              entry.CheckMode,
+		IsSudo:                 entry.Sudo,
+		IsCopy:                 entry.IsCopy(),
+		Method:                 entry.Method,
+		IsFolder:               entry.IsFolder(),
+		IsSetup:                entry.IsSetup(),
+		Files:                  entry.Files,
+		Check:                  maps.Clone(entry.Check),
+		Run:                    maps.Clone(entry.Run),
+		RepositoryRole:         workspace.Public,
+		OriginalRepositoryRole: workspace.Public,
 	}
 }

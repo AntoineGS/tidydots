@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"charm.land/bubbles/v2/table"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // filterActionableApplications returns a cloned application list containing
@@ -16,7 +17,7 @@ func filterActionableApplications(apps []ApplicationItem, includeLoading bool) [
 		appCopy := app
 		appCopy.SubItems = make([]SubEntryItem, 0, len(app.SubItems))
 		for _, sub := range app.SubItems {
-			if subEntryActionable(sub.State, includeLoading) {
+			if !sub.Filtered && subEntryActionable(sub.State, includeLoading) {
 				appCopy.SubItems = append(appCopy.SubItems, sub)
 			}
 		}
@@ -30,7 +31,11 @@ func filterActionableApplications(apps []ApplicationItem, includeLoading bool) [
 // applicationPackageActionable reports whether an application's package needs
 // installation. An unresolved or unavailable package method is not actionable.
 func applicationPackageActionable(app ApplicationItem) bool {
-	return app.Application.HasPackage() && app.PkgInstalled != nil && !*app.PkgInstalled
+	return appHasActivePackage(app) && app.PkgInstalled != nil && !*app.PkgInstalled
+}
+
+func appHasActivePackage(app ApplicationItem) bool {
+	return app.Application.HasPackage() && !app.PackageFiltered
 }
 
 // subEntryActionable applies the canonical path-state action predicate. Loading
@@ -67,6 +72,9 @@ func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bo
 			entryText = "entry"
 		}
 		entryCount := fmt.Sprintf("%d %s", len(app.SubItems), entryText)
+		if appHasActivePackage(app) && app.ShowRepository {
+			entryCount += " · package " + string(app.PackageOwner)
+		}
 
 		infoState := appInfoMaxState(app)
 
@@ -101,17 +109,22 @@ func flattenApplications(apps []ApplicationItem, osType string, filterEnabled bo
 				// Get original unexpanded target from config (with ~ and relative paths)
 				displayTarget := subItem.SubEntry.GetTarget(osType)
 
+				stateText := subItem.State.String()
+				if subItem.Filtered {
+					stateText = StatusFiltered
+				}
 				rows = append(rows, TableRow{
 					Data: table.Row{
 						"  " + treeChar + " " + subItem.SubEntry.Name,
-						subItem.State.String(),
-						typeInfo,
+						stateText,
+						typeInfo + repositoryBadge(subItem.Ref.Repository, subItem.ShowRepository),
 						displayTarget, // Show original config path, not expanded
 					},
-					Level:    1,
-					TreeChar: treeChar,
-					AppName:  app.Application.Name,
-					SubName:  subItem.SubEntry.Name,
+					Level:      1,
+					TreeChar:   treeChar,
+					AppName:    app.Application.Name,
+					SubName:    subItem.SubEntry.Name,
+					Repository: string(subItem.Ref.Repository),
 					// subItem.Index, not subIdx: under a search filter this app is a
 					// copy whose SubItems hold only the matching entries, so subIdx is
 					// a position in that copy. Cursor actions index the real slice.
@@ -137,7 +150,7 @@ func getApplicationStatus(app ApplicationItem) string {
 	}
 
 	if app.PkgInstalled == nil {
-		if app.Application.HasPackage() {
+		if appHasActivePackage(app) {
 			// If method is already resolved to "none", no manager is available for this OS
 			if app.PkgMethod == TypeNone {
 				return StatusUnknown
@@ -152,6 +165,19 @@ func getApplicationStatus(app ApplicationItem) string {
 	}
 
 	return StatusMissing
+}
+
+func repositoryBadge(role workspace.Role, enabled bool) string {
+	if !enabled {
+		return ""
+	}
+	if role == workspace.Private {
+		return " · Private"
+	}
+	if role == workspace.Public {
+		return " · Public"
+	}
+	return ""
 }
 
 // getTypeInfo returns type information for a sub-entry

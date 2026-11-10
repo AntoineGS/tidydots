@@ -12,6 +12,18 @@ import (
 // Shows what will be affected by the batch operation (restore, install, delete).
 func (m Model) viewSummary() string {
 	var b strings.Builder
+	if m.pendingMove != nil {
+		b.WriteString(TitleStyle.Render("Move Entry - Confirmation"))
+		b.WriteString("\n\n")
+		for _, line := range m.pendingMove.Summary {
+			b.WriteString("  • " + line + "\n")
+		}
+		if m.DryRun {
+			b.WriteString("\n" + MutedTextStyle.Render("Dry-run: no files will be changed."))
+		}
+		b.WriteString("\n\n" + RenderHelpFromBindings(m.width, SummaryKeys.Confirm, SummaryKeys.Cancel, SharedKeys.Quit))
+		return BaseStyle.Render(b.String())
+	}
 
 	// Title based on operation
 	var title string
@@ -165,7 +177,7 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 
 		var selected []SubEntryItem
 		for _, sub := range app.SubItems {
-			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] {
+			if !sub.Filtered && m.selectedSubEntries[selectionKey(name, sub)] {
 				selected = append(selected, sub)
 			}
 		}
@@ -202,6 +214,19 @@ func (m Model) renderHierarchicalSummary(operation string) string {
 func (m Model) updateSummary(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m, cmd, handled := m.handleCommonKeys(msg); handled {
 		return m, cmd
+	}
+	if m.pendingMove != nil {
+		switch {
+		case key.Matches(msg, SummaryKeys.Confirm):
+			m.Screen, m.processing = ScreenProgress, true
+			return m, m.applyPendingMove()
+		case key.Matches(msg, SummaryKeys.Cancel):
+			m.pendingMove = nil
+			m.Screen, m.Operation = ScreenResults, OpList
+			return m, nil
+		default:
+			return m, nil
+		}
 	}
 
 	switch {

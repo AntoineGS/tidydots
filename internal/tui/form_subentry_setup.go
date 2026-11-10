@@ -6,6 +6,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 const setupEmptyValue = "(empty)"
@@ -23,6 +24,14 @@ var (
 		key.WithKeys("right", "l"),
 		key.WithHelp("→/l", "status"),
 	)
+	repositoryPrivateKey = key.NewBinding(
+		key.WithKeys("right", "l"),
+		key.WithHelp("→/l", "private"),
+	)
+	repositoryPublicKey = key.NewBinding(
+		key.WithKeys("left", "h"),
+		key.WithHelp("←/h", "public"),
+	)
 )
 
 func (m Model) renderSubEntryToggleValue(field subEntryFieldType, value string) string {
@@ -30,6 +39,31 @@ func (m Model) renderSubEntryToggleValue(field subEntryFieldType, value string) 
 		return SelectedMenuItemStyle.Render(value)
 	}
 	return value
+}
+
+func (m Model) renderSubEntryRepositoryField() string {
+	if m.subEntryForm == nil {
+		return ""
+	}
+	label := "Repository:"
+	if m.getSubEntryFieldType() == subFieldRepository {
+		label = HelpKeyStyle.Render(label)
+	}
+	publicMark, privateMark := CheckboxUnchecked, CheckboxUnchecked
+	if m.subEntryForm.RepositoryRole == workspace.Private {
+		privateMark = CheckboxChecked
+	} else {
+		publicMark = CheckboxChecked
+	}
+	privateLabel := "Private"
+	if !m.subEntryForm.PrivateRepositoryEnabled {
+		privateLabel = MutedTextStyle.Render("Private unavailable (no private repository enabled)")
+	}
+	value := fmt.Sprintf("%s Public  %s %s", publicMark, privateMark, privateLabel)
+	if m.getSubEntryFieldType() == subFieldRepository {
+		value = SelectedMenuItemStyle.Render(value)
+	}
+	return fmt.Sprintf("  %s  %s\n\n", label, value)
 }
 
 func (m Model) renderSubEntrySetupFields() string {

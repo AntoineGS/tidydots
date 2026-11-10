@@ -18,6 +18,41 @@ tidydots install -i
 
 Running `tidydots` with no arguments opens the full TUI experience. Using `-i` with a specific command opens the TUI focused on that operation.
 
+When both repositories are enabled, the TUI presents their contributions in a
+single application list. Each config or setup entry has a **Public** or
+**Private** owner badge; package status and install preferences come from the
+repository that defines that package. Restore, setup, and diff operations use
+the owning repository's paths and template state. Inspection (including status
+checks and dry-run operations) opens render history read-only and does not
+create or modify repository state databases.
+
+The TUI edits and deletes definitions in their owning repository. New
+applications and entries default to **Public**; entry forms can switch to
+**Private** when a private repository is registered. Changing an existing
+entry's owner opens a move summary before applying the move. The summary is
+cancelable, and move execution runs asynchronously. Transaction failures report
+whether the change rolled back, needs recovery, or committed with cleanup still
+pending. Writes are rejected when the complete workspace has conflicting
+targets, including claims hidden by machine filters.
+Queued operations stay bound to the selected owner and definition. If either
+changes before execution, the TUI rejects the stale operation; refresh and
+select the current definition again rather than silently routing the old action.
+
+Application forms show a **Repository scope** selector. Use `←`/`→` (or
+`h`/`l`) while that row is focused to choose which existing contribution's
+description, `when`, and package settings are being edited. The form loads that
+contribution's own draft and identifies its owner; saving a renamed application
+updates all existing contributions in one workspace transaction while retaining
+each contribution's entries. New application forms let you choose Public or
+Private before saving. A package remains owned by its defining repository when
+editing another scope.
+
+Turning the machine filter off reveals inactive definitions for inspection and
+editing, but does not make them operational. Restore and setup actions still
+check the owning application's and entry's `when` conditions. Config restore
+hands the terminal to the operation while it runs, so privileged prompts remain
+visible and the interface does not block on restore work.
+
 ## Main screen
 
 The main screen displays a table view of all your applications and their entries. Each row shows:
@@ -44,6 +79,9 @@ The main screen displays a table view of all your applications and their entries
 
 !!! info
     Setup entries can't be resolved by inspecting the filesystem the way config entries can -- their state comes from actually running the entry's `check` command. tidydots runs that check in a background goroutine rather than on the UI thread, so a setup entry's row may briefly show **Loading...** before settling on **Set up**, **Needs setup**, **Outdated**, or **Check failed**. With `check_mode: status`, check exits `0`, `1`, and `2` mean **Set up**, **Needs setup**, and **Outdated**; other exits and launch/cancellation failures are **Check failed**. A failed check's stderr is cleaned up to a single, bounded diagnostic and shown in the row's info column; the diagnostic is cleared while a refresh is running.
+
+    Inactive entries remain visible when the machine filter is disabled, but
+    their setup checks are not dispatched during initial or refreshed loading.
 
     In status mode, the code mapping is **0 = Set up**, **1 = Needs setup**, **2 = Outdated**, and **3 or higher = Check failed**. A failed check is actionable so it remains visible for diagnosis, but the TUI never treats it as permission to run the setup command.
 
@@ -128,7 +166,7 @@ its installation plan are installed. Missing dependencies keep the application v
 in the action filter, even if the main package is already present. The plan includes
 dependencies from all eligible standard managers, matching installation behavior.
 
-Package status is automatically rechecked after installs using a fresh installed-package snapshot. Press `ctrl+r` on the clean main list to manually refresh all package, config, template, and setup statuses. The refresh preserves filters, selections, expansion, and cursor position; existing loading indicators show progress while statuses are rechecked.
+Package status is automatically rechecked after installs using a fresh installed-package snapshot. Press `ctrl+r` on the clean main list to manually refresh all package, config, template, and setup statuses. The refresh reloads the Public/Private manifests and their ownership before checking status, so use it when a write reports that the workspace is stale. It preserves filters, selections, expansion, and cursor position; existing loading indicators show progress while statuses are rechecked.
 
 The paging and jump motions operate only on the clean main list, not while search or a confirmation dialog is active. `gg` is a two-key sequence: press `g` twice. A single `g` waits for the second key and any other key cancels that pending sequence. Empty and one-row tables remain clamped safely.
 
@@ -289,8 +327,16 @@ Navigate to a config entry and press `e` to edit. Editable fields include:
 - **Sudo** -- toggle for elevated privileges
 - **Copy files** -- toggle for [`method: copy`](../configuration/configs.md#deployment-method), which deploys real files instead of symlinks
 - **When** -- optional Go-template condition for this individual entry
+- **Repository** -- pending Public or Private ownership selection, shared by config and setup entries
 
 The **Copy files** toggle only appears when an explicit file list is set, because copy mode is files-only. Switching an entry back to whole-folder mode therefore clears it.
+
+The Repository selector defaults to **Public** for new entries. **Private** is
+unavailable until a private repository is enabled in the workspace. The selector
+edits only the form's pending draft: use `space` or `enter` to toggle, or
+`←`/`h` and `→`/`l` to choose directly. `esc` cancels the draft. Saving an
+existing entry with a different owner opens a move summary; confirm it to apply
+the ownership move, or cancel to leave the entry in its current repository.
 
 The TUI resolves `backup` and `targets` with the same template and path rules as
 the command line. Invalid expressions and expansions that result in an empty
@@ -306,7 +352,7 @@ saved on that entry, so it combines with the parent application's condition.
 
 ### Edit a setup entry
 
- Navigate to an entry and press `e`, then toggle **Setup entry**. The form exposes paired `Check` and `Run` fields for Linux and Windows, **Check mode**, **Sudo**, and **When**. The **When** editor and hostname chooser work the same way as for config entries. Each OS must have both commands or neither, and at least one OS must be configured. Save writes the `check`, `run`, optional `check_mode`, and optional `when` values to `tidydots.yaml`. A setup entry cannot also have backup or target fields. You can run it from the TUI with `r` and delete it with `d`.
+ Navigate to an entry and press `e`, then toggle **Setup entry**. The form exposes paired `Check` and `Run` fields for Linux and Windows, **Check mode**, **Sudo**, **When**, and the same pending **Repository** selector as config entries. The **When** editor and hostname chooser work the same way as for config entries. Each OS must have both commands or neither, and at least one OS must be configured. Save writes the `check`, `run`, optional `check_mode`, and optional `when` values to `tidydots.yaml`. A setup entry cannot also have backup or target fields. You can run it from the TUI with `r` and delete it with `d`.
 
 The **Check mode** selector is setup-only. It displays `exit-code` when `check_mode` is
 omitted, preserving the legacy behavior where exit `0` means applied and any nonzero

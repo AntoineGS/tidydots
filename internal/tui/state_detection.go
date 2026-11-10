@@ -50,7 +50,17 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 		return StateLoading
 	}
 
-	targetPath, backupPath, err := resolveSubEntryPaths(*item, m.pathManager())
+	ownerManager := managerForSubEntry(*m, *item)
+	if ownerManager == nil {
+		return StateUnavailable
+	}
+	stateManager := ownerManager
+	if m.Workspace == nil {
+		// Preserve the legacy distinction: path expansion may use a temporary
+		// manager, but template-state inspection requires the attached manager.
+		stateManager = m.Manager
+	}
+	targetPath, backupPath, err := resolveSubEntryPaths(*item, ownerManager)
 	if err != nil {
 		item.CheckError = err.Error()
 		return StateUnavailable
@@ -59,14 +69,17 @@ func (m *Model) detectSubEntryState(item *SubEntryItem) PathState {
 	st := detectConfigState(backupPath, targetPath, item.SubEntry.IsFolder(), item.SubEntry.Files, item.SubEntry.IsCopy())
 
 	if item.SubEntry.IsConfig() && item.SubEntry.IsCopy() && hasTemplateSelection(item.SubEntry.Files) {
-		return detectCopyTemplateState(st, item.SubEntry, backupPath, targetPath, m.Manager)
+		return detectCopyTemplateState(st, item.SubEntry, backupPath, targetPath, stateManager)
 	}
 
-	if st == StateLinked && item.SubEntry.IsConfig() && !item.SubEntry.IsCopy() && m.Manager != nil {
-		if m.Manager.HasOutdatedTemplates(backupPath, item.SubEntry.Files) {
+	if st == StateLinked && item.SubEntry.IsConfig() && !item.SubEntry.IsCopy() {
+		if stateManager == nil {
+			return st
+		}
+		if stateManager.HasOutdatedTemplates(backupPath, item.SubEntry.Files) {
 			return StateOutdated
 		}
-		if m.Manager.HasModifiedRenderedFiles(backupPath, item.SubEntry.Files) {
+		if stateManager.HasModifiedRenderedFiles(backupPath, item.SubEntry.Files) {
 			return StateModified
 		}
 	}
@@ -83,10 +96,14 @@ func (m Model) countInitialStateChecks() int {
 		if app.IsFiltered {
 			continue
 		}
-		if app.Application.HasPackage() {
+		if appHasActivePackage(app) {
 			count++
 		}
-		count += len(app.SubItems)
+		for _, sub := range app.SubItems {
+			if !sub.Filtered {
+				count++
+			}
+		}
 	}
 	return count
 }
@@ -98,7 +115,7 @@ func (m Model) checkPackageStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
 
 	for i, app := range m.Applications {
-		if app.IsFiltered || !app.Application.HasPackage() {
+		if app.IsFiltered || !appHasActivePackage(app) {
 			continue
 		}
 		cmds = append(cmds, m.packageStateCheckCmd(i))
@@ -119,7 +136,9 @@ func (m Model) checkSubEntryStatesCmd() (tea.Cmd, int) {
 			continue
 		}
 		for j := range app.SubItems {
-			cmds = append(cmds, m.subEntryStateCheckCmd(i, j))
+			if !app.SubItems[j].Filtered {
+				cmds = append(cmds, m.subEntryStateCheckCmd(i, j))
+			}
 		}
 	}
 
@@ -133,7 +152,7 @@ func (m Model) checkUncheckedPackageStatesCmd() (tea.Cmd, int) {
 	var cmds []tea.Cmd
 
 	for i, app := range m.Applications {
-		if app.IsFiltered || !app.Application.HasPackage() || app.PkgInstalled != nil {
+		if app.IsFiltered || !appHasActivePackage(app) || app.PkgInstalled != nil {
 			continue
 		}
 		cmds = append(cmds, m.packageStateCheckCmd(i))
@@ -156,7 +175,8 @@ func (m Model) packageStateCheckCmd(appIndex int) tea.Cmd {
 	pkg := app.Application.Package
 	name := app.Application.Name
 	osType := m.Platform.OS
-	preferences := m.packageConfig()
+	preferences := m.packageConfigForRole(app.PackageOwner)
+	appName, owner, generation := app.Application.Name, app.PackageOwner, m.WorkspaceGeneration
 	return func() tea.Msg {
 		plan := detection.GetPackageInstallPlan(pkg, osType, preferences)
 		method := plan.Method
@@ -164,18 +184,25 @@ func (m Model) packageStateCheckCmd(appIndex int) tea.Cmd {
 		if method != TypeNone {
 			installed = isPackageInstalledFromPackage(pkg, plan, name, osType)
 		}
-		return pkgCheckResultMsg{appIndex: appIndex, method: method, installed: installed}
+		return pkgCheckResultMsg{appIndex: appIndex, appName: appName, repository: owner, generation: generation, method: method, installed: installed}
 	}
 }
 
 func (m Model) subEntryStateCheckCmd(appIndex, subIndex int) tea.Cmd {
 	subItem := m.Applications[appIndex].SubItems[subIndex]
-	plat, cfg, mgr := m.Platform, m.Config, m.Manager
+	plat := m.Platform
+	cfg := m.configForRole(subItem.Ref.Repository)
+	mgr := managerForSubEntry(m, subItem)
+	releaseReader := m.readerTracker.acquire(mgr)
+	ref, generation := subItem.Ref, subItem.Generation
 	return func() tea.Msg {
+		defer releaseReader()
 		state, checkError := detectSubEntryStateStatic(subItem, plat, cfg, mgr)
 		return stateCheckResultMsg{
 			appIndex:   appIndex,
 			subIndex:   subIndex,
+			ref:        ref,
+			generation: generation,
 			state:      state,
 			checkError: checkError,
 		}
@@ -183,17 +210,27 @@ func (m Model) subEntryStateCheckCmd(appIndex, subIndex int) tea.Cmd {
 }
 
 func (m *Model) refreshAllStates() tea.Cmd {
+	if m.Workspace != nil {
+		if err := m.refreshWorkspaceForInspection(nil, ""); err != nil {
+			m.err = err
+			return nil
+		}
+		m.err = nil
+	}
 	pkgmanager.ResetInstalledCache()
 	var cmds []tea.Cmd
 	for i := range m.Applications {
 		if m.Applications[i].IsFiltered {
 			continue
 		}
-		if m.Applications[i].Application.HasPackage() {
+		if appHasActivePackage(m.Applications[i]) {
 			m.Applications[i].PkgInstalled = nil
 			cmds = append(cmds, m.packageStateCheckCmd(i))
 		}
 		for j := range m.Applications[i].SubItems {
+			if m.Applications[i].SubItems[j].Filtered {
+				continue
+			}
 			m.Applications[i].SubItems[j].State = StateLoading
 			m.Applications[i].SubItems[j].CheckError = ""
 			cmds = append(cmds, m.subEntryStateCheckCmd(i, j))
@@ -216,7 +253,7 @@ func (m *Model) refreshPackageStates(packages []PackageItem) tea.Cmd {
 		if m.Applications[i].IsFiltered {
 			continue
 		}
-		if _, ok := names[m.Applications[i].Application.Name]; !ok || !m.Applications[i].Application.HasPackage() {
+		if _, ok := names[m.Applications[i].Application.Name]; !ok || !appHasActivePackage(m.Applications[i]) {
 			continue
 		}
 		m.Applications[i].PkgInstalled = nil
@@ -252,7 +289,7 @@ func (m Model) checkLoadingSubEntryStatesCmd() (tea.Cmd, int) {
 			continue
 		}
 		for j, sub := range app.SubItems {
-			if !sub.SubEntry.IsSetup() || sub.State != StateLoading {
+			if sub.Filtered || !sub.SubEntry.IsSetup() || sub.State != StateLoading || m.subEntryEligibilityError(sub) != nil {
 				continue
 			}
 			cmds = append(cmds, m.subEntryStateCheckCmd(i, j))

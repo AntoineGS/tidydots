@@ -7,6 +7,7 @@ import (
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/manager"
 	"github.com/AntoineGS/tidydots/internal/platform"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // StatusReport is the resolved status of the applications and entries that
@@ -41,6 +42,7 @@ type StatusApplication struct {
 
 // StatusPackage describes the selected package installation method and state.
 type StatusPackage struct {
+	Repository string `json:"repository,omitempty"`
 	Name       string `json:"name"`
 	Method     string `json:"method"`
 	Installed  *bool  `json:"installed"`
@@ -49,6 +51,7 @@ type StatusPackage struct {
 
 // StatusEntry describes a resolved configuration or setup entry.
 type StatusEntry struct {
+	Repository string `json:"repository,omitempty"`
 	Name       string `json:"name"`
 	Kind       string `json:"kind"`
 	State      string `json:"state"`
@@ -57,6 +60,30 @@ type StatusEntry struct {
 	Target     string `json:"target"`
 	Backup     string `json:"backup"`
 	Method     string `json:"method"`
+}
+
+// ComputeWorkspaceStatus resolves owner-specific checks from a merged
+// workspace using read-only state snapshots.
+func ComputeWorkspaceStatus(w *workspace.Workspace, plat *platform.Platform, actionsOnly bool) (StatusReport, error) {
+	if w == nil {
+		return StatusReport{}, fmt.Errorf("cannot compute status without a workspace")
+	}
+	if plat == nil {
+		return StatusReport{}, fmt.Errorf("cannot compute status without a platform")
+	}
+	if err := w.ValidateCrossRepositoryTargets(plat); err != nil {
+		return StatusReport{}, fmt.Errorf("validating workspace targets: %w", err)
+	}
+	managers := openWorkspaceReaders(w, plat, false)
+	defer closeWorkspaceManagers(managers)
+	m, err := newWorkspaceModel(w, plat, false, false, managers)
+	if err != nil {
+		return StatusReport{}, err
+	}
+	if err := m.resolveStatusChecks(); err != nil {
+		return StatusReport{}, err
+	}
+	return buildStatusReport(m, actionsOnly), nil
 }
 
 // ComputeStatus resolves every package and entry check used by the TUI before
@@ -91,7 +118,7 @@ func (m *Model) resolveStatusChecks() error {
 			continue
 		}
 
-		if m.Applications[appIndex].Application.HasPackage() {
+		if appHasActivePackage(m.Applications[appIndex]) {
 			var err error
 			*m, err = applyStatusCheck(*m, m.packageStateCheckCmd(appIndex))
 			if err != nil {
@@ -100,6 +127,9 @@ func (m *Model) resolveStatusChecks() error {
 		}
 
 		for subIndex := range m.Applications[appIndex].SubItems {
+			if m.Applications[appIndex].SubItems[subIndex].Filtered {
+				continue
+			}
 			var err error
 			*m, err = applyStatusCheck(*m, m.subEntryStateCheckCmd(appIndex, subIndex))
 			if err != nil {
@@ -153,13 +183,16 @@ func buildStatusReport(m Model, actionsOnly bool) StatusReport {
 		if appActionable {
 			report.Counts.ActionableApplications++
 		}
-		if app.Application.HasPackage() {
+		if appHasActivePackage(app) {
 			report.Counts.Packages++
 			if applicationPackageActionable(app) {
 				report.Counts.ActionablePackages++
 			}
 		}
 		for _, sub := range app.SubItems {
+			if sub.Filtered {
+				continue
+			}
 			report.Counts.Entries++
 			if sub.State.Actionable() {
 				report.Counts.ActionableEntries++
@@ -180,10 +213,13 @@ func buildStatusReport(m Model, actionsOnly bool) StatusReport {
 }
 
 func applicationActionable(app ApplicationItem, includeLoading bool) bool {
-	if applicationPackageActionable(app) || includeLoading && app.Application.HasPackage() && app.PkgInstalled == nil {
+	if applicationPackageActionable(app) || includeLoading && appHasActivePackage(app) && app.PkgInstalled == nil {
 		return true
 	}
 	for _, sub := range app.SubItems {
+		if sub.Filtered {
+			continue
+		}
 		if subEntryActionable(sub.State, includeLoading) {
 			return true
 		}
@@ -199,11 +235,14 @@ func buildStatusApplication(app ApplicationItem, osType string) StatusApplicatio
 		Actionable:  applicationActionable(app, false),
 		Entries:     make([]StatusEntry, 0, len(app.SubItems)),
 	}
-	if app.Application.HasPackage() {
+	if appHasActivePackage(app) {
 		result.Package = buildStatusPackage(app)
 	}
 
 	for _, sub := range app.SubItems {
+		if sub.Filtered {
+			continue
+		}
 		kind := "config"
 		method := sub.SubEntry.EffectiveMethod()
 		if sub.SubEntry.IsSetup() {
@@ -211,13 +250,14 @@ func buildStatusApplication(app ApplicationItem, osType string) StatusApplicatio
 			method = ""
 		}
 		result.Entries = append(result.Entries, StatusEntry{
+			Repository: string(sub.Ref.Repository),
 			Name:       sub.SubEntry.Name,
 			Kind:       kind,
 			State:      sub.State.String(),
 			Error:      sub.CheckError,
 			Actionable: sub.State.Actionable(),
-			Target:     sub.SubEntry.GetTarget(osType),
-			Backup:     sub.SubEntry.Backup,
+			Target:     firstNonEmpty(sub.Target, sub.SubEntry.GetTarget(osType)),
+			Backup:     firstNonEmpty(sub.BackupPath, sub.SubEntry.Backup),
 			Method:     method,
 		})
 	}
@@ -225,9 +265,17 @@ func buildStatusApplication(app ApplicationItem, osType string) StatusApplicatio
 	return result
 }
 
+func firstNonEmpty(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
 func buildStatusPackage(app ApplicationItem) *StatusPackage {
 	installed := app.PkgInstalled
 	return &StatusPackage{
+		Repository: string(app.PackageOwner),
 		Name:       packageName(app.Application.Package, app.PkgMethod, app.Application.Name),
 		Method:     app.PkgMethod,
 		Installed:  installed,

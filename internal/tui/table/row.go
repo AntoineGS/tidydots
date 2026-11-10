@@ -105,6 +105,7 @@ type Row struct {
 	IsExpanded      bool
 	AppName         string    // Application name; the stable identity for lookups in m.Applications
 	SubName         string    // Sub-entry name ("" on application rows); identity for selection lookups
+	Repository      string    // Owner identity for workspace sub-entry rows
 	SubIndex        int       // Real index into the app's SubItems; -1 for application rows
 	State           PathState // For badge rendering
 	StatusAttention bool      // Status column needs attention

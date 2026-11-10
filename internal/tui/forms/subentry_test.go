@@ -680,7 +680,7 @@ func TestSubEntryForm_GetFieldType(t *testing.T) {
 			forms.SubFieldName, forms.SubFieldIsSetup, forms.SubFieldWhen,
 			forms.SubFieldLinuxCheck, forms.SubFieldLinuxRun,
 			forms.SubFieldWindowsCheck, forms.SubFieldWindowsRun,
-			forms.SubFieldCheckMode, forms.SubFieldIsSudo,
+			forms.SubFieldCheckMode, forms.SubFieldIsSudo, forms.SubFieldRepository,
 		}
 		if form.MaxIndex() != len(want)-1 {
 			t.Fatalf("MaxIndex() = %d, want %d", form.MaxIndex(), len(want)-1)
@@ -701,14 +701,14 @@ func TestSubEntryForm_MaxIndex(t *testing.T) {
 		wantIndex int
 	}{
 		{
-			name:      "folder_mode_max_is_6",
+			name:      "folder_mode_max_includes_repository_selector",
 			isFolder:  true,
-			wantIndex: 7,
+			wantIndex: 8,
 		},
 		{
-			name:      "files_mode_max_is_8",
+			name:      "files_mode_max_includes_repository_selector",
 			isFolder:  false,
-			wantIndex: 9,
+			wantIndex: 10,
 		},
 	}
 

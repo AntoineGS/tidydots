@@ -1,10 +1,12 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // previewConfigChange records an honest preview before any configuration mutation.
@@ -37,6 +39,26 @@ var (
 
 // saveNewApplication saves a new Application to the config
 func (m *Model) saveNewApplication(app config.Application) error {
+	if m.Workspace != nil {
+		if err := m.validateWorkspaceTargets(); err != nil {
+			return fmt.Errorf("validating workspace targets: %w", err)
+		}
+		role := workspace.Public
+		if m.applicationForm != nil && m.applicationForm.RepositoryRole != "" {
+			role = m.applicationForm.RepositoryRole
+		}
+		if err := m.Workspace.AddApplication(context.Background(), role, app, m.DryRun); err != nil {
+			if isCommittedTransactionError(err) && m.applicationForm != nil {
+				m.applicationForm.OriginalAppName = app.Name
+			}
+			return m.reconcileCommittedWorkspaceError(err, nil, app.Name)
+		}
+		if m.DryRun {
+			m.results = []ResultItem{{Name: app.Name, Success: true, Message: "Would add application (dry-run)"}}
+			return nil
+		}
+		return m.refreshWorkspace(nil, app.Name)
+	}
 	// Check for duplicate names
 	for _, existing := range m.Config.Applications {
 		if existing.Name == app.Name {
@@ -62,6 +84,12 @@ func (m *Model) saveNewApplication(app config.Application) error {
 
 // saveEditedApplication updates Application metadata only (no SubEntry changes)
 func (m *Model) saveEditedApplication(appIdx int, name, description, when string, pkg *config.EntryPackage) error {
+	if m.Workspace != nil {
+		if m.applicationForm == nil {
+			return fmt.Errorf("workspace application form is unavailable")
+		}
+		return m.saveWorkspaceApplication(m.applicationForm.RepositoryRole, m.applicationForm.OriginalAppName, name, description, when, pkg)
+	}
 	app := &m.Config.Applications[appIdx]
 
 	// Check for duplicate names (skip the one being edited)

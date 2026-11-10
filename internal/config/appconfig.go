@@ -13,9 +13,11 @@ import (
 // AppConfig is the minimal configuration stored in ~/.config/tidydots/
 // It contains the path to the configurations repository and local UI metadata.
 type AppConfig struct {
-	// ConfigDir is the path to the configurations repository
-	ConfigDir string   `yaml:"config_dir"`
-	Hostnames []string `yaml:"hostnames,omitempty"`
+	// ConfigDir is the path to the primary configurations repository.
+	ConfigDir string `yaml:"config_dir"`
+	// PrivateConfigDir optionally enables a second, locally registered repository.
+	PrivateConfigDir string   `yaml:"private_config_dir,omitempty"`
+	Hostnames        []string `yaml:"hostnames,omitempty"`
 }
 
 const (
@@ -53,6 +55,7 @@ func LoadAppConfig() (*AppConfig, error) {
 
 	// Expand ~ in config_dir
 	cfg.ConfigDir = ExpandPath(cfg.ConfigDir, nil)
+	cfg.PrivateConfigDir = ExpandPath(cfg.PrivateConfigDir, nil)
 
 	// Verify the directory exists
 	if _, err := os.Stat(cfg.ConfigDir); errors.Is(err, os.ErrNotExist) {
@@ -78,6 +81,7 @@ func LoadAppConfigMetadata() (*AppConfig, error) {
 		return nil, fmt.Errorf("parsing app config metadata: %w", err)
 	}
 	cfg.ConfigDir = ExpandPath(cfg.ConfigDir, nil)
+	cfg.PrivateConfigDir = ExpandPath(cfg.PrivateConfigDir, nil)
 	return &cfg, nil
 }
 

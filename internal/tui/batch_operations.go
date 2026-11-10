@@ -2,12 +2,14 @@ package tui
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"slices"
 
 	"charm.land/bubbles/v2/progress"
 	tea "charm.land/bubbletea/v2"
 	tuiops "github.com/AntoineGS/tidydots/internal/tui/operations"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // BatchOperationMsg is an alias for tuiops.BatchOperationMsg so that all
@@ -55,6 +57,9 @@ func (m Model) collectBatchRestoreItems() []batchRestoreItem {
 		// Whole app selected: every sub-entry is included.
 		if m.selectedApps[name] {
 			for subIdx := range app.SubItems {
+				if app.SubItems[subIdx].Filtered {
+					continue
+				}
 				items = append(items, batchRestoreItem{
 					appIdx: appIdx,
 					subIdx: subIdx,
@@ -67,7 +72,7 @@ func (m Model) collectBatchRestoreItems() []batchRestoreItem {
 
 		// Standalone selected sub-entries.
 		for subIdx, sub := range app.SubItems {
-			if m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] {
+			if !sub.Filtered && m.selectedSubEntries[selectionKey(name, sub)] {
 				items = append(items, batchRestoreItem{
 					appIdx: appIdx,
 					subIdx: subIdx,
@@ -111,18 +116,13 @@ func (m Model) executeBatchRestore(forceRender bool) tea.Cmd {
 
 	// Execute the config restores sequentially in the background.
 	return func() tea.Msg {
-		previous := m.Manager.ForceRender
-		m.Manager.ForceRender = forceRender
-		defer func() { m.Manager.ForceRender = previous }()
-
 		results := make([]ResultItem, 0, len(configs))
 		successCount := 0
 		failCount := 0
 
 		for _, item := range configs {
 			subItem := m.Applications[item.appIdx].SubItems[item.subIdx]
-
-			success, message := m.performRestoreSubEntry(subItem)
+			success, message := m.performConfigRestore(subItem, forceRender)
 
 			results = append(results, ResultItem{
 				Name:    item.name,
@@ -182,13 +182,14 @@ func (m Model) executeBatchInstall() tea.Cmd {
 		}
 
 		// Only install if package exists and is not already installed
-		if app.PkgInstalled != nil && !*app.PkgInstalled && app.Application.HasPackage() {
+		if app.PkgInstalled != nil && !*app.PkgInstalled && appHasActivePackage(app) {
 			// Convert Application to PackageItem
 			pkg := PackageItem{
-				Name:     app.Application.Name,
-				Package:  app.Application.Package,
-				Method:   app.PkgMethod,
-				Selected: true,
+				Name:       app.Application.Name,
+				Package:    app.Application.Package,
+				Repository: app.PackageOwner,
+				Method:     app.PkgMethod,
+				Selected:   true,
 			}
 			packages = append(packages, pkg)
 		}
@@ -223,6 +224,63 @@ type initBatchInstallMsg struct {
 // executeBatchDelete executes delete operations for all selected items.
 // Returns a command that processes deletions in reverse order to avoid index shifting.
 func (m Model) executeBatchDelete() tea.Cmd {
+	if m.Workspace != nil {
+		if err := m.Workspace.ValidateTargets(m.Platform); err != nil {
+			return func() tea.Msg {
+				return BatchCompleteMsg{Results: []ResultItem{{Name: "workspace", Success: false, Message: fmt.Sprintf("Validating workspace targets: %v", err)}}, FailCount: 1}
+			}
+		}
+		type scopedDelete struct {
+			ref      workspace.EntryRef
+			app      string
+			wholeApp bool
+		}
+		items := make([]scopedDelete, 0)
+		for _, app := range m.Applications {
+			if app.IsFiltered {
+				continue
+			}
+			if m.selectedApps[app.Application.Name] {
+				items = append(items, scopedDelete{app: app.Application.Name, wholeApp: true})
+				continue
+			}
+			for _, sub := range app.SubItems {
+				if !sub.Filtered && m.selectedSubEntries[selectionKey(app.Application.Name, sub)] {
+					items = append(items, scopedDelete{ref: sub.Ref, app: app.Application.Name})
+				}
+			}
+		}
+		return func() tea.Msg {
+			results := make([]ResultItem, 0, len(items))
+			success, failed := 0, 0
+			for _, item := range items {
+				var err error
+				if item.wholeApp {
+					err = m.Workspace.DeleteApplication(context.Background(), item.app, m.DryRun)
+				} else {
+					err = m.Workspace.DeleteEntry(context.Background(), item.ref, m.DryRun)
+				}
+				name := item.app
+				if !item.wholeApp {
+					name += "/" + item.ref.Name
+				}
+				result := ResultItem{Name: name, Success: err == nil}
+				if err != nil {
+					result.Err = err
+					result.Message = transactionOutcomeError(err).Error()
+					failed++
+				} else {
+					result.Message = "Deleted successfully"
+					if m.DryRun {
+						result.Message = dryRunDeleteMessage
+					}
+					success++
+				}
+				results = append(results, result)
+			}
+			return BatchCompleteMsg{Results: results, SuccessCount: success, FailCount: failed}
+		}
+	}
 	// Collect all items to delete with their config indices
 	type deleteItem struct {
 		configAppIdx int // Index in m.Config.Applications (for actual deletion)
@@ -261,7 +319,7 @@ func (m Model) executeBatchDelete() tea.Cmd {
 		}
 
 		for _, sub := range app.SubItems {
-			if !m.selectedSubEntries[subEntryKey{app: name, sub: sub.SubEntry.Name}] {
+			if sub.Filtered || !m.selectedSubEntries[selectionKey(name, sub)] {
 				continue
 			}
 

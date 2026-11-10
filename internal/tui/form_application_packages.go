@@ -67,7 +67,7 @@ func (m Model) updateApplicationGitFields(msg tea.KeyPressMsg) (tea.Model, tea.C
 
 	case key.Matches(msg, FormNavKeys.TabNext):
 		m.applicationForm.FocusIndex++
-		if m.applicationForm.FocusIndex > 3 {
+		if m.applicationForm.FocusIndex > 4 {
 			m.applicationForm.FocusIndex = 0
 		}
 		m.applicationForm.PackagesCursor = 0
@@ -173,7 +173,7 @@ func (m Model) updateApplicationInstallerFields(msg tea.KeyPressMsg) (tea.Model,
 		} else {
 			// Move to When section
 			m.applicationForm.FocusIndex++
-			if m.applicationForm.FocusIndex > 3 {
+			if m.applicationForm.FocusIndex > 4 {
 				m.applicationForm.FocusIndex = 0
 			}
 			m.applicationForm.PackagesCursor = 0
@@ -200,7 +200,7 @@ func (m Model) updateApplicationInstallerFields(msg tea.KeyPressMsg) (tea.Model,
 
 	case key.Matches(msg, FormNavKeys.TabNext):
 		m.applicationForm.FocusIndex++
-		if m.applicationForm.FocusIndex > 3 {
+		if m.applicationForm.FocusIndex > 4 {
 			m.applicationForm.FocusIndex = 0
 		}
 		m.applicationForm.PackagesCursor = 0

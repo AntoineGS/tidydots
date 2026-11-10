@@ -14,10 +14,13 @@ import (
 // packageExec keeps all installation semantics in the domain manager while
 // Bubble Tea releases the terminal for dependencies, installers and sudo alike.
 type packageExec struct {
-	manager  *packages.Manager
-	pkg      packages.Package
-	result   packages.InstallResult
-	terminal packageTerminalRunner
+	manager     *packages.Manager
+	pkg         packages.Package
+	result      packages.InstallResult
+	terminal    packageTerminalRunner
+	model       Model
+	item        PackageItem
+	packageWhen string
 }
 
 func (m Model) newPackageExec(item PackageItem) *packageExec {
@@ -25,7 +28,14 @@ func (m Model) newPackageExec(item PackageItem) *packageExec {
 	if pkg == nil {
 		return nil
 	}
-	return &packageExec{manager: packages.NewManager(m.packageConfig(), m.Platform.OS, m.DryRun, false), pkg: *pkg}
+	packageWhen := ""
+	for _, app := range m.Applications {
+		if app.Application.Name == item.Name && app.PackageOwner == item.Repository {
+			packageWhen = app.PackageWhen
+			break
+		}
+	}
+	return &packageExec{manager: packages.NewManager(m.packageConfigForRole(item.Repository), m.Platform.OS, m.DryRun, false), pkg: *pkg, model: m, item: item, packageWhen: packageWhen}
 }
 
 func (p *packageExec) SetStdin(r io.Reader)  { p.terminal.stdin = r }
@@ -33,6 +43,17 @@ func (p *packageExec) SetStdout(w io.Writer) { p.terminal.stdout = w }
 func (p *packageExec) SetStderr(w io.Writer) { p.terminal.stderr = w }
 
 func (p *packageExec) Run() error {
+	release, err := p.model.lockWorkspaceMutation()
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := p.model.validateFreshWorkspace(); err != nil {
+		return err
+	}
+	if err := p.model.validatePackageSnapshot(p.item, p.packageWhen); err != nil {
+		return err
+	}
 	p.result = p.manager.WithRunner(p.terminal).Install(p.pkg)
 	if !p.result.Success {
 		return errors.New(p.result.Message)

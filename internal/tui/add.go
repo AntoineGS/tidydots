@@ -2,11 +2,13 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"slices"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // updateAddForm handles key events for the add form
@@ -55,6 +57,35 @@ func (m *Model) deleteSubEntry(appIdx, subIdx int) error {
 
 // deleteApplicationOrSubEntry removes an Application or SubEntry from the config
 func (m *Model) deleteApplicationOrSubEntry(appIdx, subIdx int) error {
+	if m.Workspace != nil {
+		if appIdx < 0 || appIdx >= len(m.Applications) || subIdx < -1 || subIdx >= len(m.Applications[appIdx].SubItems) {
+			return fmt.Errorf("invalid application or sub-entry index")
+		}
+		if err := m.validateWorkspaceTargets(); err != nil {
+			return fmt.Errorf("validating workspace targets: %w", err)
+		}
+		app := m.Applications[appIdx]
+		label := app.Application.Name
+		var ref *workspace.EntryRef
+		var err error
+		if subIdx >= 0 {
+			item := app.SubItems[subIdx]
+			r := item.Ref
+			ref = &r
+			label += "/" + item.SubEntry.Name
+			err = m.Workspace.DeleteEntry(context.Background(), r, m.DryRun)
+		} else {
+			err = m.Workspace.DeleteApplication(context.Background(), app.Application.Name, m.DryRun)
+		}
+		if err != nil {
+			return m.reconcileCommittedWorkspaceError(err, ref, app.Application.Name)
+		}
+		if m.DryRun {
+			m.results = []ResultItem{{Name: label, Success: true, Message: dryRunDeleteMessage}}
+			return nil
+		}
+		return m.refreshWorkspace(ref, app.Application.Name)
+	}
 	if appIdx < 0 || appIdx >= len(m.Config.Applications) || subIdx < -1 || subIdx >= len(m.Config.Applications[appIdx].Entries) {
 		return fmt.Errorf("invalid application or sub-entry index")
 	}
@@ -129,28 +160,55 @@ func (m Model) renderSubEntryInlineDetail(_ *SubEntryItem, _ int) string {
 // hold the terminal — go through startSetupRun, which wraps the call in
 // tea.Exec (see setup_run.go). Never call it for a setup entry from the
 // bubbletea Update/View goroutine or from a plain tea.Cmd.
-func (m Model) performRestoreSubEntry(item SubEntryItem) (bool, string) {
+func (m *Model) performRestoreSubEntry(item SubEntryItem) (bool, string) {
 	if item.SubEntry.IsSetup() {
 		return m.runSetupForItem(item)
 	}
+	return m.performConfigRestore(item, false)
+}
 
+func (m *Model) performConfigRestore(item SubEntryItem, forceRender bool) (bool, string) {
+	if err := m.subEntryEligibilityError(item); err != nil {
+		return false, err.Error()
+	}
 	subEntry := item.SubEntry
 	if !subEntry.IsConfig() {
 		return false, "Not a config entry"
 	}
+	if err := m.validateWorkspaceTargets(); err != nil {
+		return false, fmt.Sprintf("Failed: validating workspace targets: %v", err)
+	}
+	release, guardErr := m.lockWorkspaceMutation()
+	if guardErr != nil {
+		return false, fmt.Sprintf("Failed: %v", guardErr)
+	}
+	defer release()
+	if err := m.validateFreshWorkspace(); err != nil {
+		return false, fmt.Sprintf("Failed: %v", err)
+	}
+	if err := m.validateSubEntrySnapshot(item); err != nil {
+		return false, fmt.Sprintf("Failed: %v", err)
+	}
+	mgr, err := m.writeManagerForSubEntry(item)
+	if err != nil {
+		return false, fmt.Sprintf("Failed: %v", err)
+	}
+	previousForceRender := mgr.ForceRender
+	mgr.ForceRender = forceRender
+	defer func() { mgr.ForceRender = previousForceRender }()
 
-	target, backupPath, err := resolveSubEntryPaths(item, m.pathManager())
+	target, backupPath, err := resolveSubEntryPaths(item, mgr)
 	if err != nil {
 		return false, fmt.Sprintf("Failed: %v", err)
 	}
 	if subEntry.IsFolder() {
-		if m.Manager.HasTemplateFiles(backupPath) {
-			err = m.Manager.RestoreFolderWithTemplates(subEntry, backupPath, target)
+		if mgr.HasTemplateFiles(backupPath) {
+			err = mgr.RestoreFolderWithTemplates(subEntry, backupPath, target)
 		} else {
-			err = m.Manager.RestoreFolder(subEntry, backupPath, target)
+			err = mgr.RestoreFolder(subEntry, backupPath, target)
 		}
 	} else {
-		err = m.Manager.RestoreFiles(subEntry, backupPath, target)
+		err = mgr.RestoreFiles(subEntry, backupPath, target)
 	}
 
 	if err != nil {

@@ -69,6 +69,57 @@ tidydots restore -d ~/dotfiles
 
 ---
 
+## Pending public/private workspace transaction
+
+**Symptom:** A workspace load or mutation reports a pending transaction and
+asks you to recover it.
+
+**Cause:** A move or multi-document edit was interrupted. The local journal is
+the protected recovery record; normal workspace mutations are blocked until it
+is resolved.
+
+Read-only inspection of valid manifests (such as listing/status and dry-run
+previews) may remain available. This does not authorize writes; every mutating
+operation rechecks pending journals while holding the workspace root locks.
+
+**Solution:** Use the transaction ID printed by tidydots:
+
+```bash
+tidydots recover <id> --dry-run
+tidydots recover <id>
+```
+
+An uncommitted transaction is rolled back. A transaction with a durable commit
+marker completes cleanup instead. If commit publication is uncertain, tidydots
+keeps the journal and reports that recovery must inspect it; it never rolls back
+a possibly committed transaction. Recovery is repeatable. If it reports an
+external edit or a committed cleanup conflict, do not delete the journal or
+manually remove the remaining source; resolve the named conflict and retry
+recovery. Before deleting source material, recovery verifies the committed
+manifests, destination data, links, and transferred render history. The journal
+lives in local tidydots state, outside both repositories, and contains protected
+before-images needed to preserve private data during rollback.
+
+Cleanup progress is checked on replay: a path recorded as removed must remain
+absent. If an already-cleaned file or directory reappears, recovery keeps the
+journal and reports a conflict rather than treating the new contents as part of
+the original transaction. An interrupted removal may resume only when the path
+is still the exact captured before-image or is absent under its recorded intent.
+
+Recovery also verifies the committed backup directory and every captured path's
+real directory ancestry. A replaced or symlinked backup root, newly added
+attributable template artifact/history row, or changed effective ignore rule
+blocks cleanup and leaves the source plus journal available. Resolve the
+external change without deleting unrelated files, then retry recovery.
+
+Workspace preflight may also reject a target overlap with an inactive entry.
+Conditions do not relinquish ownership: a public whole-folder deployment must
+not absorb files or links reserved by a private definition, even if that
+definition's `when` is false on the current host. Separate the target paths
+before restoring or moving the entries.
+
+---
+
 ## Template merge conflicts
 
 **Symptom:** A `.tmpl.conflict` file is generated with conflict markers like:

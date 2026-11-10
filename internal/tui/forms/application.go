@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/tuishared"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // ApplicationFieldType represents the type of field in the ApplicationForm
@@ -31,6 +32,7 @@ const (
 	AppFieldDescription
 	AppFieldPackages
 	AppFieldWhen
+	AppFieldScope
 )
 
 // ApplicationForm holds state for editing Application metadata
@@ -44,6 +46,10 @@ type ApplicationForm struct {
 	NameInput         textinput.Model
 	WhenInput         textinput.Model
 	EditAppIdx        int
+	RepositoryRole    workspace.Role
+	RepositoryChoices []workspace.Role
+	RepositoryDrafts  map[workspace.Role]*ApplicationForm
+	OriginalAppName   string
 	PackagesCursor    int
 	FocusIndex        int
 	EditingField      bool
@@ -130,6 +136,8 @@ func (f *ApplicationForm) GetFieldType() ApplicationFieldType {
 		return AppFieldPackages
 	case 3:
 		return AppFieldWhen
+	case 4:
+		return AppFieldScope
 	default:
 		return AppFieldName
 	}
@@ -280,6 +288,8 @@ func (f *ApplicationForm) UpdateFocus() {
 		// List fields don't use textinput focus
 	case AppFieldWhen:
 		// When field focus is handled separately
+	case AppFieldScope:
+		// Repository scope is selected with left/right/enter.
 	}
 }
 

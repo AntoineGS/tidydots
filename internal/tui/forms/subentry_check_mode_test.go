@@ -23,8 +23,8 @@ func TestSetupCheckModeFormRoundTrip(t *testing.T) {
 		if got.CheckMode != mode {
 			t.Fatalf("got %q, want %q", got.CheckMode, mode)
 		}
-		if got := form.MaxIndex(); got != 8 {
-			t.Fatalf("setup MaxIndex() = %d, want 8", got)
+		if got := form.MaxIndex(); got != 9 {
+			t.Fatalf("setup MaxIndex() = %d, want 9", got)
 		}
 
 		found := false

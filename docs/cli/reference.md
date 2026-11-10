@@ -9,6 +9,8 @@ These flags are available on every command.
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--dir <path>` | `-d` | Override the repository directory, including its TUI hostname choices |
+| `--private-dir <path>` | | Pair this repository with a private repository for this invocation |
+| `--public-only` | | Ignore any locally registered private repository for this invocation |
 | `--os <os>` | `-o` | Override OS detection (`linux` or `windows`) |
 | `--dry-run` | `-n` | Show what would be done without making changes |
 | `--verbose` | `-v` | Enable verbose output |
@@ -45,17 +47,27 @@ The TUI provides a visual interface for browsing applications, restoring configs
 
 ## tidydots init
 
-Initialize the app configuration by setting the path to your dotfiles repository.
+Initialize the app configuration by setting the path to your dotfiles repository, or manage the optional local private-repository registration.
 
 ```
 tidydots init <path> [flags]
+tidydots init --private <path> [flags]
+tidydots init --remove-private [flags]
 ```
 
 ### Arguments
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `path` | Yes | Path to your dotfiles repository |
+| `path` | For primary initialization | Path to your dotfiles repository |
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--private <path>` | Register an existing private repository. It must contain a valid `tidydots.yaml`; no clone is performed. |
+| `--remove-private` | Unregister the private repository without deleting files. |
+| `--dry-run`, `-n` | Validate and preview registration changes without writing app configuration. |
 
 ### Behavior
 
@@ -63,6 +75,13 @@ tidydots init <path> [flags]
 2. Verifies the directory exists.
 3. Writes the path to `~/.config/tidydots/config.yaml`.
 4. Warns if `tidydots.yaml` is not found inside the directory.
+5. Clears a previously registered private repository when the canonical primary path changes; re-initializing the same canonical primary retains it.
+
+`--private` preserves the primary path and local hostname metadata. It validates both repository configs and rejects identical or nested repository roots. Registration uses the workspace transaction rules to exclude transaction staging/config files, `.tidydots.db`, and generated template artifacts in both roots when they are Git repositories. Non-Git config directories are supported. With `-n`, Git roots are checked read-only; if any reserved path is not effectively ignored, dry-run returns an error with guidance to run registration without `-n`. Applied registration, removal, and primary-path changes acquire workspace mutation locks before changing Git excludes or local app configuration. `--remove-private` only clears the local association.
+
+When a private repository is registered, restore, backup, list, install, list-packages, status, preview, and the interactive TUI use both repositories with ownership preserved. `--public-only` temporarily excludes the registered private repository. `--private-dir <path>` selects a private repository directory for one invocation; it may be combined with `--dir <public-path>` to pair an explicit public root. A bare `--dir` remains isolated and ignores the local private registration. These flags are mutually exclusive, and an enabled but missing or invalid private repository is an error; use `--public-only` to proceed with the public repository alone.
+
+Before loading repository YAML or opening writable template state, tidydots checks transaction journals by the stored identities of requested and locally registered roots; excluded private paths do not need to be readable for `--public-only` or bare `--dir` to work. If local app registration is absent or malformed, an explicit `--dir` still selects a standalone public repository and scopes pending checks to that root; commands that require registration without an override continue to report the app-config error. A pending transaction blocks mutations even when `--public-only` or `--dir` is supplied; the error names the recovery ID. With valid repository YAML, `list`, `list-packages`, and `status` remain available while a transaction is pending, and file-operation `--dry-run` can inspect the proposed work. Before a routed write, tidydots revalidates the loaded repository manifests after acquiring their mutation locks; if a manifest changed during selection or preflight, the operation stops before writing and must be retried. If a transaction left a manifest invalid, recover it before inspection. Restore and backup check the selected writes against all target claims in the other enabled repository, including inactive definitions, while unrelated conflicts do not block the operation.
 
 You only need to run this once per machine. After initialization, all other commands will read the saved path automatically.
 
@@ -74,6 +93,24 @@ tidydots init ~/dotfiles
 
 # Initialize with a relative path
 tidydots init ./my-configs
+
+# Register an existing private checkout (no automatic clone)
+tidydots init --private ~/gits/configurations-private
+
+# Preview, then unregister without deleting the checkout
+tidydots init --private ~/gits/configurations-private -n
+tidydots init --remove-private
+
+# Use the registered pair, or temporarily use only public configuration
+tidydots status
+tidydots status --public-only
+
+# Recover an interrupted ownership change (preview without changes first)
+tidydots recover <transaction-id> -n
+tidydots recover <transaction-id>
+
+# Pair an alternate public root with a private checkout for one command
+tidydots --dir ~/gits/configurations-alt --private-dir ~/gits/configurations-private list
 
 # Output
 App configuration saved to /home/youruser/.config/tidydots/config.yaml
@@ -446,6 +483,30 @@ Available package managers: [pacman yay]
 
 ---
 
+## tidydots recover
+
+Recover a workspace transaction left pending after an interrupted ownership change. Recovery reads the journal directly and does not require valid repository YAML or the current private-repository registration.
+
+```
+tidydots recover <transaction-id> [flags]
+```
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `transaction-id` | Yes | ID shown in the pending transaction error |
+
+### Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--dry-run` | `-n` | Validate the journal and report recovery without changing files |
+
+An uncommitted transaction is rolled back. A transaction past its commit point has cleanup completed. After successful recovery, rerun the blocked command.
+
+---
+
 ## tidydots preview
 
 Watch template files for changes and render them in real time.
@@ -468,6 +529,8 @@ tidydots preview <path>
 4. On each save, re-renders the changed template and writes the output to the sibling `.tmpl.rendered` file.
 5. On a syntax error, prints the error and keeps the last good `.tmpl.rendered` intact.
 6. Runs until interrupted with `Ctrl+C`.
+
+With global `--dry-run`, preview renders templates in memory, prints each planned source-to-output path and rendered content, and exits without writing files or starting a watcher. A real preview holds the owning repository's mutation lock for the entire watch session, so ownership changes wait until the preview exits.
 
 The command uses the current platform context (OS, Hostname, User, etc.) for rendering, and inherits the global `--dir`, `--os`, and `--verbose` flags.
 

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -10,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/AntoineGS/tidydots/internal/config"
 	"github.com/AntoineGS/tidydots/internal/tui/forms"
+	"github.com/AntoineGS/tidydots/internal/workspace"
 )
 
 // Field type aliases from forms package for use in root tui methods.
@@ -40,6 +42,7 @@ const (
 	subFieldIsSudo       = forms.SubFieldIsSudo
 	subFieldIsCopy       = forms.SubFieldIsCopy
 	subFieldCheckMode    = forms.SubFieldCheckMode
+	subFieldRepository   = forms.SubFieldRepository
 )
 
 // Mode constants from forms package.
@@ -68,7 +71,7 @@ func (m *Model) initSubEntryFormWithType(appIdx, subIdx int, entryType newSubEnt
 
 	appName := m.Applications[appIdx].Application.Name
 	configAppIdx := m.findConfigApplicationIndex(appName)
-	if configAppIdx < 0 {
+	if m.Workspace == nil && configAppIdx < 0 {
 		return
 	}
 
@@ -76,30 +79,45 @@ func (m *Model) initSubEntryFormWithType(appIdx, subIdx int, entryType newSubEnt
 	configSubIdx := -1
 	hasSub := false
 	var sub config.SubEntry
+	var entryRef *workspace.EntryRef
+	role := workspace.Public
 
 	if subIdx >= 0 {
-		app := m.Config.Applications[configAppIdx]
-
-		// subIdx is an index into m.Applications[appIdx].SubItems, which may be filtered
-		// We need to find the correct index in app.Entries by sub-entry name
-		if subIdx >= len(m.Applications[appIdx].SubItems) {
-			return
-		}
-
-		subEntryName := m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
-		for i, entry := range app.Entries {
-			if entry.Name == subEntryName {
-				configSubIdx = i
-				break
+		if m.Workspace != nil {
+			if subIdx >= len(m.Applications[appIdx].SubItems) {
+				return
 			}
-		}
+			item := m.Applications[appIdx].SubItems[subIdx]
+			sub = item.SubEntry
+			ref := item.Ref
+			entryRef = &ref
+			role = ref.Repository
+			configSubIdx = subIdx
+			hasSub = true
+		} else {
+			app := m.Config.Applications[configAppIdx]
 
-		if configSubIdx < 0 {
-			return
-		}
+			// subIdx is an index into m.Applications[appIdx].SubItems, which may be filtered
+			// We need to find the correct index in app.Entries by sub-entry name
+			if subIdx >= len(m.Applications[appIdx].SubItems) {
+				return
+			}
 
-		sub = app.Entries[configSubIdx]
-		hasSub = true
+			subEntryName := m.Applications[appIdx].SubItems[subIdx].SubEntry.Name
+			for i, entry := range app.Entries {
+				if entry.Name == subEntryName {
+					configSubIdx = i
+					break
+				}
+			}
+
+			if configSubIdx < 0 {
+				return
+			}
+
+			sub = app.Entries[configSubIdx]
+			hasSub = true
+		}
 	}
 
 	nameInput := newFormInput("e.g., nvim-config", CharLimitName, InputWidthNarrow)
@@ -159,22 +177,35 @@ func (m *Model) initSubEntryFormWithType(appIdx, subIdx int, entryType newSubEnt
 		editAppIdx = configAppIdx
 		editSubEntryIdx = configSubIdx
 	}
+	if m.Workspace != nil {
+		role = workspace.Public
+		if hasSub && entryRef != nil {
+			role = entryRef.Repository
+		}
+		if !hasSub {
+			targetAppIdx = appIdx // model index; owner is selected by the form toggle
+		}
+	}
 
 	m.subEntryForm = &SubEntryForm{
-		NameInput:          nameInput,
-		WhenInput:          whenInput,
-		LinuxTargetInput:   linuxTargetInput,
-		WindowsTargetInput: windowsTargetInput,
-		LinuxCheckInput:    linuxCheckInput,
-		LinuxRunInput:      linuxRunInput,
-		WindowsCheckInput:  windowsCheckInput,
-		WindowsRunInput:    windowsRunInput,
-		IsSudo:             isSudo,
-		IsCopy:             isCopy,
-		IsSetup:            isSetup,
-		Method:             sub.Method,
-		CheckMode:          sub.CheckMode,
-		BackupInput:        backupInput,
+		NameInput:                nameInput,
+		WhenInput:                whenInput,
+		LinuxTargetInput:         linuxTargetInput,
+		WindowsTargetInput:       windowsTargetInput,
+		LinuxCheckInput:          linuxCheckInput,
+		LinuxRunInput:            linuxRunInput,
+		WindowsCheckInput:        windowsCheckInput,
+		WindowsRunInput:          windowsRunInput,
+		IsSudo:                   isSudo,
+		IsCopy:                   isCopy,
+		IsSetup:                  isSetup,
+		Method:                   sub.Method,
+		CheckMode:                sub.CheckMode,
+		RepositoryRole:           role,
+		OriginalRepositoryRole:   role,
+		EntryRef:                 entryRef,
+		PrivateRepositoryEnabled: m.Workspace != nil && func() bool { _, err := m.Workspace.Repository(workspace.Private); return err == nil }(),
+		BackupInput:              backupInput,
 		// Retain the original maps for callers that inspect the form state; setup
 		// command inputs are the source of truth when IsSetup is enabled.
 		Check:            maps.Clone(sub.Check),
@@ -340,6 +371,14 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.subEntryForm.ToggleCheckMode()
 		return m, nil
 
+	case m.getSubEntryFieldType() == subFieldRepository && key.Matches(msg, repositoryPrivateKey):
+		m.subEntryForm.SelectRepositoryRole("private")
+		return m, nil
+
+	case m.getSubEntryFieldType() == subFieldRepository && key.Matches(msg, repositoryPublicKey):
+		m.subEntryForm.SelectRepositoryRole("public")
+		return m, nil
+
 	case key.Matches(msg, FormNavKeys.Toggle):
 		// Handle toggles
 		ft := m.getSubEntryFieldType()
@@ -355,6 +394,9 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case subFieldIsCopy:
 			m.subEntryForm.IsCopy = !m.subEntryForm.IsCopy
+			return m, nil
+		case subFieldRepository:
+			m.subEntryForm.ToggleRepositoryRole()
 			return m, nil
 		case subFieldName, subFieldLinux, subFieldWindows, subFieldBackup, subFieldFiles:
 			// Text and list fields don't toggle
@@ -399,6 +441,9 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case subFieldIsCopy:
 			m.subEntryForm.IsCopy = !m.subEntryForm.IsCopy
 			return m, nil
+		case subFieldRepository:
+			m.subEntryForm.ToggleRepositoryRole()
+			return m, nil
 		case subFieldCheckMode:
 			m.subEntryForm.ToggleCheckMode()
 			return m, nil
@@ -415,8 +460,13 @@ func (m Model) updateSubEntryForm(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// Success - go back to list
 		m.activeForm = FormNone
 		m.subEntryForm = nil
-		m.Screen = ScreenResults
+		if m.pendingMove == nil {
+			m.Screen = ScreenResults
+		}
 
+		if m.pendingMove != nil {
+			return m, nil
+		}
 		return m, m.dispatchLoadingSubEntryStates()
 	}
 
@@ -539,8 +589,13 @@ func (m Model) updateSubEntryFilesList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 		}
 		m.activeForm = FormNone
 		m.subEntryForm = nil
-		m.Screen = ScreenResults
+		if m.pendingMove == nil {
+			m.Screen = ScreenResults
+		}
 
+		if m.pendingMove != nil {
+			return m, nil
+		}
 		return m, m.dispatchLoadingSubEntryStates()
 	}
 
@@ -789,6 +844,10 @@ func (m Model) viewSubEntryForm() string {
 		}
 	}
 
+	// Repository ownership is workspace metadata and stays a pending draft until
+	// the workspace move API is available.
+	b.WriteString(m.renderSubEntryRepositoryField())
+
 	// Error message
 	if m.subEntryForm.Err != "" {
 		b.WriteString(ErrorStyle.Render("  Error: " + m.subEntryForm.Err))
@@ -843,7 +902,7 @@ func (m Model) renderSubEntryFieldValue(fieldType subEntryFieldType, placeholder
 		input = m.subEntryForm.BackupInput
 	case subFieldWhen:
 		input = m.subEntryForm.WhenInput
-	case subFieldIsSetup, subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy, subFieldCheckMode:
+	case subFieldIsSetup, subFieldIsFolder, subFieldFiles, subFieldIsSudo, subFieldIsCopy, subFieldCheckMode, subFieldRepository:
 		return placeholder
 	default:
 		return placeholder
@@ -972,6 +1031,15 @@ func (m Model) renderSubEntryFormHelp() string {
 		)
 	}
 
+	if ft == subFieldRepository {
+		return RenderHelpFromBindings(m.width,
+			repositoryPublicKey,
+			repositoryPrivateKey,
+			FormNavKeys.Toggle,
+			FormNavKeys.Save,
+		)
+	}
+
 	if m.isSubEntryToggleField() {
 		// Toggle field focused
 		return RenderHelpFromBindings(m.width,
@@ -1010,6 +1078,9 @@ func (m *Model) saveSubEntryForm() error {
 	if m.subEntryForm == nil {
 		return errors.New("no form data")
 	}
+	if m.Workspace == nil && m.subEntryForm.RepositoryRole != m.subEntryForm.OriginalRepositoryRole {
+		return errors.New("repository ownership changes are unavailable without a registered private repository")
+	}
 
 	subEntry, err := m.subEntryForm.BuildSubEntry()
 	if err != nil {
@@ -1022,6 +1093,31 @@ func (m *Model) saveSubEntryForm() error {
 		if _, err := m.Renderer.RenderString("when", subEntry.When); err != nil {
 			return fmt.Errorf("invalid when expression: %w", err)
 		}
+	}
+	if m.Workspace != nil {
+		form := m.subEntryForm
+		if form.EntryRef != nil {
+			return m.saveWorkspaceEntry(*form.EntryRef, subEntry, form.RepositoryRole)
+		}
+		if form.TargetAppIdx < 0 || form.TargetAppIdx >= len(m.Applications) {
+			return fmt.Errorf("invalid workspace application index")
+		}
+		appName := m.Applications[form.TargetAppIdx].Application.Name
+		if err := m.validateWorkspaceTargets(); err != nil {
+			return fmt.Errorf("validating workspace targets: %w", err)
+		}
+		if err := m.Workspace.AddEntry(context.Background(), form.RepositoryRole, appName, subEntry, m.DryRun); err != nil {
+			if isCommittedTransactionError(err) {
+				ref := workspace.EntryRef{Repository: form.RepositoryRole, App: appName, Name: subEntry.Name}
+				form.EntryRef = &ref
+			}
+			return m.reconcileCommittedWorkspaceError(err, nil, appName)
+		}
+		if m.DryRun {
+			m.results = []ResultItem{{Name: appName + "/" + subEntry.Name, Success: true, Message: "Would add entry (dry-run)"}}
+			return nil
+		}
+		return m.refreshWorkspace(nil, appName)
 	}
 
 	// Route to correct save operation
