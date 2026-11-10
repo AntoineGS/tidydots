@@ -4,6 +4,14 @@ One of tidydots' greatest strengths is managing a single dotfiles repository tha
 
 ## How it works
 
+For configurations that must not be present on shared or untrusted machines,
+tidydots can optionally load a second, private repository alongside the public
+one. This is separate from hostname conditions: `when` selects what applies on a
+machine, while repository ownership controls which checkout stores an entry.
+The private repository is never cloned automatically. See the [Private
+Repositories guide](private-repositories.md) for registration, public-only
+operation, entry moves, and recovery.
+
 tidydots provides three mechanisms for per-machine customization:
 
 1. **`when` expressions** -- conditionally include or exclude entire applications

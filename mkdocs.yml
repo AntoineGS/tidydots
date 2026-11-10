@@ -76,6 +76,7 @@ nav:
       - Setup: configuration/setup.md
   - Guides:
       - Multi-Machine Setups: guides/multi-machine-setups.md
+      - Private Repositories: guides/private-repositories.md
       - Package Management: guides/package-management.md
       - Git Repositories: guides/git-repositories.md
       - System Configs: guides/system-configs.md

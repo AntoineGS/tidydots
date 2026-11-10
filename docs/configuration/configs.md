@@ -27,6 +27,44 @@ With the default symlink method, the target reads from the backup in your dotfil
 repository. Copy mode instead deploys independent files at the target and updates
 them only during a later restore.
 
+## Repository ownership
+
+When a public and private repository are enabled together, their applications are
+shown as one merged application. An entry's **owner** is the repository whose
+`tidydots.yaml` defines it; ownership is not an entry field. Public and private
+entries remain in separate v3 documents and use their own repository-relative
+`backup` paths, templates, state, and package scope. The TUI marks each entry
+Public or Private and lets you move an entry between the enabled repositories.
+
+The private repository is opt-in and must already be a valid local checkout.
+Register it with `tidydots init --private <path>`; unregister it with
+`tidydots init --remove-private`. Removing registration does not delete files.
+Use `--public-only` to temporarily use the public repository without changing
+registration. When using `--dir <path>`, only that repository is loaded unless
+you explicitly pair it with `--private-dir <path>`; `--private-dir` and
+`--public-only` cannot be used together. No command clones a private repository.
+
+The Public/Private toggle applies to entries, including setup entries, not to an
+application's package definition. A move may also relocate exclusively-owned
+source files and attributable template state while preserving verified live
+symlink deployments. It is deliberately rejected when source ownership is shared
+or ambiguous, source paths or selections are dynamic, app-level `when` scopes
+differ, or an existing deployment cannot be safely verified. Save changes to
+paths, file selection, deployment method, target, or entry kind separately from
+an ownership move. Setup-entry moves change only the YAML definition; commands
+are not run.
+
+Preview a move with `-n` before applying it. The preview does not mutate files,
+state, configuration, or the loaded workspace. A move spans two YAML files,
+source files, state databases, and possibly live links; tidydots uses a recoverable
+journal rather than promising global atomicity. If a transaction is interrupted,
+inspect it and use `tidydots recover <id> -n` to preview recovery before
+`tidydots recover <id>`. Incomplete moves roll back; committed moves finish
+cleanup. A failed rollback retains a protected journal for later recovery.
+Repository role describes local storage ownership only; it does not verify remote
+visibility or encrypt data. See the [Private Repositories guide](../guides/private-repositories.md)
+for setup, migration boundaries, and shared-machine behavior.
+
 ## Conditional Entries
 
 `when` is optional on every config entry, including the default symlink method and
